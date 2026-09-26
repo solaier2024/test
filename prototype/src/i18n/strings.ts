@@ -75,6 +75,7 @@ export interface Strings {
     question: string
     dealerPicks: string
     hint: (ante: number) => string
+    dealerHint: (ante: number) => string
     go: string
   }
 
@@ -251,6 +252,8 @@ const en: Strings = {
     dealerPicks: 'They load the cylinder. You only get to watch.',
     hint: (ante) =>
       `Load it heavier and the ante climbs — but you reach the chamber that cannot miss that much sooner. Ante ${ante}.`,
+    dealerHint: (ante) =>
+      `You will see the count the moment the cylinder closes, and not one thing before that. Ante ${ante}.`,
     go: 'LOAD AND SPIN',
   },
 
@@ -427,6 +430,8 @@ const es: Strings = {
     dealerPicks: 'Ellos cargan el tambor. A ti sólo te toca mirar.',
     hint: (ante) =>
       `Entre más cargado, más sube la entrada — pero llegas más rápido a la recámara que no falla. Entrada ${ante}.`,
+    dealerHint: (ante) =>
+      `Vas a saber cuántas son en cuanto cierre el tambor, y ni una cosa antes. Entrada ${ante}.`,
     go: 'CARGAR Y GIRAR',
   },
 

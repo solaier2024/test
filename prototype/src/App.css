@@ -5,6 +5,7 @@
   --ash: #9b917f;
   --blood: #7d1f16;
   --ink: #06050a;
+  --wood: 'Rye', 'Georgia', serif;
 }
 
 * {
@@ -71,20 +72,37 @@ body {
     transform: translate3d(0, 0, 0) scale(1);
   }
   38% {
-    transform: translate3d(-1.5px, -3.1px, 0) scale(1.007);
+    transform: translate3d(-2.4px, -5.4px, 0) scale(1.011);
   }
   64% {
-    transform: translate3d(1.1px, -1.4px, 0) scale(1.004);
+    transform: translate3d(1.9px, -2.3px, 0) scale(1.006);
   }
 }
 
+/*
+ * The dissolve is deliberately asymmetric. With a symmetric cross-fade both
+ * plates sit near half opacity at the midpoint, which lets the empty backplate
+ * show through and makes the character appear to vanish from the chair. The
+ * outgoing plate therefore holds full opacity for a beat and then leaves
+ * slowly, while the incoming one arrives sooner, so the room is never exposed.
+ */
 .scene__plate--char {
   opacity: 0;
-  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: opacity 1100ms cubic-bezier(0.4, 0, 0.2, 1) 260ms;
 }
 
 .scene__plate--char.is-active {
   opacity: 1;
+  transition: opacity 760ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/*
+ * A hit is not a dissolve. The plate is swapped under cover of the muzzle
+ * flash, which is the oldest trick there is for hiding a cut.
+ */
+.scene--snap .scene__plate--char {
+  transition-duration: 90ms;
+  transition-delay: 0ms;
 }
 
 /*
@@ -289,8 +307,11 @@ body {
 
 .title__name {
   margin: 0;
-  font-size: clamp(42px, 8vw, 96px);
-  letter-spacing: 0.16em;
+  font-family: var(--wood);
+  font-size: clamp(34px, 6.4vw, 80px);
+  font-weight: normal;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
   color: var(--bone);
   text-shadow: 0 0 44px rgba(217, 164, 65, 0.4), 0 6px 30px #000;
 }
@@ -304,11 +325,16 @@ body {
   padding: 0 24px;
 }
 
+/* The no-real-money notice has to stay legible, not decorative. */
 .title__note {
   margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: #5a5348;
+  padding: 6px 16px;
+  border: 1px solid rgba(217, 164, 65, 0.22);
+  border-radius: 2px;
+  background: rgba(8, 6, 5, 0.6);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  color: #a3977f;
 }
 
 /* ---------- language ---------- */
@@ -438,8 +464,9 @@ body {
 }
 
 .pick__name {
-  font-size: 15px;
-  letter-spacing: 0.15em;
+  font-family: var(--wood);
+  font-size: 14px;
+  letter-spacing: 0.04em;
 }
 
 .pick.is-on .pick__name {
@@ -450,6 +477,49 @@ body {
   font-size: 10.5px;
   letter-spacing: 0.05em;
   color: #6f6759;
+}
+
+/* Opponents are picked by face, cropped straight out of their own plate. */
+.pick--who {
+  flex-direction: row;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 13px;
+}
+
+.pick__who {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pick__face {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(217, 164, 65, 0.3);
+  background-repeat: no-repeat;
+  background-size: 620% auto;
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.8);
+  filter: saturate(0.85) brightness(1.15);
+  transition: border-color 180ms, filter 180ms;
+}
+
+.pick.is-on .pick__face {
+  border-color: var(--amber);
+  filter: saturate(1) brightness(1.3);
+}
+
+.pick__face--calloway {
+  background-image: url('/art/cowboy_neutral.png');
+  background-position: 62% 19%;
+}
+
+.pick__face--viuda {
+  background-image: url('/art/viuda_neutral.png');
+  background-position: 55% 26%;
 }
 
 .menu__blurb {
@@ -612,9 +682,10 @@ body {
 }
 
 .pot__round {
-  font-size: 11px;
-  letter-spacing: 0.3em;
-  color: #6b6357;
+  font-family: var(--wood);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: #857a67;
 }
 
 /* ---------- readout ---------- */

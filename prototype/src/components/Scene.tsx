@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { OPPONENTS, type Mood, type OpponentId } from '../game/ai'
 import type { VenueId } from '../game/types'
 
-export type SceneState = Mood | 'aiming'
+export type SceneState = Mood | 'aiming' | 'hit'
 
 /** Filename stem of each opponent's pre-rendered plate set. */
 const PREFIX: Record<OpponentId, string> = {
@@ -20,9 +20,10 @@ const SUFFIX: Record<SceneState, string> = {
   confident: 'smirk',
   rattled: 'afraid',
   aiming: 'aiming',
+  hit: 'hit',
 }
 
-const ORDER: SceneState[] = ['neutral', 'confident', 'rattled', 'aiming']
+const ORDER: SceneState[] = ['neutral', 'confident', 'rattled', 'aiming', 'hit']
 
 /**
  * States that have an eyes-closed twin. A blink needs the rest of the frame to
@@ -63,6 +64,8 @@ interface SceneProps {
   /** Pushes the camera in during high-tension moments. */
   zoom: number
   showRevolver: boolean
+  /** Cuts rather than dissolves, for the frame the shot lands on. */
+  snap: boolean
 }
 
 /**
@@ -77,6 +80,7 @@ export function Scene({
   hurt,
   zoom,
   showRevolver,
+  snap,
 }: SceneProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
@@ -151,7 +155,10 @@ export function Scene({
   ).toFixed(2)}px, 0) scale(${1.06 + zoom * 0.06})`
 
   return (
-    <div ref={rootRef} className={`scene${hurt ? ' scene--hurt' : ''}`}>
+    <div
+      ref={rootRef}
+      className={`scene${hurt ? ' scene--hurt' : ''}${snap ? ' scene--snap' : ''}`}
+    >
       <div className="scene__plates" style={{ transform: plateTransform }}>
         <img className="scene__plate" src={room.back} alt="" />
         {ORDER.map((key) => (

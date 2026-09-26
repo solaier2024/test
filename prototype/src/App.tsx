@@ -66,6 +66,7 @@ export default function App() {
   const [flash, setFlash] = useState(0)
   const [flashSource, setFlashSource] = useState<Side | null>(null)
   const [hurt, setHurt] = useState(false)
+  const [snap, setSnap] = useState(false)
   const [zoom, setZoom] = useState(0)
   const [smokeBursts, setSmokeBursts] = useState(0)
   const [spinning, setSpinning] = useState(false)
@@ -144,6 +145,8 @@ export default function App() {
       const result = fire(s, shooter, target)
 
       if (result.chamber === 'live') {
+        // Swap the plate under the flash rather than dissolving through it.
+        setSnap(true)
         playGunshot()
         setFlashSource(shooter)
         setFlash((n) => n + 1)
@@ -152,7 +155,7 @@ export default function App() {
           setHurt(true)
           setCaption(t.beats.bangYou)
         } else {
-          setSceneState('rattled')
+          setSceneState('hit')
           setCaption(t.beats.bangThem)
         }
       } else {
@@ -165,6 +168,7 @@ export default function App() {
       commit(result.state)
       setZoom(0)
       setHurt(false)
+      setSnap(false)
       if (result.state.phase === 'round_over') playSting(result.state.outcome?.winner === 'player')
       if (result.state.phase === 'betting') refreshTell(result.state)
     },
@@ -347,6 +351,13 @@ export default function App() {
   const canLoad = state.phase === 'loading' && !cinematic
   const raiseOpen = playerToAct && state.phase === 'betting' && canRaise(state, 'player')
   const passOpen = playerToAct && canPass(state, 'player')
+  /*
+   * Once a hand is settled the board stops describing it. The narration would
+   * otherwise collide with the result panel, and the odds and the read on
+   * their face are both stale the moment the cylinder is revealed.
+   */
+  const handLive = state.phase === 'betting' || state.phase === 'facing_raise'
+  const settled = state.phase === 'round_over' || state.phase === 'match_over'
 
   /* Keyboard shortcuts keep a fast table fast; every one mirrors a button. */
   useEffect(() => {
@@ -385,6 +396,7 @@ export default function App() {
           hurt={false}
           zoom={0}
           showRevolver
+          snap={false}
         />
         <Atmosphere smokeBursts={0} />
         <LangToggle lang={lang} onPick={setLang} />
@@ -421,6 +433,7 @@ export default function App() {
           hurt={false}
           zoom={0}
           showRevolver
+          snap={false}
         />
         <Atmosphere smokeBursts={0} />
         <LangToggle lang={lang} onPick={setLang} />
@@ -450,11 +463,14 @@ export default function App() {
                 {OPPONENT_ORDER.map((id) => (
                   <button
                     key={id}
-                    className={`pick${opponentId === id ? ' is-on' : ''}`}
+                    className={`pick pick--who${opponentId === id ? ' is-on' : ''}`}
                     onClick={() => setOpponentId(id)}
                   >
-                    <span className="pick__name">{t.opponents[id].name}</span>
-                    <span className="pick__tag">{t.opponents[id].where}</span>
+                    <span className={`pick__face pick__face--${id}`} />
+                    <span className="pick__who">
+                      <span className="pick__name">{t.opponents[id].name}</span>
+                      <span className="pick__tag">{t.opponents[id].where}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -513,6 +529,7 @@ export default function App() {
         hurt={hurt}
         zoom={zoom}
         showRevolver={state.phase !== 'loading' && sceneState !== 'aiming'}
+        snap={snap}
       />
       <Atmosphere smokeBursts={smokeBursts} />
 
@@ -548,7 +565,7 @@ export default function App() {
             liveLabel={t.hud.live}
             blankLabel={t.hud.blanks}
           />
-          {state.phase !== 'loading' && state.cylinder.length > 0 && (
+          {handLive && state.cylinder.length > 0 && (
             <div className="readout__odds">
               <span className="readout__oddsLabel">{t.hud.liveNext}</span>
               <span
@@ -564,7 +581,7 @@ export default function App() {
               {odds >= 1 && <span className="readout__warn">{t.hud.certain}</span>}
             </div>
           )}
-          {read && state.phase !== 'loading' && (
+          {read && handLive && (
             <div className="readout__tell">
               <span className="readout__tellLabel">{t.hud.tell}</span>
               <span className="readout__tellValue">
@@ -579,7 +596,7 @@ export default function App() {
           )}
         </aside>
 
-        {caption && <div className="caption">{caption}</div>}
+        {caption && !(settled && !cinematic) && <div className="caption">{caption}</div>}
 
         <footer className="actions">
           {canLoad && (
@@ -601,7 +618,11 @@ export default function App() {
                   ))}
                 </div>
               )}
-              <p className="loadpanel__hint">{t.load.hint(anteFor(mode, loadChoice))}</p>
+              <p className="loadpanel__hint">
+                {mode.loadedBy === 'dealer'
+                  ? t.load.dealerHint(anteFor(mode, loadChoice))
+                  : t.load.hint(anteFor(mode, loadChoice))}
+              </p>
               <button className="btn btn--primary" onClick={onLoad} disabled={spinning}>
                 {t.load.go}
               </button>

@@ -1,3 +1,7 @@
+/* Wood-type western display face, used only for headings and table names. */
+@import '@fontsource/rye/latin.css';
+@import '@fontsource/rye/latin-ext.css';
+
 html,
 body,
 #root {
