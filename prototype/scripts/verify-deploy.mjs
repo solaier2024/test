@@ -9,8 +9,8 @@
  */
 import { chromium } from 'playwright'
 
-const URL = process.argv[2]
-if (!URL) {
+const SITE = process.argv[2]
+if (!SITE) {
   console.error('usage: node scripts/verify-deploy.mjs <url> [screenshot.png]')
   process.exit(1)
 }
@@ -20,18 +20,35 @@ const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 } })
 const page = await context.newPage()
 
+// The githack mirror wraps the page in an interstitial that loads its own
+// analytics and ads, and those fail in a headless browser. Only what the
+// deployment itself serves is this script's business.
+const origin = new URL(SITE).origin
+const ours = (u) => u.startsWith(origin)
+
 const failures = []
 const consoleErrors = []
 page.on('response', (r) => {
-  if (r.status() >= 400) failures.push(`${r.status()} ${r.url()}`)
+  if (r.status() >= 400 && ours(r.url())) failures.push(`${r.status()} ${r.url()}`)
 })
-page.on('requestfailed', (r) => failures.push(`FAILED ${r.url()} (${r.failure()?.errorText})`))
+page.on('requestfailed', (r) => {
+  if (ours(r.url())) failures.push(`FAILED ${r.url()} (${r.failure()?.errorText})`)
+})
 page.on('console', (m) => {
-  if (m.type() === 'error') consoleErrors.push(m.text())
+  if (m.type() === 'error' && ours(m.location()?.url ?? origin)) consoleErrors.push(m.text())
 })
 page.on('pageerror', (e) => consoleErrors.push(String(e)))
 
-await page.goto(URL, { waitUntil: 'networkidle', timeout: 60000 })
+await page.goto(SITE, { waitUntil: 'networkidle', timeout: 60000 })
+
+// The githack mirror puts an interstitial in front of anything it serves as
+// HTML. It is one click and then the real page loads in place.
+const interstitial = page.getByRole('button', { name: 'Open the page' })
+if (await interstitial.count()) {
+  await interstitial.click()
+  await page.waitForLoadState('networkidle')
+}
+
 await page.waitForTimeout(2500)
 
 const title = await page.locator('.title__name').textContent()
