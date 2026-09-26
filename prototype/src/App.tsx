@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { plateUrl } from './art'
 import { Scene, type SceneState } from './components/Scene'
 import { Cylinder } from './components/Cylinder'
 import {
@@ -48,6 +49,12 @@ import './App.css'
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
 
 type Screen = 'title' | 'menu' | 'table'
+
+/** The plate each opponent's picker portrait is cropped out of. */
+const PORTRAIT: Record<OpponentId, string> = {
+  calloway: 'cowboy_neutral',
+  viuda: 'viuda_neutral',
+}
 
 interface TellRecord {
   wasBluff: boolean
@@ -466,7 +473,10 @@ export default function App() {
                     className={`pick pick--who${opponentId === id ? ' is-on' : ''}`}
                     onClick={() => setOpponentId(id)}
                   >
-                    <span className={`pick__face pick__face--${id}`} />
+                    <span
+                      className={`pick__face pick__face--${id}`}
+                      style={{ backgroundImage: `url(${plateUrl(PORTRAIT[id])})` }}
+                    />
                     <span className="pick__who">
                       <span className="pick__name">{t.opponents[id].name}</span>
                       <span className="pick__tag">{t.opponents[id].where}</span>

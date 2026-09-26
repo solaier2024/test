@@ -1,0 +1,121 @@
+name: Deploy preview
+
+# Publishes the prototype on this branch to GitHub Pages so it can be played
+# in a browser without checking anything out. This is a preview only; it does
+# not merge or touch the default branch.
+
+on:
+  push:
+    branches: ['cursor/western-saloon-roulette-casino-fa3e']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: preview-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: prototype/package-lock.json
+
+      - run: npm ci
+        working-directory: prototype
+
+      - run: npm test
+        working-directory: prototype
+
+      # A project site is served from /<repo>/, not the domain root.
+      - name: Build
+        working-directory: prototype
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      # The app has no client-side router, but serving index.html for unknown
+      # paths means a mistyped deep link still boots rather than 404s.
+      - name: Add the 404 fallback
+        run: cp prototype/dist/index.html prototype/dist/404.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: prototype/dist
+          retention-days: 7
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: prototype/dist
+
+  # The supported path: Pages serves the uploaded artifact directly.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # If the github-pages environment refuses a deployment from a branch that is
+  # not the default one, fall back to the older branch-based publishing source,
+  # which has no environment and so no branch policy to trip over.
+  fallback:
+    needs: [build, deploy]
+    if: always() && needs.build.result == 'success' && needs.deploy.result != 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: dist
+
+      - name: Push the build to gh-pages
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Jekyll is on by default for branch sources and would swallow any
+          # path component beginning with an underscore.
+          touch dist/.nojekyll
+          cd dist
+          git init -q
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "Preview build from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+
+      - name: Point Pages at gh-pages
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          api() {
+            curl -sS -o /tmp/body -w '%{http_code}' -X "$1" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" "${@:2}"
+          }
+          src='{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}'
+          code=$(api PUT -d "$src")
+          echo "PUT  /pages -> $code"; cat /tmp/body; echo
+          if [ "$code" = '404' ]; then
+            code=$(api POST -d "$src")
+            echo "POST /pages -> $code"; cat /tmp/body; echo
+          fi
+          [ "$(api GET)" = '200' ] && cat /tmp/body

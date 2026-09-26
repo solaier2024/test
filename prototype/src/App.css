@@ -512,13 +512,12 @@ body {
   filter: saturate(1) brightness(1.3);
 }
 
+/* The plate itself is set inline, so it resolves against the served base. */
 .pick__face--calloway {
-  background-image: url('/art/cowboy_neutral.png');
   background-position: 62% 19%;
 }
 
 .pick__face--viuda {
-  background-image: url('/art/viuda_neutral.png');
   background-position: 55% 26%;
 }
 

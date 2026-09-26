@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { plateUrl } from '../art'
 import { OPPONENTS, type Mood, type OpponentId } from '../game/ai'
 import type { VenueId } from '../game/types'
 
@@ -11,8 +12,8 @@ const PREFIX: Record<OpponentId, string> = {
 }
 
 const ROOM: Record<VenueId, { back: string; prop: string }> = {
-  saloon: { back: 'art/saloon_backplate.png', prop: 'art/table_with_revolver.png' },
-  cantina: { back: 'art/cantina_backplate.png', prop: 'art/cantina_with_revolver.png' },
+  saloon: { back: 'saloon_backplate', prop: 'table_with_revolver' },
+  cantina: { back: 'cantina_backplate', prop: 'cantina_with_revolver' },
 }
 
 const SUFFIX: Record<SceneState, string> = {
@@ -91,7 +92,7 @@ export function Scene({
   const prefix = PREFIX[opponent]
   const room = ROOM[venue]
   const frame = (s: SceneState, closed = false) =>
-    `art/${prefix}_${SUFFIX[s]}${closed ? '_blink' : ''}.png`
+    plateUrl(`${prefix}_${SUFFIX[s]}${closed ? '_blink' : ''}`)
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -160,7 +161,7 @@ export function Scene({
       className={`scene${hurt ? ' scene--hurt' : ''}${snap ? ' scene--snap' : ''}`}
     >
       <div className="scene__plates" style={{ transform: plateTransform }}>
-        <img className="scene__plate" src={room.back} alt="" />
+        <img className="scene__plate" src={plateUrl(room.back)} alt="" />
         {ORDER.map((key) => (
           <img
             key={`${opponent}-${key}`}
@@ -191,7 +192,7 @@ export function Scene({
         {showRevolver && (
           <img
             className={`scene__plate scene__plate--prop scene__plate--prop-${venue}`}
-            src={room.prop}
+            src={plateUrl(room.prop)}
             alt=""
           />
         )}
