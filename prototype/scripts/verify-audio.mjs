@@ -66,6 +66,20 @@ async function open(url, { seenIntro = false } = {}) {
   page.on('pageerror', (e) => problems.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && problems.push(m.text()))
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 })
+
+  /*
+   * The githack mirror puts an interstitial in front of anything it serves as
+   * HTML. Note that dismissing it also satisfies the autoplay block, because
+   * the real page loads in place on the same origin: behind the mirror the
+   * control reads `is-on` from the start rather than `is-blocked`. That is
+   * what a player meets there, so the checks below accept either.
+   */
+  const interstitial = page.getByRole('button', { name: 'Open the page' })
+  if (await interstitial.count()) {
+    await interstitial.click()
+    await page.waitForLoadState('networkidle')
+    problems.length = 0
+  }
   return { browser, page }
 }
 
