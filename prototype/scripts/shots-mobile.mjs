@@ -56,7 +56,17 @@ const tap = async (name, settle = 900) => {
   await page.waitForTimeout(settle)
 }
 
-await page.goto(BASE, { waitUntil: 'networkidle' })
+await page.goto(BASE, { waitUntil: 'networkidle', timeout: 60000 })
+
+// The githack mirror puts an interstitial in front of anything it serves as
+// HTML, so running this against the live preview needs one click first.
+const interstitial = page.getByRole('button', { name: 'Open the page' })
+if (await interstitial.count()) {
+  await interstitial.tap()
+  await page.waitForLoadState('networkidle')
+  problems.length = 0
+}
+
 await page.waitForTimeout(1400)
 await shot('01-intro')
 
