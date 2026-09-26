@@ -10,16 +10,26 @@ const FRAMES: Record<SceneState, string> = {
   aiming: 'art/cowboy_aiming.png',
 }
 
+/** A hard kick that settles over about a second, like a camera being struck. */
 const RECOIL: Keyframe[] = [
-  { transform: 'translate(0, 0) rotate(0deg) scale(1)' },
-  { transform: 'translate(-26px, 15px) rotate(-1.5deg) scale(1.035)', offset: 0.05 },
-  { transform: 'translate(23px, -18px) rotate(1.3deg) scale(1.03)', offset: 0.13 },
-  { transform: 'translate(-18px, 10px) rotate(-0.9deg) scale(1.024)', offset: 0.23 },
-  { transform: 'translate(13px, -9px) rotate(0.7deg) scale(1.018)', offset: 0.35 },
-  { transform: 'translate(-9px, 5px) rotate(-0.4deg) scale(1.012)', offset: 0.48 },
-  { transform: 'translate(6px, -3px) rotate(0.25deg) scale(1.007)', offset: 0.62 },
-  { transform: 'translate(-3px, 2px) rotate(-0.12deg) scale(1.003)', offset: 0.78 },
-  { transform: 'translate(0, 0) rotate(0deg) scale(1)' },
+  { transform: 'translate(0, 0) rotate(0deg) scale(1)', filter: 'brightness(1)' },
+  {
+    transform: 'translate(-46px, 26px) rotate(-2.6deg) scale(1.07)',
+    filter: 'brightness(1.5)',
+    offset: 0.04,
+  },
+  {
+    transform: 'translate(40px, -31px) rotate(2.2deg) scale(1.06)',
+    filter: 'brightness(1.18)',
+    offset: 0.11,
+  },
+  { transform: 'translate(-31px, 18px) rotate(-1.5deg) scale(1.046)', offset: 0.2 },
+  { transform: 'translate(23px, -15px) rotate(1.1deg) scale(1.034)', offset: 0.31 },
+  { transform: 'translate(-16px, 9px) rotate(-0.7deg) scale(1.023)', offset: 0.44 },
+  { transform: 'translate(10px, -6px) rotate(0.4deg) scale(1.014)', offset: 0.58 },
+  { transform: 'translate(-6px, 3px) rotate(-0.2deg) scale(1.007)', offset: 0.73 },
+  { transform: 'translate(2px, -1px) rotate(0.07deg) scale(1.002)', offset: 0.87 },
+  { transform: 'translate(0, 0) rotate(0deg) scale(1)', filter: 'brightness(1)' },
 ]
 
 interface SceneProps {
@@ -59,7 +69,7 @@ export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: S
   useEffect(() => {
     if (flash === 0) return
     rootRef.current?.animate(RECOIL, {
-      duration: 900,
+      duration: 1100,
       easing: 'cubic-bezier(0.36, 0.07, 0.19, 0.97)',
     })
   }, [flash])
@@ -80,20 +90,16 @@ export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: S
             alt=""
           />
         ))}
+        {/*
+         * The revolver is rendered into a copy of the same plate rather than
+         * composited as a cut-out prop, so its contact shadow and rim light
+         * match the room. Masking to the corner it occupies lets it sit on top
+         * of any character state without disturbing the rest of the frame.
+         */}
+        {showRevolver && (
+          <img className="scene__plate scene__plate--prop" src="art/table_with_revolver.png" alt="" />
+        )}
       </div>
-
-      {showRevolver && (
-        <img
-          className="scene__revolver"
-          src="art/revolver_table.png"
-          alt=""
-          style={{
-            transform: `translate3d(${(-parallax.x * 46).toFixed(2)}px, ${(
-              -parallax.y * 18
-            ).toFixed(2)}px, 0)`,
-          }}
-        />
-      )}
 
       <div className="scene__lamp" />
       <div className="scene__vignette" />

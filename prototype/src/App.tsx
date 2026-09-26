@@ -219,6 +219,11 @@ export default function App() {
       setSpinning(false)
       setRaiseAmount(Math.max(ANTE, Math.round(s.pot * 0.4)))
       refreshTell(s)
+      setCaption(
+        s.turn === 'player'
+          ? '弹巢合上了，谁也不知道第一发在哪。你先动手。'
+          : '弹巢合上了。他伸手去拿枪。',
+      )
       await wait(500)
     })
 

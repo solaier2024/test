@@ -32,11 +32,13 @@ export function Cylinder({
   const blanksLeft = Math.max(0, remaining - liveLeft)
 
   return (
-    <div
-      className={`cylinder${spinning ? ' cylinder--spin' : ''}`}
-      style={{ width: size, height: size }}
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div className="cylinder">
+      <svg
+        className={spinning ? 'cylinder__disc cylinder__disc--spin' : 'cylinder__disc'}
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+      >
         <defs>
           <radialGradient id="cyl-steel" cx="35%" cy="28%">
             <stop offset="0%" stopColor="#6e6458" />
