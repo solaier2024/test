@@ -153,6 +153,16 @@ npm run dev            # 另开一个终端
 node scripts/capture-shot.mjs
 ```
 
+### 录制真实速率的演示视频
+
+桌面录屏会把长会话时间压缩，这会毁掉本作赖以成立的次秒级节奏——340ms 的枪口
+火光会被压成一帧，900ms 的溶解会看起来像硬切。`scripts/record-demo.mjs`
+直接录制页面，保证片子上的节奏和玩家实际看到的一致：
+
+```bash
+node scripts/record-demo.mjs   # 产出 demo-capture/demo.webm
+```
+
 ---
 
 ## 代码结构
