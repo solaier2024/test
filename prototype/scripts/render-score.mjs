@@ -22,8 +22,12 @@ mkdirSync(OUT, { recursive: true })
 const TAKES = [
   { name: 'intro', kind: 'intro', level: 0, seconds: 12 },
   { name: 'title', kind: 'title', level: 0, seconds: 11 },
+  // Low enough that the gallop is the only percussion, which is what makes
+  // this take worth having: the hoofbeat timing can be measured off it.
+  { name: 'menu', kind: 'menu', level: 0.1, seconds: 12 },
   { name: 'table_cold', kind: 'table', level: 0.1, seconds: 11 },
-  { name: 'table_hot', kind: 'table', level: 1, seconds: 11 },
+  // Two full passes, because the second one is arranged differently.
+  { name: 'table_hot', kind: 'table', level: 1, seconds: 21 },
 ]
 
 const browser = await chromium.launch()

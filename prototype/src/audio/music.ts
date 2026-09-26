@@ -394,9 +394,21 @@ let step = 0
 let stepAt = 0
 let intensity = 0
 let tempoScale = 1
+let phrase = 0
 
 /** Eighth notes, so a 32-step phrase is four bars. */
 const stepSeconds = (bpm: number) => 30 / bpm
+
+/**
+ * Jitter in [-1, 1], seeded rather than random. Percussion sitting exactly on
+ * the grid reads as a drum machine instead of as something played, and the
+ * gallop is the most exposed part of the arrangement. Seeding it keeps a
+ * render reproducible, so the measurements taken off one stay comparable.
+ */
+function wobble(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453
+  return (x - Math.floor(x)) * 2 - 1
+}
 
 /** Layer thresholds are on this, not on the raw odds. */
 function level(): number {
@@ -420,21 +432,33 @@ function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
   // Guitar states the chord on the downbeat from the very quietest layer up.
   if (inBar === 0) twang(v, at, chord.root, 0.1 + L * 0.13, spb * 3.4)
 
-  // The gallop.
+  /*
+   * The gallop, pushed and pulled a few milliseconds either side of the beat.
+   * Dead on the grid it was a drum machine; this is the single change that
+   * makes it sound like hooves.
+   */
+  const seed = phrase * STEPS + s
   if (L > 0.22) {
     const accent = inBar % 2 === 0
-    clop(v, at, (accent ? 0.15 : 0.08) * (0.4 + L))
+    const gain = (accent ? 0.15 : 0.08) * (0.4 + L) * (1 + wobble(seed + 91) * 0.12)
+    clop(v, at + wobble(seed) * 0.009, gain)
   }
-  if (L > 0.5) shaker(v, at + spb * 0.5, 0.035 * L)
-  if (L > 0.36 && inBar === 4) snare(v, at, 0.1 * L)
+  if (L > 0.5) shaker(v, at + spb * 0.5 + wobble(seed + 17) * 0.007, 0.035 * L)
+  if (L > 0.36 && inBar === 4) snare(v, at + wobble(seed + 5) * 0.006, 0.1 * L)
   if (L > 0.72 && inBar === 6) snare(v, at + spb * 0.5, 0.07 * L)
 
-  // The tune. Whistled once the screen is doing something.
+  /*
+   * The tune. Every other pass the guitar takes the back half of it off the
+   * whistle, so hearing the loop twice is not the same as hearing it twice.
+   */
   if (L > 0.3) {
     const note = LEAD.find((n) => n.at === s)
     if (note) {
-      whistle(v, at, note.f, note.len * spb * 0.95)
-      if (L > 0.62) twang(v, at, note.f / 2, 0.11 * L, note.len * spb)
+      const whistled = phrase % 2 === 0 || s < 16
+      if (whistled) whistle(v, at, note.f, note.len * spb * 0.95)
+      if (!whistled || L > 0.62) {
+        twang(v, at, note.f / 2, (whistled ? 0.11 : 0.21) * L, note.len * spb)
+      }
       if (L > 0.85) tremolo(v, at, note.f / 2, note.len * spb * 0.8, 0.055)
     }
   }
@@ -442,8 +466,13 @@ function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
   // Choir underneath the back half of each bar, once it is properly tense.
   if (L > 0.55 && inBar === 0) choir(v, at, chord.third, spb * 7, 0.055 * L)
 
-  // A bell on the turn of the phrase. Sparse on purpose.
-  if (L > 0.66 && s === 24) bell(v, at, 587.33, 0.075 * L)
+  // A bell on the turn of the phrase, alternating where it falls. Sparse.
+  if (L > 0.66 && s === (phrase % 2 === 0 ? 24 : 28)) {
+    bell(v, at, phrase % 2 === 0 ? 587.33 : 880.0, 0.075 * L)
+  }
+
+  // A three-hit turnaround out of every second pass, to hand the loop over.
+  if (L > 0.6 && phrase % 2 === 1 && s >= 29) snare(v, at, 0.05 + (s - 29) * 0.032)
 }
 
 function pump(): void {
@@ -457,7 +486,11 @@ function pump(): void {
     // catching up note by note would fire hundreds of them at once.
     if (stepAt < c.currentTime - 0.5) stepAt = c.currentTime + 0.05
     scheduleStep(bed, step, stepAt, bpm)
-    step = (step + 1) % STEPS
+    step += 1
+    if (step === STEPS) {
+      step = 0
+      phrase += 1
+    }
     stepAt += spb
   }
 }
@@ -478,9 +511,12 @@ export function renderLoop(
   const v = voice(1)
   const bpm = FLOOR[which].bpm * tempoScale
   const spb = stepSeconds(bpm)
+  phrase = 0
   let s = 0
   for (let t = 0.05; t < seconds; t += spb) {
-    scheduleStep(v, s++ % STEPS, t, bpm)
+    scheduleStep(v, s % STEPS, t, bpm)
+    s += 1
+    if (s % STEPS === 0) phrase += 1
   }
 }
 
@@ -506,6 +542,7 @@ export function setCue(next: Cue): void {
   if (!bed) {
     bed = voice(1)
     step = 0
+    phrase = 0
     stepAt = ac().currentTime + 0.08
   }
   if (!timer) timer = window.setInterval(pump, TICK_MS)
