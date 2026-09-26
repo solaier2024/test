@@ -135,10 +135,17 @@ async function dealAndPlay(live, opts) {
   return playHand(opts)
 }
 
+// ---------- the opening ----------
+// The cinematic is the first thing a player meets, so it is the first thing
+// on tape, and it runs its middle in Spanish to put both caption tracks in
+// shot. It hands over to the title card on its own; nothing here skips it.
+await sleep(3400)
+await click('Español (MX)', 3200)
+await click('English', 1200)
+await page.waitForSelector('.title', { timeout: 30000 })
+
 // ---------- title ----------
-await sleep(3000)
-await click('Español (MX)', 2600)
-await click('English', 2200)
+await sleep(2600)
 await click('TAKE A SEAT', 1800)
 
 // ---------- the picker ----------

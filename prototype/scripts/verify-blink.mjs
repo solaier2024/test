@@ -10,6 +10,7 @@
  */
 import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
+import { skipIntro } from './lib/skip-intro.mjs'
 
 const URL = process.env.GAME_URL ?? 'http://127.0.0.1:5173/'
 const OUT = process.argv[3] ?? '/tmp/blink'
@@ -25,6 +26,7 @@ const H = 720
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: W, height: H } })
+await skipIntro(page)
 await page.goto(URL, { waitUntil: 'networkidle' })
 await page.waitForTimeout(1200)
 

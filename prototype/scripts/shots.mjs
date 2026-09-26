@@ -5,12 +5,14 @@
  */
 import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
+import { skipIntro } from './lib/skip-intro.mjs'
 
 const OUT = process.argv[2] ?? '/tmp/shots'
 mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } })
+await skipIntro(page)
 await page.goto('http://127.0.0.1:5173/')
 await page.waitForTimeout(2500)
 

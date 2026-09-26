@@ -8,6 +8,7 @@
  */
 import { mkdir, rm, readdir, rename } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { skipIntro } from './lib/skip-intro.mjs'
 
 const URL = process.env.GAME_URL ?? 'http://127.0.0.1:5173/'
 const OUT = process.env.OUT_DIR ?? 'shot-capture'
@@ -22,6 +23,7 @@ const context = await browser.newContext({
   viewport: { width: 1280, height: 720 },
   recordVideo: { dir: OUT, size: { width: 1280, height: 720 } },
 })
+await skipIntro(context)
 const page = await context.newPage()
 await page.goto(URL, { waitUntil: 'networkidle' })
 
