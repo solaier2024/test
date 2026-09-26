@@ -366,16 +366,84 @@ body {
 
 /* ---------- language ---------- */
 
-.langtoggle {
+/* Language and sound, wherever the screen has room for them. */
+.toolbar {
   position: absolute;
   top: 20px;
   right: 24px;
   z-index: 5;
   display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+/* At the table the top corners belong to the chip stacks, so the controls
+   drop to the empty bottom-left instead. */
+.toolbar--corner {
+  top: auto;
+  right: auto;
+  bottom: 14px;
+  left: 22px;
+}
+
+.langtoggle {
+  display: flex;
   gap: 1px;
   border: 1px solid rgba(217, 164, 65, 0.24);
   background: rgba(8, 6, 5, 0.72);
   backdrop-filter: blur(3px);
+}
+
+.soundtoggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(217, 164, 65, 0.24);
+  background: rgba(8, 6, 5, 0.72);
+  backdrop-filter: blur(3px);
+  color: #6f6759;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition: color 180ms, border-color 180ms;
+}
+
+.soundtoggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.soundtoggle.is-on {
+  color: var(--amber);
+}
+
+/* Held back by the browser until the page is touched: say so, and be the
+   thing worth touching. */
+.soundtoggle.is-blocked {
+  color: var(--bone);
+  border-color: rgba(217, 164, 65, 0.48);
+  animation: soundWaiting 2.4s ease-in-out infinite;
+}
+
+.soundtoggle__hint {
+  white-space: nowrap;
+}
+
+@keyframes soundWaiting {
+  0%,
+  100% {
+    border-color: rgba(217, 164, 65, 0.28);
+  }
+  50% {
+    border-color: rgba(217, 164, 65, 0.72);
+  }
 }
 
 .langtoggle__btn {
@@ -1196,13 +1264,15 @@ body {
   background: rgba(8, 6, 5, 0.8);
 }
 
-.intro__lang {
+/* A full-bleed layer so the controls keep their own positioning, but only
+   the controls themselves swallow the tap that would otherwise skip. */
+.intro__controls {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-.intro__lang > * {
+.intro__controls > * {
   pointer-events: auto;
 }
 
@@ -1270,7 +1340,8 @@ body {
  * Behind a hover query so a phone cannot leave a button stuck lit after a tap.
  */
 @media (hover: hover) {
-  .langtoggle__btn:hover {
+  .langtoggle__btn:hover,
+  .soundtoggle:hover {
     color: var(--bone);
   }
 
@@ -1325,7 +1396,8 @@ body {
   .btn,
   .langtoggle__btn,
   .linkbtn,
-  .chamberbtn {
+  .chamberbtn,
+  .soundtoggle {
     min-height: 44px;
     -webkit-tap-highlight-color: transparent;
   }
@@ -1400,9 +1472,26 @@ body {
     letter-spacing: 0.22em;
   }
 
-  .langtoggle {
+  .toolbar {
     top: calc(10px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right));
+  }
+
+  /* The footer owns the bottom of a portrait screen, so the table's controls
+     go back to the top, over the stage, where nothing else is. */
+  .toolbar--corner {
+    top: calc(10px + env(safe-area-inset-top));
+    bottom: auto;
+    left: calc(10px + env(safe-area-inset-left));
+    right: auto;
+  }
+
+  /* Both toggles plus the unlock hint are wider than a phone. Let them
+     stack rather than pushing each other off the screen. */
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100vw - 20px);
   }
 
   .title {

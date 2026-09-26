@@ -45,6 +45,13 @@ export interface Strings {
     lines: [string, string, string, string, string]
   }
 
+  /** Keyed by sound state, so the label is always the one that fits. */
+  sound: {
+    on: string
+    off: string
+    blocked: string
+  }
+
   menu: {
     chooseTable: string
     chooseMode: string
@@ -233,6 +240,12 @@ const en: Strings = {
       'Their face will lie to you. Yours is doing the same thing.',
       'One of you gets up from this table.',
     ],
+  },
+
+  sound: {
+    on: 'SOUND ON',
+    off: 'SOUND OFF',
+    blocked: 'TAP FOR SOUND',
   },
 
   menu: {
@@ -426,6 +439,12 @@ const es: Strings = {
       'Su cara te va a mentir. La tuya está haciendo lo mismo.',
       'De esta mesa se levanta uno.',
     ],
+  },
+
+  sound: {
+    on: 'CON SONIDO',
+    off: 'SIN SONIDO',
+    blocked: 'TOCA PARA EL SONIDO',
   },
 
   menu: {

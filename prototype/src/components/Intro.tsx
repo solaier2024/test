@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clipPoster, clipUrl } from '../art'
+import { startIntroScore, stopIntroScore } from '../audio/music'
+import { useSoundState } from '../audio/useSound'
 import { LangToggle } from './LangToggle'
+import { SoundToggle } from './SoundToggle'
 import type { Lang, Strings } from '../i18n/strings'
 
 /**
@@ -36,6 +39,7 @@ export function Intro({ t, lang, onLang, small, onDone }: IntroProps) {
   /** Set when autoplay is refused, so there is something to tap. */
   const [needsTap, setNeedsTap] = useState(false)
   const left = useRef(false)
+  const sound = useSoundState()
 
   const leave = useCallback(() => {
     if (left.current) return
@@ -48,6 +52,18 @@ export function Intro({ t, lang, onLang, small, onDone }: IntroProps) {
     if (!el) return
     el.play().catch(() => setNeedsTap(true))
   }, [])
+
+  /*
+   * The score is cut to the film, so it joins at wherever the film has got
+   * to. That matters because audio is usually still blocked when the opening
+   * starts: the player unmutes part-way through and should land on the right
+   * bar rather than hearing the first shot's music over the last shot.
+   */
+  useEffect(() => {
+    if (sound !== 'on') return
+    startIntroScore(ref.current?.currentTime ?? 0)
+    return stopIntroScore
+  }, [sound])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -96,8 +112,11 @@ export function Intro({ t, lang, onLang, small, onDone }: IntroProps) {
 
       {needsTap && <p className="intro__tap">{t.title.sit}</p>}
 
-      <div className="intro__lang" onClick={(e) => e.stopPropagation()}>
-        <LangToggle lang={lang} onPick={onLang} />
+      <div className="intro__controls" onClick={(e) => e.stopPropagation()}>
+        <div className="toolbar">
+          <LangToggle lang={lang} onPick={onLang} />
+          <SoundToggle t={t} />
+        </div>
       </div>
 
       <button type="button" className="intro__skip" onClick={leave}>

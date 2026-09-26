@@ -5,6 +5,7 @@ import { usePrefetchClips } from './prefetch'
 import { Cylinder } from './components/Cylinder'
 import { Intro } from './components/Intro'
 import { LangToggle } from './components/LangToggle'
+import { SoundToggle } from './components/SoundToggle'
 import { useCompact, useReducedMotion, useTouch } from './platform'
 import {
   OPPONENTS,
@@ -48,6 +49,7 @@ import {
   startAmbience,
   unlockAudio,
 } from './audio/sfx'
+import { setCue, setIntensity, setTempoScale } from './audio/music'
 import './App.css'
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
@@ -194,6 +196,28 @@ export default function App() {
   useEffect(() => {
     setVenue(persona.venue)
   }, [persona.venue])
+
+  /*
+   * The score follows the screen. The opening's own cue is started by the
+   * Intro itself, because only it knows how far into the film we are; this
+   * just makes sure the looping arrangement is out of the way first.
+   */
+  useEffect(() => {
+    setCue(screen)
+  }, [screen])
+
+  useEffect(() => {
+    setTempoScale(mode.pacing)
+  }, [mode.pacing])
+
+  /*
+   * Creating the context up front costs nothing and arms the listener that
+   * releases it on the player's first touch, whatever that touch was for.
+   */
+  useEffect(() => {
+    unlockAudio()
+    return () => setCue('none')
+  }, [])
 
   const odds = liveOdds(state)
   const left = liveRemaining(state)
@@ -469,6 +493,18 @@ export default function App() {
   const handLive = state.phase === 'betting' || state.phase === 'facing_raise'
   const settled = state.phase === 'round_over' || state.phase === 'match_over'
 
+  /*
+   * The arrangement is gated on how likely the next chamber is to be live, so
+   * a cylinder that is nearly all live rounds sounds like one: the gallop
+   * comes in, the guitar starts tremolo picking, the choir climbs. This is
+   * the whole reason the music engine takes a number rather than a preset.
+   */
+  useEffect(() => {
+    if (screen !== 'table') setIntensity(0)
+    else if (!handLive) setIntensity(0.08)
+    else setIntensity(0.2 + odds * 0.8)
+  }, [screen, handLive, odds])
+
   /* Keyboard shortcuts keep a fast table fast; every one mirrors a button. */
   useEffect(() => {
     if (screen !== 'table') return
@@ -520,7 +556,10 @@ export default function App() {
           touch={touch}
         />
         <Atmosphere smokeBursts={0} />
-        <LangToggle lang={lang} onPick={setLang} />
+        <div className="toolbar">
+          <LangToggle lang={lang} onPick={setLang} />
+          <SoundToggle t={t} />
+        </div>
         <div className="title">
           <p className="title__kicker">{t.title.kicker}</p>
           <h1 className="title__name">{t.title.name}</h1>
@@ -563,7 +602,10 @@ export default function App() {
           touch={touch}
         />
         <Atmosphere smokeBursts={0} />
-        <LangToggle lang={lang} onPick={setLang} />
+        <div className="toolbar">
+          <LangToggle lang={lang} onPick={setLang} />
+          <SoundToggle t={t} />
+        </div>
         <div className="menu">
           <h2 className="menu__heading">{t.menu.chooseTable}</h2>
 
@@ -666,6 +708,9 @@ export default function App() {
         touch={touch}
       />
       <Atmosphere smokeBursts={smokeBursts} />
+      <div className="toolbar toolbar--corner">
+        <SoundToggle t={t} />
+      </div>
 
       <div className="hud">
         <header className="hud__top">
