@@ -1,32 +1,179 @@
-# React + TypeScript + Vite
+# 最后一发 · 西部左轮对赌（可行性原型）
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+一个网页版、西部写实风格的回合制左轮对赌游戏的**垂直切片原型**。
 
-Currently, two official plugins are available:
+酒馆里一张木桌，对面坐着一个牛仔，桌上一把左轮。你决定往六个弹巢里装几发实弹，
+然后轮流扣扳机、轮流加注。中枪的一方输掉这一局。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+这个原型存在的目的不是做完游戏，而是**回答"这东西能不能做"**，并把风险最高的
+几个假设先验证掉。
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 结论：能做，而且真正的难点不在代码
 
-## Expanding the Oxlint configuration
+三个致命风险已经全部验证通过：
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+| 风险 | 结论 | 证据 |
+| --- | --- | --- |
+| 网页上能不能做出《荒野大镖客》级别的写实画面 | 能 | `public/art/` 里的成片 |
+| 同一个角色能不能保持一致 | 能 | 四张角色图脸型、疤痕、衣着、灯光完全一致 |
+| 能不能做出"读对手微表情"所需的多套表情 | 能 | 平静 / 冷笑 / 惊惧 / 举枪指向镜头 |
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+真正的成本在美术资产，不在工程。而美术这条路被下面这个取舍绕开了。
+
+---
+
+## 关键取舍：预渲染分层，而不是实时 3D
+
+做写实西部画面有三条路：
+
+1. **实时 3D（Three.js + PBR）** —— 需要酒馆场景模型、带骨骼和动画的角色、左轮模型。
+   角色绑定与动画是硬门槛，达到写实级别基本等同于要一支美术团队。风险最高。
+2. **预渲染分层 2.5D** —— 用高质量静帧做底板和角色状态，靠实时特效让画面"活"起来。
+   这是本原型采用的方案。
+3. **两者混合** —— 主体用 2，需要真实三维交互的局部（例如转轮）再上 WebGL。
+
+原型走第 2 条路，并且有一个具体的实现要点值得记下来：
+
+> **角色的每个状态都是一整张构图相同的成片，而不是抠像素材。**
+
+这样做的好处是状态之间可以直接交叉淡入淡出，完全不需要处理抠图边缘、
+不需要匹配光照，也不会出现"贴纸人"的廉价感。代价是每个状态一张全图，
+但每张压缩后约 240KB，六张合计 1.5MB，完全可接受。
+
+桌上的左轮用了同样的思路。一开始它是一张单独打光的枪械素材，用混合模式叠在桌面上——
+结果永远像浮在半空，因为 `lighten` 混合会把它自己的接触阴影丢掉。改成
+**把枪直接渲染进同一张酒馆底板**，再用遮罩只露出它所在的那个角落，
+阴影和边缘高光就自然和房间对上了。
+
+画面的"活气"由实时层提供，全部是代码，不消耗美术成本：
+
+- Canvas 粒子层：灯光里飘浮的尘埃、开枪后的硝烟
+- 逐帧重绘的胶片颗粒
+- 油灯闪烁（不规则 steps 动画，避免机械的正弦呼吸感）
+- 鼠标视差：底板随光标轻微漂移，静帧因此有了纵深
+- 开枪瞬间：全屏过曝 + 橙色辉光 + 剧烈镜头后坐
+
+---
+
+## 玩法设计：为什么这不是又一个老虎机
+
+主流网页 casino 游戏的问题是**玩家没有决策，只有等待结果**。这个设计的核心
+是把纯运气改造成可推理、可博弈的局面。三条支柱：
+
+### 1. 数量公开，顺序保密
+
+双方都知道弹巢里装了几发实弹，但谁都不知道顺序。于是随着弹巢被消耗，
+局面会持续收敛：6 发里 2 实弹时下一发是 33%，打掉两个空仓后就变成 50%，
+到最后只剩实弹时变成 **100% 必响**。
+
+左侧的概率读数不是装饰，它是玩家真正要算的东西。
+
+### 2. 对己开枪换取行动权
+
+每回合你可以选择把枪口对准自己或对准他：
+
+- **对准自己**：空响则行动权仍归你，可以连续行动；实弹则你输
+- **对准他**：无论空实都换他行动
+
+这制造了一个非常漂亮的节奏博弈——对己开枪是在用命换节奏，同时也在
+消耗空仓、把弹巢推向"必响"。谁在必响那一发到来时**不持有**行动权，谁就赢。
+
+### 3. 表情会撒谎
+
+对手每回合都会流露一个神色（松弛 / 紧绷 / 毫无波澜），它反映他对
+下一发的判断——但有约 28% 的概率他在演戏。界面会统计"你已看过他几次表情、
+其中几次是演的"，玩家因此可以在一局对局中逐渐建立对这个角色的判读模型。
+
+**这一条才是和老式 casino 游戏的根本区别**：技术含量来自读人，而不是拉杆。
+
+加注 / 跟注 / 弃牌叠在上面，于是"弃牌"成了一个真实的选项——
+输掉桌心的筹码，但不用碰那把枪。
+
+---
+
+## 已验证 / 未验证
+
+**已经验证可用：**
+
+- 完整对局循环：装弹 → 下注 → 开枪 → 结算 → 下一局 → 分出胜负
+- 引擎有 15 项测试，其中包含 **300 局全自动模拟**，断言筹码守恒、
+  每一局都能走到终局、任何封弹状态下都存在合法操作
+- 浏览器端实测无死锁、无 JS 报错、筹码账目正确
+- 开枪特效经逐帧测量确认：画面平均亮度从基线 28 瞬间冲到 143（约 5 倍过曝）
+
+**明确还没做，且是真实工作量：**
+
+- **角色是静止的**。这是当前画面最大的短板——状态之间是平滑溶解，
+  但每个状态内部没有呼吸、没有眨眼、没有细微动作。要达到商业品质，
+  这里需要上视频循环、网格形变（Live2D 类方案）或局部 3D。
+- 只有一个对手、一个场景、一种玩法变体
+- 音效是运行时合成的，需要替换为真实录音
+- 没有服务端、没有存档、没有多人对战。发牌随机数目前在客户端，
+  任何涉及真实价值的版本都必须改成服务端权威 + 可验证公平
+- 没有移动端触控适配（布局有响应式，但交互节奏是按桌面设计的）
+
+---
+
+## 合规提醒
+
+当前实现是**纯娱乐模拟，不涉及任何真实货币**，标题页也明示了这一点。
+一旦接入真实货币投注，它就是受监管的博彩产品，需要牌照、KYC、
+地域限制和经过认证的随机数发生器。那是一个法务和合规问题，不是工程问题，
+建议在立项阶段就定清楚方向。
+
+题材本身（俄罗斯轮盘）也建议按地区评估内容分级。
+
+---
+
+## 运行
+
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+其他命令：
+
+```bash
+npm test     # 引擎测试，含 300 局模拟
+npm run lint
+npm run build
+```
+
+### 逐帧验证开枪特效
+
+录屏对 400ms 量级的特效采样太粗，容易把"很弱"误判成"没有"。
+`scripts/capture-shot.mjs` 会自动开局、反复开枪直到真的打出实弹，
+并录下页面视频，供逐帧检查：
+
+```bash
+npm run dev            # 另开一个终端
+node scripts/capture-shot.mjs
+```
+
+---
+
+## 代码结构
+
+```
+src/
+  game/
+    types.ts      回合状态机与牌局数据结构
+    engine.ts     纯函数游戏逻辑（装弹、下注、开火、结算）
+    ai.ts         对手决策与会撒谎的表情系统
+    engine.test.ts
+  components/
+    Scene.tsx     分层电影化画面：底板、角色状态、道具、闪光、后坐
+    Cylinder.tsx  弹巢读数（数量公开、顺序保密）
+  fx/
+    Atmosphere.tsx  Canvas 尘埃、硝烟、胶片颗粒
+  audio/
+    sfx.ts        运行时合成音效，不依赖音频文件
+  App.tsx         回合编排与镜头节奏
+```
+
+`engine.ts` 是纯函数，不碰 React，所以能被大量模拟测试覆盖。
+`App.tsx` 里游戏状态的权威副本存在 ref 中，React state 只作渲染镜像——
+因为回合编排是异步的（要等动画播完），不能依赖重渲染的时序。
