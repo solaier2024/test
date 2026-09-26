@@ -10,6 +10,11 @@ name: Deploy preview
 # Actions token cannot hold it (POST/PUT /repos/{o}/{r}/pages both return 403).
 # Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages / (root).
 # Once that is set, every push to this branch republishes automatically.
+#
+# Until then the same commit is also readable through githack, which serves
+# the gh-pages branch with real content types. That needs its own build,
+# because the app sits at a different depth there, so gh-pages carries two
+# copies of the site: the root one for Pages and githack/ for the mirror.
 
 on:
   push:
@@ -43,11 +48,17 @@ jobs:
         working-directory: prototype
 
       # A project site is served from /<repo>/, not the domain root.
-      - name: Build
+      - name: Build for Pages
         working-directory: prototype
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
         run: npm run build
+
+      - name: Build for the githack mirror
+        working-directory: prototype
+        env:
+          VITE_BASE: /${{ github.repository }}/gh-pages/githack/
+        run: npx vite build --outDir dist/githack --emptyOutDir
 
       - name: Add the Pages shims
         run: |
@@ -57,6 +68,7 @@ jobs:
           # Jekyll is on by default for branch sources and would swallow any
           # path component beginning with an underscore.
           touch prototype/dist/.nojekyll
+          cp prototype/dist/githack/index.html prototype/dist/githack/404.html
 
       - name: Push the build to gh-pages
         env:

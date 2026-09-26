@@ -12,6 +12,28 @@
 
 ---
 
+## 直接试玩
+
+预览站是从这条分支自动构建的，无需登录、无需账号，打开就能进选桌页。
+
+| 地址 | 说明 |
+| --- | --- |
+| **https://solaier2024.github.io/test/** | 主地址。需要仓库管理员先在 Settings → Pages 里把 Source 选成 "Deploy from a branch" → `gh-pages` / `(root)`，之后每次推送自动更新 |
+| **https://raw.githack.com/solaier2024/test/gh-pages/githack/index.html** | 镜像，现在就能打开。githack 会先弹一次 "External Content Notice"，点 "Open the page" 即进入游戏 |
+
+两个地址指向同一次构建：`gh-pages` 分支根目录是 Pages 版（base 为 `/test/`），
+`githack/` 子目录是镜像版（base 为 `/solaier2024/test/gh-pages/githack/`）。
+
+`public/` 里的素材 Vite 不会改写 URL，所以所有图片路径都过一次
+`import.meta.env.BASE_URL`（见 `src/art.ts`），换个托管位置只要改
+`vite.config.ts` 里的 `base`。`scripts/verify-deploy.mjs <url>` 会用无缓存的
+浏览器把部署好的站当新访客走一遍：任何 HTTP 4xx/5xx、控制台报错或没解码出来
+的图都会让它失败。下面这张就是它从公开地址上抓到的选桌页：
+
+![公开地址上的选桌页](docs/preview_live.jpg)
+
+---
+
 ## 现在有什么
 
 | | |
