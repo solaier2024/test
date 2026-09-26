@@ -694,9 +694,14 @@ export default function App() {
                 {Math.abs(swing)}
               </p>
               <Reveal chambers={state.outcome.revealed} label={t.result.chambersWere} />
-              <button className="btn btn--primary" onClick={onNextRound}>
-                {t.result.next}
-              </button>
+              <div className="actionrow">
+                <button className="btn btn--quiet" onClick={() => setScreen('menu')}>
+                  {t.result.changeTable}
+                </button>
+                <button className="btn btn--primary" onClick={onNextRound}>
+                  {t.result.next}
+                </button>
+              </div>
             </div>
           )}
 
@@ -717,7 +722,16 @@ export default function App() {
           )}
         </footer>
 
-        <p className="keyhint">{t.keys.hint}</p>
+        <p className="keyhint">
+          {[
+            t.keys.fire,
+            mode.betting ? t.keys.raise : null,
+            mode.passes > 0 ? t.keys.pass : null,
+            t.keys.next,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
       </div>
     </div>
   )

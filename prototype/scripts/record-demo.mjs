@@ -166,15 +166,7 @@ if (result === 'hand-over') {
 }
 
 // ---------- change tables: cantina rules, second opponent ----------
-if (result === 'hand-over') await click('NEXT HAND', 2200)
-if (await shown('CHANGE TABLE')) {
-  await click('CHANGE TABLE', 1600)
-} else {
-  await page.reload({ waitUntil: 'networkidle' })
-  await sleep(2200)
-  await click('TAKE A SEAT', 1600)
-}
-
+await click('CHANGE TABLE', 2000)
 await sitAt('EL PASE', 'La Viuda')
 await sweep(width * 0.68, width * 0.34)
 await sleep(800)

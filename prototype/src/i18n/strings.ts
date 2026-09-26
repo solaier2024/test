@@ -130,7 +130,10 @@ export interface Strings {
   }
 
   keys: {
-    hint: string
+    fire: string
+    raise: string
+    pass: string
+    next: string
   }
 }
 
@@ -308,7 +311,10 @@ const en: Strings = {
   },
 
   keys: {
-    hint: '1 at yourself · 2 across the table · R raise · Space continue',
+    fire: '1 at yourself · 2 across the table',
+    raise: 'R raise',
+    pass: 'P pass',
+    next: 'Space continue',
   },
 }
 
@@ -486,7 +492,10 @@ const es: Strings = {
   },
 
   keys: {
-    hint: '1 a ti mismo · 2 al otro lado · R subir · Espacio continuar',
+    fire: '1 a ti mismo · 2 al otro lado',
+    raise: 'R subir',
+    pass: 'P pasar',
+    next: 'Espacio continuar',
   },
 }
 

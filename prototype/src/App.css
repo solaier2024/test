@@ -1022,8 +1022,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   animation: capIn 500ms ease;
+}
+
+/* Leaving the table is always available but never the obvious move. */
+.btn--quiet {
+  min-width: 118px;
+  padding: 10px 16px;
+  border-color: rgba(217, 164, 65, 0.16);
+  background: rgba(8, 6, 5, 0.6);
+  font-size: 12px;
+  color: #8d8371;
 }
 
 .result__line {
