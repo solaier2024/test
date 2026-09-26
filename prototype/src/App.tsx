@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Scene, type SceneState } from './components/Scene'
 import { Cylinder } from './components/Cylinder'
 import {
@@ -40,7 +40,6 @@ import './App.css'
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
 
 interface TellRecord {
-  shown: 'confident' | 'rattled'
   wasBluff: boolean
 }
 
@@ -59,98 +58,101 @@ export default function App() {
   const [caption, setCaption] = useState('')
   const [tells, setTells] = useState<TellRecord[]>([])
   const [read, setRead] = useState<DealerRead | null>(null)
+  /** True while a shot or an opponent decision is playing out; locks input. */
+  const [cinematic, setCinematic] = useState(false)
 
-  const stateRef = useRef(state)
-  stateRef.current = state
+  /**
+   * The ref is the authoritative game state. React state is a render mirror,
+   * because the round orchestrator is async and cannot wait for re-renders.
+   */
+  const stateRef = useRef<GameState>(state)
   const busyRef = useRef(false)
+
+  const commit = useCallback((s: GameState) => {
+    stateRef.current = s
+    setState(s)
+  }, [])
 
   const odds = liveOdds(state)
   const left = liveRemaining(state)
-  const isSealed = state.cylinder.length > 0 || state.phase === 'round_over'
-
   const bluffsSeen = tells.length
   const bluffsCaught = tells.filter((t) => t.wasBluff).length
 
-  /** Refresh the opponent's visible mood, recording whether it was a bluff. */
+  /** Refreshes the opponent's shown mood and records whether it was a bluff. */
   const refreshTell = useCallback((s: GameState) => {
     const r = readDealer(s, CALLOWAY)
     setRead(r)
-    setSceneState(r.shown === 'confident' ? 'confident' : r.shown === 'rattled' ? 'rattled' : 'neutral')
-    if (r.shown !== 'neutral') {
-      setTells((prev) => [...prev, { shown: r.shown as 'confident' | 'rattled', wasBluff: r.bluffing }])
-    }
+    setSceneState(r.shown)
+    if (r.shown !== 'neutral') setTells((prev) => [...prev, { wasBluff: r.bluffing }])
   }, [])
 
-  /** Plays a shot out as a beat of cinema rather than an instant state change. */
+  /** Plays a shot as a beat of cinema rather than an instant state change. */
   const playShot = useCallback(
     async (shooter: Side, target: Target) => {
       const s = stateRef.current
       setZoom(1)
+
       if (shooter === 'dealer' && target === 'opponent') {
         setSceneState('aiming')
         setCaption('他抬起枪口，对准了你。')
-        await wait(900)
+        await wait(1000)
       } else if (shooter === 'dealer') {
         setCaption('他把枪口抵住自己的太阳穴。')
-        await wait(700)
+        await wait(800)
       } else {
         setCaption(target === 'self' ? '你把枪口对准自己。' : '你把枪口对准他。')
-        await wait(520)
+        await wait(600)
       }
 
       playCock()
-      await wait(520)
+      await wait(560)
 
       const result = fire(s, shooter, target)
-      const victim = result.victim
 
       if (result.chamber === 'live') {
         playGunshot()
         setFlashSource(shooter)
         setFlash((n) => n + 1)
         setSmokeBursts((n) => n + 1)
-        if (victim === 'player') {
+        if (result.victim === 'player') {
           setHurt(true)
           setCaption('枪响。你的视野塌了下去。')
         } else {
           setSceneState('rattled')
-          setCaption('枪响。他向后倒了下去。')
+          setCaption('枪响。他向后仰了过去，帽子落在地上。')
         }
       } else {
         playClick()
         setCaption('咔哒 —— 空的。')
       }
 
-      setState(result.state)
-      await wait(result.chamber === 'live' ? 1500 : 850)
+      // Let the shot land before the board updates, so the hit reads on screen.
+      await wait(result.chamber === 'live' ? 1900 : 900)
+      commit(result.state)
       setZoom(0)
       setHurt(false)
-      if (result.state.phase === 'betting') {
-        refreshTell(result.state)
-      }
+      if (result.state.phase === 'betting') refreshTell(result.state)
     },
-    [refreshTell],
+    [commit, refreshTell],
   )
 
-  /** The opponent's full turn: decide on chips first, then on the chamber. */
-  const runDealerTurn = useCallback(async () => {
-    await wait(700)
+  /** Runs exactly one opponent decision against the authoritative state. */
+  const dealerStep = useCallback(async () => {
+    await wait(750)
     let s = stateRef.current
-    if (s.turn !== 'dealer') return
 
     if (s.phase === 'facing_raise') {
       const answer = respondToRaise(s, CALLOWAY)
-      setCaption(answer === 'call' ? '他盯了你很久，然后跟了。' : '他把手收了回去。')
-      if (answer === 'call') {
-        playChips()
-        s = call(s, 'dealer')
-        setState(s)
-        await wait(700)
-      } else {
-        s = fold(s, 'dealer')
-        setState(s)
+      if (answer === 'fold') {
+        setCaption('他把手从筹码上收了回去。这一局他不跟。')
+        commit(fold(s, 'dealer'))
         return
       }
+      playChips()
+      setCaption('他盯了你很久，然后跟了。')
+      s = call(s, 'dealer')
+      commit(s)
+      await wait(800)
       if (s.turn !== 'dealer') return
     }
 
@@ -159,27 +161,45 @@ export default function App() {
     const bet = chooseBet(s, CALLOWAY)
     if (bet.action === 'raise') {
       playChips()
-      setCaption(`他加注 ${bet.amount}。`)
-      s = raise(s, 'dealer', bet.amount)
-      setState(s)
+      setCaption(`他把 ${bet.amount} 枚筹码推到桌心，等你表态。`)
+      commit(raise(s, 'dealer', bet.amount))
       return
     }
 
-    const target = chooseTarget(s, CALLOWAY)
-    await playShot('dealer', target)
-  }, [playShot])
+    await playShot('dealer', chooseTarget(s, CALLOWAY))
+  }, [commit, playShot])
 
-  // Drives the opponent whenever the table is waiting on him.
-  useEffect(() => {
-    if (!started) return
-    const needsDealer =
-      state.turn === 'dealer' && (state.phase === 'betting' || state.phase === 'facing_raise')
-    if (!needsDealer || busyRef.current) return
-    busyRef.current = true
-    void runDealerTurn().finally(() => {
-      busyRef.current = false
-    })
-  }, [started, state.turn, state.phase, state.fired, state.pot, runDealerTurn])
+  /**
+   * Drives the opponent until the table is waiting on the player again. Called
+   * explicitly after every player action, so no state change can be missed.
+   */
+  const pump = useCallback(async () => {
+    let guard = 0
+    while (guard++ < 40) {
+      const s = stateRef.current
+      const dealerToAct =
+        s.turn === 'dealer' && (s.phase === 'betting' || s.phase === 'facing_raise')
+      if (!dealerToAct) return
+      await dealerStep()
+    }
+  }, [dealerStep])
+
+  /** Serialises every player-initiated action against the opponent driver. */
+  const act = useCallback(
+    async (fn: () => Promise<void> | void) => {
+      if (busyRef.current) return
+      busyRef.current = true
+      setCinematic(true)
+      try {
+        await fn()
+        await pump()
+      } finally {
+        busyRef.current = false
+        setCinematic(false)
+      }
+    },
+    [pump],
+  )
 
   const begin = () => {
     unlockAudio()
@@ -187,70 +207,70 @@ export default function App() {
     setStarted(true)
   }
 
-  const onLoad = async () => {
-    unlockAudio()
-    setSpinning(true)
-    playSpin()
-    setCaption('你把子弹压进弹巢，合上，旋转。')
-    await wait(1100)
-    const s = startRound(stateRef.current, loadChoice)
-    setState(s)
-    setSpinning(false)
-    setRaiseAmount(Math.max(ANTE, Math.round(s.pot * 0.4)))
-    refreshTell(s)
-  }
+  const onLoad = () =>
+    act(async () => {
+      unlockAudio()
+      setSpinning(true)
+      playSpin()
+      setCaption('你把子弹压进弹巢，合上，旋转。')
+      await wait(1150)
+      const s = startRound(stateRef.current, loadChoice)
+      commit(s)
+      setSpinning(false)
+      setRaiseAmount(Math.max(ANTE, Math.round(s.pot * 0.4)))
+      refreshTell(s)
+      await wait(500)
+    })
 
-  const onPlayerFire = async (target: Target) => {
-    if (busyRef.current) return
-    busyRef.current = true
-    try {
-      await playShot('player', target)
-    } finally {
-      busyRef.current = false
-    }
-  }
+  const onPlayerFire = (target: Target) => act(() => playShot('player', target))
 
-  const onPlayerRaise = () => {
-    playChips()
-    const s = raise(stateRef.current, 'player', raiseAmount)
-    setState(s)
-    setCaption(`你推出 ${raiseAmount} 枚筹码。`)
-  }
+  const onPlayerRaise = () =>
+    act(async () => {
+      const amount = Math.min(raiseAmount, maxRaise(stateRef.current, 'player'))
+      playChips()
+      setCaption(`你把 ${amount} 枚筹码推过桌心。`)
+      commit(raise(stateRef.current, 'player', amount))
+      await wait(600)
+    })
 
-  const onPlayerCall = () => {
-    playChips()
-    setState(call(stateRef.current, 'player'))
-    setCaption('你跟了。')
-  }
+  const onPlayerCall = () =>
+    act(async () => {
+      playChips()
+      setCaption('你跟了。')
+      commit(call(stateRef.current, 'player'))
+      await wait(600)
+    })
 
-  const onPlayerFold = () => {
-    setState(fold(stateRef.current, 'player'))
-  }
+  const onPlayerFold = () =>
+    act(async () => {
+      setCaption('你把手从枪上挪开，推走了筹码。活着比赢重要。')
+      commit(fold(stateRef.current, 'player'))
+      await wait(400)
+    })
 
   const onNextRound = () => {
-    const s = advanceRound(stateRef.current)
-    setState(s)
+    commit(advanceRound(stateRef.current))
     setSceneState('neutral')
     setRead(null)
     setCaption('')
-    setLoadChoice(Math.min(5, Math.max(1, loadChoice)))
   }
 
   const onRestart = () => {
-    setState(createGame())
+    commit(createGame())
     setSceneState('neutral')
     setTells([])
     setRead(null)
     setCaption('')
   }
 
-  const playerTurn =
-    state.turn === 'player' && (state.phase === 'betting' || state.phase === 'facing_raise')
-
-  const oddsLabel = useMemo(() => {
-    if (!isSealed || state.cylinder.length === 0) return '—'
-    return `${Math.round(odds * 100)}%`
-  }, [isSealed, odds, state.cylinder.length])
+  const playerToAct =
+    !cinematic &&
+    state.turn === 'player' &&
+    (state.phase === 'betting' || state.phase === 'facing_raise')
+  const waitingOnDealer =
+    state.turn === 'dealer' && (state.phase === 'betting' || state.phase === 'facing_raise')
+  const raiseCap = Math.max(1, maxRaise(state, 'player'))
+  const clampedRaise = Math.min(raiseAmount, raiseCap)
 
   if (!started) {
     return (
@@ -258,10 +278,12 @@ export default function App() {
         <Scene state="neutral" flash={0} flashSource={null} hurt={false} zoom={0} showRevolver />
         <Atmosphere smokeBursts={0} />
         <div className="title">
-          <p className="title__kicker">西部 · 单人赌命</p>
+          <p className="title__kicker">西 部 · 赌 命</p>
           <h1 className="title__name">最 后 一 发</h1>
           <p className="title__sub">
-            六个弹巢。你决定装几发实弹。你们都知道装了多少，但谁都不知道顺序。
+            六个弹巢，你决定装几发实弹。你们都知道装了多少，却谁也不知道顺序。
+            <br />
+            对准自己活下来，行动权还在你手里；对准他，无论空实都换他上。
           </p>
           <button className="btn btn--primary btn--lg" onClick={begin}>
             坐 下
@@ -286,18 +308,20 @@ export default function App() {
 
       <div className="hud">
         <header className="hud__top">
-          <div className="chipstack">
-            <span className="chipstack__label">{CALLOWAY.name}</span>
+          <div className={`chipstack${waitingOnDealer ? ' is-active' : ''}`}>
+            <span className="chipstack__label">对面 · {CALLOWAY.name}</span>
             <span className="chipstack__value">{state.chips.dealer}</span>
+            <span className="chipstack__turn">{waitingOnDealer ? '他在想' : ''}</span>
           </div>
           <div className="pot">
-            <span className="pot__label">桌心</span>
+            <span className="pot__label">桌 心</span>
             <span className="pot__value">{state.pot}</span>
             <span className="pot__round">第 {state.round} 局</span>
           </div>
-          <div className="chipstack chipstack--me">
+          <div className={`chipstack chipstack--me${playerToAct ? ' is-active' : ''}`}>
             <span className="chipstack__label">你</span>
             <span className="chipstack__value">{state.chips.player}</span>
+            <span className="chipstack__turn">{playerToAct ? '该你了' : ''}</span>
           </div>
         </header>
 
@@ -309,7 +333,7 @@ export default function App() {
             mode={state.phase === 'loading' ? 'open' : 'sealed'}
             spinning={spinning}
           />
-          {state.phase !== 'loading' && (
+          {state.phase !== 'loading' && state.cylinder.length > 0 && (
             <div className="readout__odds">
               <span className="readout__oddsLabel">下一发是实弹</span>
               <span
@@ -317,7 +341,7 @@ export default function App() {
                   odds >= 1 ? ' is-certain' : ''
                 }`}
               >
-                {oddsLabel}
+                {Math.round(odds * 100)}%
               </span>
               <div className="readout__bar">
                 <div className="readout__barFill" style={{ width: `${odds * 100}%` }} />
@@ -329,10 +353,14 @@ export default function App() {
             <div className="readout__tell">
               <span className="readout__tellLabel">他的神色</span>
               <span className="readout__tellValue">
-                {read.shown === 'confident' ? '松弛、带笑' : read.shown === 'rattled' ? '紧绷、出汗' : '毫无波澜'}
+                {read.shown === 'confident'
+                  ? '松弛，嘴角有笑'
+                  : read.shown === 'rattled'
+                    ? '紧绷，额头出汗'
+                    : '毫无波澜'}
               </span>
               <span className="readout__tellHint">
-                他不一定在说真话（已观察 {bluffsSeen} 次，其中 {bluffsCaught} 次是演的）
+                已看过他 {bluffsSeen} 次表情，其中 {bluffsCaught} 次是演的
               </span>
             </div>
           )}
@@ -341,7 +369,7 @@ export default function App() {
         {caption && <div className="caption">{caption}</div>}
 
         <footer className="actions">
-          {state.phase === 'loading' && (
+          {state.phase === 'loading' && !cinematic && (
             <div className="loadpanel">
               <p className="loadpanel__title">往六个弹巢里装几发实弹？</p>
               <div className="loadpanel__choices">
@@ -357,7 +385,8 @@ export default function App() {
                 ))}
               </div>
               <p className="loadpanel__hint">
-                装得越满，底注越高，也越快逼到「必响」那一发。底注 {Math.round(ANTE * riskMultiplier(loadChoice))}。
+                装得越满，底注越高，也越快逼出「必响」那一发。本局底注{' '}
+                {Math.round(ANTE * riskMultiplier(loadChoice))}。
               </p>
               <button className="btn btn--primary" onClick={onLoad} disabled={spinning}>
                 装弹并旋转
@@ -365,28 +394,25 @@ export default function App() {
             </div>
           )}
 
-          {playerTurn && state.phase === 'betting' && (
+          {playerToAct && state.phase === 'betting' && (
             <div className="actionrow">
               <div className="raisebox">
+                <span className="raisebox__label">加注</span>
                 <input
                   type="range"
                   min={1}
-                  max={Math.max(1, maxRaise(state, 'player'))}
-                  value={Math.min(raiseAmount, Math.max(1, maxRaise(state, 'player')))}
+                  max={raiseCap}
+                  value={clampedRaise}
                   onChange={(e) => setRaiseAmount(Number(e.target.value))}
                   disabled={!canRaise(state, 'player')}
                 />
-                <button
-                  className="btn"
-                  onClick={onPlayerRaise}
-                  disabled={!canRaise(state, 'player')}
-                >
-                  加注 {Math.min(raiseAmount, Math.max(1, maxRaise(state, 'player')))}
+                <button className="btn btn--slim" onClick={onPlayerRaise} disabled={!canRaise(state, 'player')}>
+                  推出 {clampedRaise}
                 </button>
               </div>
               <button className="btn btn--risk" onClick={() => onPlayerFire('self')}>
                 对准自己
-                <small>空响就继续由你行动</small>
+                <small>空响则继续由你行动</small>
               </button>
               <button className="btn btn--kill" onClick={() => onPlayerFire('opponent')}>
                 对准他
@@ -395,7 +421,7 @@ export default function App() {
             </div>
           )}
 
-          {playerTurn && state.phase === 'facing_raise' && (
+          {playerToAct && state.phase === 'facing_raise' && (
             <div className="actionrow">
               <div className="callnote">他要你再压 {state.toCall} 枚才能继续。</div>
               <button className="btn btn--primary" onClick={onPlayerCall}>
@@ -408,12 +434,17 @@ export default function App() {
             </div>
           )}
 
-          {state.phase === 'round_over' && (
+          {state.phase === 'round_over' && !cinematic && (
             <div className="result">
-              <p className="result__line">
-                {state.outcome?.winner === 'player' ? '这一局你活下来了。' : '这一局归他。'}
-                {state.outcome?.reason === 'fold' ? ' （有人退了）' : ''}
-                {state.outcome ? ` 桌心 ${state.outcome.pot}。` : ''}
+              <p
+                className={`result__line${
+                  state.outcome?.winner === 'player' ? ' is-win' : ' is-loss'
+                }`}
+              >
+                {state.outcome?.winner === 'player'
+                  ? `这一局你活下来了，${state.outcome.pot} 枚筹码归你。`
+                  : `这一局归他，桌心 ${state.outcome?.pot ?? 0} 枚被他收走。`}
+                {state.outcome?.reason === 'fold' ? '（有人退了，枪没响）' : ''}
               </p>
               <button className="btn btn--primary" onClick={onNextRound}>
                 继续
@@ -424,10 +455,12 @@ export default function App() {
           {state.phase === 'match_over' && (
             <div className="result">
               <p className="result__line">
-                {state.chips.player <= 0 ? '你输光了。他把帽子压低，起身走了。' : '他没有筹码了。酒馆很安静。'}
+                {state.chips.player <= 0
+                  ? '你输光了。他把帽子压低，起身走进夜色里。'
+                  : '他一枚筹码都不剩了。酒馆忽然很安静。'}
               </p>
               <button className="btn btn--primary" onClick={onRestart}>
-                再来一局
+                再坐一次
               </button>
             </div>
           )}

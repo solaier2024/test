@@ -28,7 +28,10 @@ interface Smoke {
 export function Atmosphere({ smokeBursts }: { smokeBursts: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const burstRef = useRef(smokeBursts)
-  burstRef.current = smokeBursts
+
+  useEffect(() => {
+    burstRef.current = smokeBursts
+  }, [smokeBursts])
 
   useEffect(() => {
     const canvas = canvasRef.current
