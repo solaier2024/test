@@ -1,8 +1,15 @@
 name: Deploy preview
 
-# Publishes the prototype on this branch to GitHub Pages so it can be played
-# in a browser without checking anything out. This is a preview only; it does
-# not merge or touch the default branch.
+# Builds the prototype on this branch and publishes it to the gh-pages branch,
+# which GitHub Pages serves at https://<owner>.github.io/<repo>/.
+#
+# This is a preview only: it never merges and never touches the default branch.
+#
+# Enabling Pages itself is a one-time manual step, because creating or
+# repointing a Pages site needs repository administration scope and the
+# Actions token cannot hold it (POST/PUT /repos/{o}/{r}/pages both return 403).
+# Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages / (root).
+# Once that is set, every push to this branch republishes automatically.
 
 on:
   push:
@@ -12,14 +19,13 @@ on:
 permissions:
   contents: write
   pages: write
-  id-token: write
 
 concurrency:
   group: preview-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,56 +49,20 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
         run: npm run build
 
-      # The app has no client-side router, but serving index.html for unknown
-      # paths means a mistyped deep link still boots rather than 404s.
-      - name: Add the 404 fallback
-        run: cp prototype/dist/index.html prototype/dist/404.html
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: prototype/dist
-          retention-days: 7
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: prototype/dist
-
-  # The supported path: Pages serves the uploaded artifact directly.
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - id: deployment
-        uses: actions/deploy-pages@v4
-
-  # If the github-pages environment refuses a deployment from a branch that is
-  # not the default one, fall back to the older branch-based publishing source,
-  # which has no environment and so no branch policy to trip over.
-  fallback:
-    needs: [build, deploy]
-    if: always() && needs.build.result == 'success' && needs.deploy.result != 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: site
-          path: dist
+      - name: Add the Pages shims
+        run: |
+          # No client-side router, but serving the app for unknown paths means
+          # a mistyped deep link still boots instead of 404ing.
+          cp prototype/dist/index.html prototype/dist/404.html
+          # Jekyll is on by default for branch sources and would swallow any
+          # path component beginning with an underscore.
+          touch prototype/dist/.nojekyll
 
       - name: Push the build to gh-pages
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Jekyll is on by default for branch sources and would swallow any
-          # path component beginning with an underscore.
-          touch dist/.nojekyll
-          cd dist
+          cd prototype/dist
           git init -q
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -100,22 +70,26 @@ jobs:
           git commit -q -m "Preview build from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
 
-      - name: Point Pages at gh-pages
+      # Best effort only. Expected to 403 until Pages is enabled by hand, so it
+      # reports rather than failing the run - the build above is what matters.
+      - name: Report Pages status
+        continue-on-error: true
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          api() {
-            curl -sS -o /tmp/body -w '%{http_code}' -X "$1" \
-              -H "Authorization: Bearer ${TOKEN}" \
-              -H 'Accept: application/vnd.github+json' \
-              -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" "${@:2}"
-          }
-          src='{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}'
-          code=$(api PUT -d "$src")
-          echo "PUT  /pages -> $code"; cat /tmp/body; echo
-          if [ "$code" = '404' ]; then
-            code=$(api POST -d "$src")
-            echo "POST /pages -> $code"; cat /tmp/body; echo
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
+          if [ "$code" = '200' ]; then
+            echo "Pages is live: $(jq -r .html_url /tmp/body)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo '### Pages is not enabled yet'
+              echo
+              echo 'The build is on the `gh-pages` branch and ready to serve.'
+              echo 'Settings -> Pages -> Source: "Deploy from a branch" -> `gh-pages` / `(root)`.'
+              echo
+              echo "It will then be live at https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
-          [ "$(api GET)" = '200' ] && cat /tmp/body
