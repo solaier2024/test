@@ -40,6 +40,25 @@ async function audit(step) {
       }
     }
     if (document.documentElement.scrollWidth > w) bad.push('the page scrolls sideways')
+
+    /*
+     * Anything painting in the last few pixels of the screen is either a
+     * pinned control bar or copy that has slipped underneath one and is
+     * being sliced off. Checking the controls alone misses this entirely:
+     * the buttons were fine, the rules text behind them was not.
+     */
+    for (const x of [w * 0.15, w * 0.5, w * 0.85]) {
+      const el = document.elementFromPoint(x, h - 3)
+      if (!el || el.closest('.menu__go, .actions, .intro, .hud__top, .langtoggle')) continue
+      // Only a node that holds the text itself; an ancestor would report the
+      // whole screen's copy and drown the check in noise.
+      const own = [...el.childNodes]
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent.trim())
+        .join(' ')
+        .trim()
+      if (own) bad.push(`"${own.slice(0, 44)}" is sliced by the bottom of the screen`)
+    }
     return bad
   })
   found.forEach((f) => problems.push(`${step}: ${f}`))

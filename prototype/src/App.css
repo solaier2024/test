@@ -1361,7 +1361,7 @@ body {
        home indicator are not places to put content. */
     justify-content: flex-start;
     gap: 14px;
-    padding: calc(58px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    padding: calc(58px + env(safe-area-inset-top)) 12px calc(104px + env(safe-area-inset-bottom));
     -webkit-overflow-scrolling: touch;
   }
 
@@ -1377,11 +1377,16 @@ body {
   }
 
   .menu__go {
-    position: sticky;
+    /* Pinned rather than sticky. A sticky bar is still in flow, so the rules
+       copy keeps rendering in the strip beneath it and gets sliced off by the
+       bottom of the screen. The picker reserves the height in its padding. */
+    position: fixed;
+    left: 0;
+    right: 0;
     bottom: 0;
-    width: 100%;
-    padding: 12px 0 4px;
-    background: linear-gradient(to top, #060505 62%, rgba(6, 5, 5, 0));
+    width: auto;
+    padding: 16px 12px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, #060505 76%, rgba(6, 5, 5, 0));
   }
 
   .menu__go .btn {
