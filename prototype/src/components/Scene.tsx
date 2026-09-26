@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { plateUrl } from '../art'
+import { Clip } from './Clip'
 import { OPPONENTS, type Mood, type OpponentId } from '../game/ai'
 import type { VenueId } from '../game/types'
 
 export type SceneState = Mood | 'aiming' | 'hit'
+
+/** A clip the table has asked for. The token replays it without renaming it. */
+export interface ClipRequest {
+  name: string
+  token: number
+  loop?: boolean
+  rate?: number
+}
 
 /** Filename stem of each opponent's pre-rendered plate set. */
 const PREFIX: Record<OpponentId, string> = {
@@ -27,9 +36,8 @@ const SUFFIX: Record<SceneState, string> = {
 const ORDER: SceneState[] = ['neutral', 'confident', 'rattled', 'aiming', 'hit']
 
 /**
- * States that have an eyes-closed twin. A blink needs the rest of the frame to
- * be unchanged, so only the two settled expressions get one; someone rattled or
- * sighting down a barrel holding a stare is in character anyway.
+ * States that have an eyes-closed twin. Used only when no clip is running;
+ * the idle clip breathes and blinks on its own.
  */
 const BLINKABLE: SceneState[] = ['neutral', 'confident']
 
@@ -67,11 +75,22 @@ interface SceneProps {
   showRevolver: boolean
   /** Cuts rather than dissolves, for the frame the shot lands on. */
   snap: boolean
+  clip?: ClipRequest | null
+  onClipEnd?: () => void
+  /** Use the phone encodes and skip the pointer parallax. */
+  small: boolean
+  touch: boolean
 }
 
 /**
- * The cinematic plate. Every character state is a full pre-rendered frame with
- * matching lighting, so states cross-fade instead of needing cut-out alpha.
+ * The cinematic plate.
+ *
+ * Two layers, in register. Underneath is the pre-rendered plate stack, one
+ * full frame per character state, cross-dissolving between them. Over the top
+ * is whichever action clip is playing. Because every clip was rendered from
+ * those same plates, its first and last frame are plates, so the video can
+ * come and go without a seam - and while it is up, it hides the dissolve the
+ * plate underneath is doing to get ready for the frame the clip ends on.
  */
 export function Scene({
   opponent,
@@ -82,6 +101,10 @@ export function Scene({
   zoom,
   showRevolver,
   snap,
+  clip,
+  onClipEnd,
+  small,
+  touch,
 }: SceneProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
@@ -95,6 +118,7 @@ export function Scene({
     plateUrl(`${prefix}_${SUFFIX[s]}${closed ? '_blink' : ''}`)
 
   useEffect(() => {
+    if (touch) return
     const onMove = (e: MouseEvent) => {
       const el = rootRef.current
       if (!el) return
@@ -106,7 +130,7 @@ export function Scene({
     }
     window.addEventListener('mousemove', onMove)
     return () => window.removeEventListener('mousemove', onMove)
-  }, [])
+  }, [touch])
 
   // Recoil is played imperatively so repeat shots always restart the motion.
   useEffect(() => {
@@ -118,11 +142,11 @@ export function Scene({
   }, [flash])
 
   /*
-   * Blinks fire on an irregular schedule so the frame never feels like a still.
-   * Restarting the loop whenever the expression changes also guarantees no
-   * blink plate is left showing across a cross-dissolve into another state.
+   * Blinks fire on an irregular schedule so the frame never feels like a
+   * still. They are the fallback for the states that have no clip; when one
+   * is playing it covers the plates and does its own blinking.
    */
-  const canBlink = BLINKABLE.includes(state)
+  const canBlink = BLINKABLE.includes(state) && !clip
   useEffect(() => {
     if (!canBlink) return
 
@@ -161,41 +185,59 @@ export function Scene({
       className={`scene${hurt ? ' scene--hurt' : ''}${snap ? ' scene--snap' : ''}`}
     >
       <div className="scene__plates" style={{ transform: plateTransform }}>
-        <img className="scene__plate" src={plateUrl(room.back)} alt="" />
-        {ORDER.map((key) => (
-          <img
-            key={`${opponent}-${key}`}
-            className={`scene__plate scene__plate--char${state === key ? ' is-active' : ''}`}
-            src={frame(key)}
-            alt=""
-          />
-        ))}
         {/*
-         * The eyes-closed twin of the current expression, identical to it in
-         * every other respect, so snapping it on for a fifth of a second reads
-         * as a blink rather than as a change of frame.
+         * One drift animation over the whole stack rather than one per layer.
+         * Shared phase is the point: the clip and the plate beneath it have to
+         * breathe in lockstep or swapping between them jumps.
          */}
-        {canBlink && (
-          <img
-            key={`${opponent}-${state}-blink`}
-            className={`scene__plate scene__plate--blink${blinking ? ' is-active' : ''}`}
-            src={frame(state, true)}
-            alt=""
-          />
-        )}
-        {/*
-         * The revolver is rendered into a copy of the same plate rather than
-         * composited as a cut-out prop, so its contact shadow and rim light
-         * match the room. Masking to the corner it occupies lets it sit on top
-         * of any character state without disturbing the rest of the frame.
-         */}
-        {showRevolver && (
-          <img
-            className={`scene__plate scene__plate--prop scene__plate--prop-${venue}`}
-            src={plateUrl(room.prop)}
-            alt=""
-          />
-        )}
+        <div className="scene__breathe">
+          <img className="scene__plate" src={plateUrl(room.back)} alt="" />
+          {ORDER.map((key) => (
+            <img
+              key={`${opponent}-${key}`}
+              className={`scene__plate scene__plate--char${state === key ? ' is-active' : ''}`}
+              src={frame(key)}
+              alt=""
+            />
+          ))}
+          {/*
+           * The eyes-closed twin of the current expression, identical to it in
+           * every other respect, so snapping it on for a fifth of a second
+           * reads as a blink rather than as a change of frame.
+           */}
+          {canBlink && (
+            <img
+              key={`${opponent}-${state}-blink`}
+              className={`scene__plate scene__plate--blink${blinking ? ' is-active' : ''}`}
+              src={frame(state, true)}
+              alt=""
+            />
+          )}
+          {/*
+           * The revolver is rendered into a copy of the same plate rather than
+           * composited as a cut-out prop, so its contact shadow and rim light
+           * match the room. Masking to the corner it occupies lets it sit on
+           * top of any character state without disturbing the rest of the frame.
+           */}
+          {showRevolver && !clip && (
+            <img
+              className={`scene__plate scene__plate--prop scene__plate--prop-${venue}`}
+              src={plateUrl(room.prop)}
+              alt=""
+            />
+          )}
+          {clip && (
+            <Clip
+              className="scene__clip"
+              name={clip.name}
+              token={clip.token}
+              loop={clip.loop}
+              rate={clip.rate}
+              small={small}
+              onEnd={onClipEnd}
+            />
+          )}
+        </div>
       </div>
 
       <div className={`scene__lamp scene__lamp--${venue}`} />

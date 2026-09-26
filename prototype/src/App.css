@@ -19,6 +19,9 @@ body,
   margin: 0;
   background: #000;
   overflow: hidden;
+  /* A double-tap on a control must not be read as a request to zoom. */
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 body {
@@ -29,8 +32,11 @@ body {
 
 .app {
   position: relative;
-  width: 100vw;
+  width: 100%;
+  /* dvh, so the layout does not sit under a mobile browser's collapsing
+     toolbar and put the action buttons where they cannot be tapped. */
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #000;
 }
@@ -50,7 +56,21 @@ body {
   will-change: transform;
 }
 
-.scene__plate {
+/*
+ * A slow drift over the whole stack, so the still frames read as a held
+ * camera rather than a photograph. It sits on its own element because the
+ * parent already carries an inline transform for the parallax, and because
+ * one shared animation is the only way the clip layer and the plate beneath
+ * it can be guaranteed to drift in phase.
+ */
+.scene__breathe {
+  position: absolute;
+  inset: 0;
+  animation: cameraBreathe 6.4s ease-in-out infinite;
+}
+
+.scene__plate,
+.scene__clip {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -58,12 +78,19 @@ body {
   object-fit: cover;
   user-select: none;
   -webkit-user-drag: none;
-  /*
-   * A slow drift applied to every plate at once, so nothing shifts relative to
-   * anything else and the still frame reads as a held camera rather than a
-   * photograph. It only ever scales up, so the overscan is never exposed.
-   */
-  animation: cameraBreathe 6.4s ease-in-out infinite;
+}
+
+/*
+ * Clips start and end on frames that also exist as plates, so the layer can
+ * appear and disappear without a dissolve. If one will not play at all it is
+ * taken out of the way and the plate underneath is already correct.
+ */
+.scene__clip {
+  background: #000;
+}
+
+.clip--failed {
+  opacity: 0;
 }
 
 @keyframes cameraBreathe {
@@ -121,7 +148,7 @@ body {
 
 /* Reveals only the corner of the prop plate that holds the revolver. */
 .scene__plate--prop {
-  animation: cameraBreathe 6.4s ease-in-out infinite, revolverBreathe 7s ease-in-out infinite;
+  animation: revolverBreathe 7s ease-in-out infinite;
 }
 
 .scene__plate--prop-saloon {
@@ -363,10 +390,6 @@ body {
   transition: color 180ms, background 180ms;
 }
 
-.langtoggle__btn:hover {
-  color: var(--bone);
-}
-
 .langtoggle__btn.is-on {
   background: linear-gradient(180deg, rgba(86, 60, 22, 0.9), rgba(30, 20, 8, 0.9));
   color: var(--amber);
@@ -450,10 +473,6 @@ body {
   text-align: left;
   cursor: pointer;
   transition: border-color 180ms, background 180ms, box-shadow 180ms;
-}
-
-.pick:hover {
-  border-color: rgba(217, 164, 65, 0.5);
 }
 
 .pick.is-on {
@@ -867,12 +886,6 @@ body {
   color: #7b7365;
 }
 
-.btn:hover:not(:disabled) {
-  border-color: rgba(217, 164, 65, 0.85);
-  box-shadow: 0 0 26px rgba(217, 164, 65, 0.16), inset 0 0 20px rgba(217, 164, 65, 0.07);
-  transform: translateY(-1px);
-}
-
 .btn:active:not(:disabled) {
   transform: translateY(1px);
 }
@@ -892,16 +905,6 @@ body {
   padding: 16px 30px;
   font-size: 17px;
   letter-spacing: 0.34em;
-}
-
-.btn--risk:hover:not(:disabled) {
-  border-color: #c8873c;
-  box-shadow: 0 0 30px rgba(200, 135, 60, 0.22);
-}
-
-.btn--kill:hover:not(:disabled) {
-  border-color: #b0362c;
-  box-shadow: 0 0 30px rgba(176, 54, 44, 0.26);
 }
 
 .raisebox {
@@ -990,10 +993,6 @@ body {
 .chamberbtn__x {
   font-size: 10px;
   letter-spacing: 0.08em;
-}
-
-.chamberbtn:hover {
-  border-color: rgba(217, 164, 65, 0.6);
 }
 
 .chamberbtn.is-on {
@@ -1120,11 +1119,6 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
-.btn--pass:hover:not(:disabled) {
-  border-color: #7f8fb0;
-  box-shadow: 0 0 26px rgba(127, 143, 176, 0.2);
-}
-
 .keyhint {
   position: absolute;
   right: 22px;
@@ -1135,6 +1129,212 @@ body {
   color: #4f483e;
   pointer-events: none;
 }
+
+/* ---------- opening cinematic ---------- */
+
+.intro {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.intro__film {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Filling the frame on a wide screen, letterboxed on a tall one: cropping
+     a 16:9 establishing shot to a phone's portrait slice throws away the shot. */
+  object-fit: cover;
+}
+
+.intro__grade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 84% 80% at 50% 46%, transparent 46%, rgba(0, 0, 0, 0.66) 100%);
+}
+
+.intro__line {
+  position: absolute;
+  left: 50%;
+  bottom: 17%;
+  translate: -50% 0;
+  margin: 0;
+  width: min(40em, 86vw);
+  text-align: center;
+  font-size: clamp(15px, 2vw, 22px);
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  color: var(--bone);
+  text-shadow: 0 2px 20px #000, 0 0 44px rgba(0, 0, 0, 0.95);
+  animation: introLine 700ms ease both;
+}
+
+@keyframes introLine {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.intro__tap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  margin: 0;
+  padding: 16px 30px;
+  border: 1px solid rgba(217, 164, 65, 0.6);
+  font-family: var(--wood);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  color: var(--amber);
+  background: rgba(8, 6, 5, 0.8);
+}
+
+.intro__lang {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.intro__lang > * {
+  pointer-events: auto;
+}
+
+.intro__skip {
+  position: absolute;
+  right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  min-width: 96px;
+  min-height: 44px;
+  padding: 11px 22px;
+  border: 1px solid rgba(217, 164, 65, 0.32);
+  border-radius: 2px;
+  background: rgba(8, 6, 5, 0.66);
+  color: var(--bone);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+}
+
+.intro__note {
+  position: absolute;
+  left: 50%;
+  bottom: calc(22px + env(safe-area-inset-bottom));
+  translate: -50% 0;
+  margin: 0;
+  max-width: 70vw;
+  text-align: center;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: #6f6759;
+}
+
+/* How much is left, so skipping is a choice rather than an escape. */
+.intro__bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(217, 164, 65, 0.3), var(--amber));
+  transform-origin: 0 50%;
+}
+
+/* A plain-text action, for anything that must be reachable but not inviting. */
+.linkbtn {
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  color: #7b7365;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  cursor: pointer;
+}
+
+/* ---------- pointer affordances ---------- */
+
+/*
+ * Hover is decoration, never information: every control that has a hover
+ * state also has a pressed state and, where it matters, an .is-on state.
+ * Behind a hover query so a phone cannot leave a button stuck lit after a tap.
+ */
+@media (hover: hover) {
+  .langtoggle__btn:hover {
+    color: var(--bone);
+  }
+
+  .pick:hover {
+    border-color: rgba(217, 164, 65, 0.5);
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: rgba(217, 164, 65, 0.85);
+    box-shadow: 0 0 26px rgba(217, 164, 65, 0.16), inset 0 0 20px rgba(217, 164, 65, 0.07);
+    transform: translateY(-1px);
+  }
+
+  .btn--risk:hover:not(:disabled) {
+    border-color: #c8873c;
+    box-shadow: 0 0 30px rgba(200, 135, 60, 0.22);
+  }
+
+  .btn--kill:hover:not(:disabled) {
+    border-color: #b0362c;
+    box-shadow: 0 0 30px rgba(176, 54, 44, 0.26);
+  }
+
+  .btn--pass:hover:not(:disabled) {
+    border-color: #7f8fb0;
+    box-shadow: 0 0 26px rgba(127, 143, 176, 0.2);
+  }
+
+  .chamberbtn:hover {
+    border-color: rgba(217, 164, 65, 0.6);
+  }
+
+  .linkbtn:hover {
+    color: var(--bone);
+  }
+}
+
+/* Touch has no hover to preview with, so the press itself has to answer. */
+@media (hover: none) {
+  .pick:active,
+  .chamberbtn:active {
+    border-color: rgba(217, 164, 65, 0.7);
+    background: rgba(48, 34, 14, 0.9);
+  }
+
+  .btn:active:not(:disabled) {
+    border-color: rgba(217, 164, 65, 0.85);
+    box-shadow: 0 0 26px rgba(217, 164, 65, 0.18);
+  }
+
+  /* Fingers need targets; a 13px pill is not one. */
+  .btn,
+  .langtoggle__btn,
+  .linkbtn,
+  .chamberbtn {
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The slider's hit area, not its look: the track stays thin. */
+  .raisebox input[type='range'] {
+    height: 44px;
+  }
+}
+
+/* ---------- narrow screens ---------- */
 
 @media (max-width: 1100px) {
   .menu__cols {
@@ -1149,23 +1349,369 @@ body {
   }
 }
 
-@media (max-width: 900px) {
-  .readout {
-    left: 14px;
-    width: 160px;
-  }
-  .actionrow {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .btn {
-    min-width: 120px;
-    font-size: 13px;
-  }
-  .menu__cols {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 860px) {
   .keyhint {
     display: none;
+  }
+
+  .menu {
+    /* The picker is taller than a phone; it scrolls, and the notch and the
+       home indicator are not places to put content. */
+    justify-content: flex-start;
+    gap: 14px;
+    padding: calc(58px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .menu__cols {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    width: 100%;
+    padding: 16px;
+  }
+
+  .menu__col--wide {
+    padding-top: 14px;
+  }
+
+  .menu__go {
+    position: sticky;
+    bottom: 0;
+    width: 100%;
+    padding: 12px 0 4px;
+    background: linear-gradient(to top, #060505 62%, rgba(6, 5, 5, 0));
+  }
+
+  .menu__go .btn {
+    flex: 1;
+  }
+
+  .btn--lg {
+    min-width: 0;
+    padding: 14px 20px;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+  }
+
+  .langtoggle {
+    top: calc(10px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
+  }
+
+  .title {
+    gap: 12px;
+    padding: 0 18px;
+  }
+
+  .title__sub {
+    font-size: 13.5px;
+    line-height: 1.75;
+  }
+}
+
+/*
+ * Portrait phones get a different shape rather than a shrunken one. The
+ * plate is 16:9 and cropping it to a phone's portrait slice leaves nothing
+ * but a chin, so the scene becomes a stage across the top and everything the
+ * player touches sits below it, in reach of a thumb.
+ */
+@media (max-width: 860px) and (orientation: portrait) {
+  .app {
+    --stage: min(44vh, 64vw);
+    background: radial-gradient(ellipse 120% 60% at 50% 0%, #120d09, #050404 70%);
+  }
+
+  .scene,
+  .atmosphere {
+    bottom: auto;
+    height: var(--stage);
+  }
+
+  .scene__vignette {
+    background:
+      radial-gradient(ellipse 88% 84% at 50% 44%, transparent 44%, rgba(0, 0, 0, 0.66) 100%),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.42), transparent 28%, transparent 64%, rgba(0, 0, 0, 0.92));
+  }
+
+  .hud {
+    grid-template-rows: var(--stage) auto auto auto 1fr;
+    padding: 0 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .hud__top {
+    grid-row: 2;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 0 6px;
+  }
+
+  .chipstack {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+  }
+
+  .chipstack__label,
+  .chipstack__turn {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+
+  .chipstack__value {
+    font-size: 20px;
+  }
+
+  .pot__value {
+    font-size: 26px;
+  }
+
+  .pot__label {
+    font-size: 9px;
+    letter-spacing: 0.24em;
+  }
+
+  /* The readout stops being a sidebar and becomes a band under the stage. */
+  .readout {
+    position: static;
+    grid-row: 3;
+    translate: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    width: auto;
+    padding: 4px 0 8px;
+  }
+
+  .readout__odds,
+  .readout__tell {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+  }
+
+  .readout__oddsValue {
+    font-size: 21px;
+  }
+
+  .readout__tellValue {
+    font-size: 13px;
+  }
+
+  .readout__tellHint {
+    font-size: 9.5px;
+  }
+
+  .cylinder__caption {
+    margin-top: 5px;
+    gap: 9px;
+    font-size: 9.5px;
+  }
+
+  .caption {
+    position: static;
+    grid-row: 4;
+    translate: none;
+    max-width: none;
+    padding: 2px 4px 8px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .actions {
+    grid-row: 5;
+    align-self: end;
+    padding: 0;
+  }
+
+  /* One column of full-width controls: no reaching across the screen. */
+  .actionrow,
+  .loadpanel,
+  .result {
+    width: 100%;
+  }
+
+  /*
+   * Two columns, because the choice that matters is a pair: shoot at
+   * yourself or across the table. Everything that is not one of the two sits
+   * on its own full-width row above them.
+   */
+  .actionrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .raisebox,
+  .btn--pass,
+  .callnote {
+    grid-column: 1 / -1;
+  }
+
+  .btn,
+  .btn--slim,
+  .btn--quiet {
+    width: 100%;
+    min-width: 0;
+    min-height: 50px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    letter-spacing: 0.08em;
+  }
+
+  .btn small {
+    font-size: 9.5px;
+    line-height: 1.35;
+  }
+
+  .raisebox {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+  }
+
+  .raisebox__label {
+    flex: 0 0 auto;
+  }
+
+  .raisebox input[type='range'] {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
+  .raisebox .btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 104px;
+  }
+
+  .callnote {
+    justify-content: center;
+    padding: 0 0 2px;
+    text-align: center;
+  }
+
+  .loadpanel {
+    gap: 10px;
+    padding: 14px 12px;
+  }
+
+  .loadpanel__title {
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .loadpanel__choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+    gap: 7px;
+    width: 100%;
+  }
+
+  .chamberbtn {
+    width: auto;
+    min-height: 52px;
+  }
+
+  .loadpanel__hint {
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .result {
+    gap: 10px;
+  }
+
+  .result__line {
+    font-size: 15px;
+    text-align: center;
+  }
+
+  .result__swing {
+    font-size: 24px;
+  }
+
+  /*
+   * The opening keeps its whole frame on a phone and sits high, the way the
+   * table does, so the captions have somewhere of their own to live instead
+   * of being printed over the shot.
+   */
+  .intro__film {
+    object-fit: contain;
+    object-position: 50% 24%;
+  }
+
+  .intro__line {
+    top: 58%;
+    bottom: auto;
+    font-size: 16px;
+  }
+
+  .intro__skip {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
+  .intro__note {
+    max-width: 88vw;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+}
+
+/* A phone held sideways has the aspect ratio but not the height. */
+@media (max-height: 460px) and (orientation: landscape) {
+  .hud__top {
+    padding: 8px 14px;
+  }
+
+  .readout {
+    left: 12px;
+    width: 150px;
+    gap: 8px;
+  }
+
+  .actions {
+    padding: 0 14px 12px;
+  }
+
+  .caption {
+    bottom: 128px;
+    font-size: 14px;
+  }
+
+  .btn {
+    min-width: 116px;
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  .loadpanel {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 16px;
+  }
+
+  .loadpanel__hint {
+    display: none;
+  }
+
+  .title__sub {
+    display: none;
+  }
+}
+
+/* Honour a system-wide request for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .scene__breathe,
+  .scene__plate--prop,
+  .scene__lamp,
+  .readout__oddsValue.is-certain {
+    animation: none;
+  }
+
+  .scene__plates {
+    transition: none;
   }
 }

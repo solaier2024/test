@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { plateUrl } from './art'
-import { Scene, type SceneState } from './components/Scene'
+import { Scene, type ClipRequest, type SceneState } from './components/Scene'
+import { usePrefetchClips } from './prefetch'
 import { Cylinder } from './components/Cylinder'
+import { Intro } from './components/Intro'
+import { LangToggle } from './components/LangToggle'
+import { useCompact, useReducedMotion, useTouch } from './platform'
 import {
   OPPONENTS,
   OPPONENT_ORDER,
@@ -32,7 +36,7 @@ import {
 } from './game/engine'
 import { MODES, MODE_ORDER, type Chamber, type GameState, type ModeId, type Side, type Target } from './game/types'
 import { Atmosphere } from './fx/Atmosphere'
-import { STRINGS, loadLang, saveLang, type Lang } from './i18n/strings'
+import { STRINGS, loadLang, saveLang } from './i18n/strings'
 import {
   playChips,
   playClick,
@@ -48,7 +52,13 @@ import './App.css'
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
 
-type Screen = 'title' | 'menu' | 'table'
+type Screen = 'intro' | 'title' | 'menu' | 'table'
+
+/** Filename stem each opponent's plates and clips are named after. */
+const STEM: Record<OpponentId, string> = {
+  calloway: 'cowboy',
+  viuda: 'viuda',
+}
 
 /** The plate each opponent's picker portrait is cropped out of. */
 const PORTRAIT: Record<OpponentId, string> = {
@@ -56,13 +66,29 @@ const PORTRAIT: Record<OpponentId, string> = {
   viuda: 'viuda_neutral',
 }
 
+/**
+ * Authored length of each action clip at normal speed. Used only for the
+ * watchdog: if a clip stalls mid-download the table has to carry on anyway,
+ * and the plate underneath is already the frame the clip would have ended on.
+ */
+const CLIP_MS = { raise: 970, fire: 700, hit: 1500, chamber: 2430 }
+
+const SEEN_INTRO = 'lastround.intro'
+
 interface TellRecord {
   wasBluff: boolean
 }
 
 export default function App() {
-  const [lang, setLang] = useState<Lang>(loadLang)
-  const [screen, setScreen] = useState<Screen>('title')
+  const compact = useCompact()
+  const touch = useTouch()
+  const stillness = useReducedMotion()
+
+  const [lang, setLang] = useState(loadLang)
+  const [screen, setScreen] = useState<Screen>(() =>
+    // The opening is worth eleven seconds once, not on every reload.
+    stillness || localStorage.getItem(SEEN_INTRO) ? 'title' : 'intro',
+  )
   const [modeId, setModeId] = useState<ModeId>('classic')
   const [opponentId, setOpponentId] = useState<OpponentId>('calloway')
 
@@ -94,9 +120,66 @@ export default function App() {
 
   const t = STRINGS[lang]
   const persona = OPPONENTS[opponentId]
+  const stem = STEM[opponentId]
   const mode = state.mode
   /** Every cinematic pause is scaled by the table's pacing. */
   const beat = useCallback((ms: number) => wait(ms * mode.pacing), [mode.pacing])
+
+  /* ---- action clips ---------------------------------------------------- */
+
+  const [clip, setClip] = useState<ClipRequest | null>(null)
+  const clipToken = useRef(0)
+  const clipEnd = useRef<(() => void) | null>(null)
+
+  const onClipEnd = useCallback(() => {
+    const resolve = clipEnd.current
+    clipEnd.current = null
+    resolve?.()
+  }, [])
+
+  /**
+   * Plays one clip and settles when it finishes. Clips are pictures, not
+   * rules: a slow connection or a codec the browser will not touch must never
+   * be able to stop a hand, so the wait is always bounded and the plates
+   * underneath are left showing the frame the clip was going to end on.
+   */
+  const playClip = useCallback(
+    (name: string, authoredMs: number) => {
+      const rate = 1 / mode.pacing
+      clipToken.current += 1
+      setClip({ name, token: clipToken.current, rate })
+      return Promise.race([
+        new Promise<void>((resolve) => {
+          clipEnd.current = resolve
+        }),
+        wait(authoredMs / rate + 700),
+      ])
+    },
+    [mode.pacing],
+  )
+
+  /*
+   * Breathing, between beats. It is a loop rather than a one-shot, so it is
+   * derived from the settled state instead of being driven: anything the
+   * table asks for explicitly takes the layer over.
+   */
+  const idleClip: ClipRequest | null =
+    !clip && sceneState === 'neutral' && !stillness
+      ? { name: `${stem}_idle`, token: 0, loop: true }
+      : null
+
+  usePrefetchClips(
+    screen === 'title' || screen === 'menu' || screen === 'table'
+      ? [
+          `${stem}_idle`,
+          `${stem}_raise`,
+          `${stem}_fire`,
+          `${stem}_hit`,
+          `chamber_${persona.venue}`,
+        ]
+      : [],
+    compact,
+  )
 
   const commit = useCallback((s: GameState) => {
     stateRef.current = s
@@ -133,11 +216,16 @@ export default function App() {
     async (shooter: Side, target: Target) => {
       const s = stateRef.current
       setZoom(1)
+      /** True when we are watching them bring the gun up on us. */
+      const drawnOnYou = shooter === 'dealer' && target === 'opponent'
 
-      if (shooter === 'dealer' && target === 'opponent') {
+      if (drawnOnYou) {
+        // The plate is set first and the clip laid over it, so the dissolve
+        // to the aiming frame happens out of sight behind the video and the
+        // clip's last frame lands on a plate that has already settled.
         setSceneState('aiming')
         setCaption(t.beats.theyAimYou)
-        await beat(1000)
+        await playClip(`${stem}_raise`, CLIP_MS.raise)
       } else if (shooter === 'dealer') {
         setCaption(t.beats.theyAimSelf)
         await beat(800)
@@ -161,25 +249,33 @@ export default function App() {
         if (result.victim === 'player') {
           setHurt(true)
           setCaption(t.beats.bangYou)
+          if (drawnOnYou) await playClip(`${stem}_fire`, CLIP_MS.fire)
         } else {
           setSceneState('hit')
           setCaption(t.beats.bangThem)
+          await playClip(`${stem}_hit`, CLIP_MS.hit)
         }
       } else {
         playClick()
         setCaption(result.blankAnte > 0 ? t.beats.blankBonus(result.blankAnte) : t.beats.click)
       }
 
-      // Let the shot land before the board updates, so the hit reads on screen.
-      await beat(result.chamber === 'live' ? 1900 : 900)
+      /*
+       * Let the shot land before the board updates. Where a clip already
+       * played the picture has had its time, so only the beats that ran on
+       * stills need the long hold.
+       */
+      const held = result.chamber !== 'live' ? 900 : result.victim === 'player' ? 1500 : 800
+      await beat(held)
       commit(result.state)
+      setClip(null)
       setZoom(0)
       setHurt(false)
       setSnap(false)
       if (result.state.phase === 'round_over') playSting(result.state.outcome?.winner === 'player')
       if (result.state.phase === 'betting') refreshTell(result.state)
     },
-    [beat, commit, refreshTell, t],
+    [beat, commit, playClip, refreshTell, stem, t],
   )
 
   /** Runs exactly one opponent decision against the authoritative state. */
@@ -263,6 +359,11 @@ export default function App() {
     setScreen('menu')
   }
 
+  const leaveIntro = useCallback(() => {
+    localStorage.setItem(SEEN_INTRO, '1')
+    setScreen('title')
+  }, [])
+
   const sitDown = () => {
     unlockAudio()
     startAmbience()
@@ -285,7 +386,9 @@ export default function App() {
       setSpinning(true)
       playSpin()
       setCaption(current.mode.loadedBy === 'dealer' ? t.beats.dealerLoads(live) : t.beats.loading)
-      await beat(1150)
+      // Cut away to the cylinder itself rather than narrating it over a still.
+      await playClip(`chamber_${persona.venue}`, CLIP_MS.chamber)
+      setClip(null)
       const s = startRound(current, live)
       commit(s)
       setHandOpening(s.chips.player + s.ante)
@@ -392,6 +495,14 @@ export default function App() {
 
   const swing = state.outcome ? state.chips.player - handOpening : 0
 
+  if (screen === 'intro') {
+    return (
+      <div className="app">
+        <Intro t={t} lang={lang} onLang={setLang} small={compact} onDone={leaveIntro} />
+      </div>
+    )
+  }
+
   if (screen === 'title') {
     return (
       <div className="app">
@@ -404,6 +515,9 @@ export default function App() {
           zoom={0}
           showRevolver
           snap={false}
+          clip={idleClip}
+          small={compact}
+          touch={touch}
         />
         <Atmosphere smokeBursts={0} />
         <LangToggle lang={lang} onPick={setLang} />
@@ -420,6 +534,9 @@ export default function App() {
           </p>
           <button className="btn btn--primary btn--lg" onClick={openMenu}>
             {t.title.sit}
+          </button>
+          <button className="linkbtn" onClick={() => setScreen('intro')}>
+            {t.intro.replay}
           </button>
           <p className="title__note">{t.title.disclaimer}</p>
         </div>
@@ -441,6 +558,9 @@ export default function App() {
           zoom={0}
           showRevolver
           snap={false}
+          clip={idleClip}
+          small={compact}
+          touch={touch}
         />
         <Atmosphere smokeBursts={0} />
         <LangToggle lang={lang} onPick={setLang} />
@@ -540,6 +660,10 @@ export default function App() {
         zoom={zoom}
         showRevolver={state.phase !== 'loading' && sceneState !== 'aiming'}
         snap={snap}
+        clip={clip ?? idleClip}
+        onClipEnd={onClipEnd}
+        small={compact}
+        touch={touch}
       />
       <Atmosphere smokeBursts={smokeBursts} />
 
@@ -566,6 +690,7 @@ export default function App() {
 
         <aside className="readout">
           <Cylinder
+            size={compact ? 88 : 132}
             live={state.phase === 'loading' ? loadChoice : state.loadedLive}
             chambers={mode.chambers}
             fired={state.fired}
@@ -761,19 +886,3 @@ function Reveal({ chambers, label }: { chambers: Chamber[]; label: string }) {
   )
 }
 
-function LangToggle({ lang, onPick }: { lang: Lang; onPick: (l: Lang) => void }) {
-  const langs = useMemo(() => Object.keys(STRINGS) as Lang[], [])
-  return (
-    <div className="langtoggle">
-      {langs.map((l) => (
-        <button
-          key={l}
-          className={`langtoggle__btn${lang === l ? ' is-on' : ''}`}
-          onClick={() => onPick(l)}
-        >
-          {STRINGS[l].langName}
-        </button>
-      ))}
-    </div>
-  )
-}

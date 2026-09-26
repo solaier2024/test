@@ -38,6 +38,13 @@ export interface Strings {
     disclaimer: string
   }
 
+  /** The opening cinematic. Its five lines are cued to the five shots. */
+  intro: {
+    skip: string
+    replay: string
+    lines: [string, string, string, string, string]
+  }
+
   menu: {
     chooseTable: string
     chooseMode: string
@@ -214,6 +221,18 @@ const en: Strings = {
       'Six chambers. You say how many are loaded. You both know the count — neither of you knows the order.\nRide out your own chamber and the turn stays yours. Point it across the table and it passes, loaded or not.',
     sit: 'TAKE A SEAT',
     disclaimer: 'Entertainment only · No real money, no wagering, no payouts',
+  },
+
+  intro: {
+    skip: 'SKIP',
+    replay: 'WATCH THE OPENING',
+    lines: [
+      'West Texas. The last light went out of this town a long time ago.',
+      'Every night, the same table. The same empty chair.',
+      'Six chambers. You say how many go in — never where they sit.',
+      'Their face will lie to you. Yours is doing the same thing.',
+      'One of you gets up from this table.',
+    ],
   },
 
   menu: {
@@ -395,6 +414,18 @@ const es: Strings = {
       'Seis recámaras. Tú dices cuántas van cargadas. Los dos saben cuántas son — ninguno sabe en qué orden.\nAguanta tu propia recámara y el turno sigue siendo tuyo. Apúntale al otro y el turno se va, salga bala o no.',
     sit: 'SIÉNTATE',
     disclaimer: 'Solo entretenimiento · Sin dinero real, sin apuestas, sin premios',
+  },
+
+  intro: {
+    skip: 'SALTAR',
+    replay: 'VER LA APERTURA',
+    lines: [
+      'Oeste de Texas. A este pueblo se le acabó la luz hace rato.',
+      'Cada noche, la misma mesa. La misma silla vacía.',
+      'Seis recámaras. Tú dices cuántas van — nunca en qué orden.',
+      'Su cara te va a mentir. La tuya está haciendo lo mismo.',
+      'De esta mesa se levanta uno.',
+    ],
   },
 
   menu: {
