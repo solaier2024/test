@@ -1,8 +1,8 @@
-import { CYLINDER_SIZE } from '../game/types'
-
 interface CylinderProps {
   /** Live rounds being loaded, only meaningful while the cylinder is open. */
   live: number
+  /** Total chambers this table's cylinder holds. */
+  chambers: number
   /** Chambers already fired this round. */
   fired: number
   /** Live rounds still unaccounted for. */
@@ -13,22 +13,29 @@ interface CylinderProps {
    */
   mode: 'open' | 'sealed'
   spinning: boolean
+  /** Localised labels for the count beneath the disc. */
+  liveLabel: string
+  blankLabel: string
   size?: number
 }
 
 /** Top-down cylinder readout. The count is public; the order never is. */
 export function Cylinder({
   live,
+  chambers,
   fired,
   liveLeft,
   mode,
   spinning,
+  liveLabel,
+  blankLabel,
   size = 132,
 }: CylinderProps) {
   const r = size / 2
-  const chamberR = size * 0.115
+  // Fewer chambers means each one can be drawn bigger without crowding.
+  const chamberR = size * (chambers <= 4 ? 0.135 : 0.115)
   const orbit = size * 0.29
-  const remaining = CYLINDER_SIZE - fired
+  const remaining = chambers - fired
   const blanksLeft = Math.max(0, remaining - liveLeft)
 
   return (
@@ -53,8 +60,8 @@ export function Cylinder({
         </defs>
         <circle cx={r} cy={r} r={r - 2} fill="url(#cyl-steel)" stroke="#0d0b08" strokeWidth="2" />
         <circle cx={r} cy={r} r={r * 0.17} fill="#120f0b" stroke="#4a4239" strokeWidth="1" />
-        {Array.from({ length: CYLINDER_SIZE }).map((_, i) => {
-          const angle = (i / CYLINDER_SIZE) * Math.PI * 2 - Math.PI / 2
+        {Array.from({ length: chambers }).map((_, i) => {
+          const angle = (i / chambers) * Math.PI * 2 - Math.PI / 2
           const cx = r + Math.cos(angle) * orbit
           const cy = r + Math.sin(angle) * orbit
           const spent = mode === 'sealed' && i < fired
@@ -93,9 +100,11 @@ export function Cylinder({
         })}
       </svg>
       <div className="cylinder__caption">
-        <span className="cylinder__live">{mode === 'open' ? live : liveLeft} 实弹</span>
+        <span className="cylinder__live">
+          {mode === 'open' ? live : liveLeft} {liveLabel}
+        </span>
         <span className="cylinder__blank">
-          {mode === 'open' ? CYLINDER_SIZE - live : blanksLeft} 空仓
+          {mode === 'open' ? chambers - live : blanksLeft} {blankLabel}
         </span>
       </div>
     </div>

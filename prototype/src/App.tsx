@@ -1,37 +1,45 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Scene, type SceneState } from './components/Scene'
 import { Cylinder } from './components/Cylinder'
 import {
-  CALLOWAY,
+  OPPONENTS,
+  OPPONENT_ORDER,
   chooseBet,
+  choosePass,
   chooseTarget,
   readDealer,
   respondToRaise,
   type DealerRead,
+  type OpponentId,
 } from './game/ai'
 import {
-  ANTE,
   advanceRound,
+  anteFor,
   call,
+  canPass,
   canRaise,
   createGame,
+  dealerChoosesLoad,
   fire,
   fold,
   liveOdds,
   liveRemaining,
   maxRaise,
+  passIron,
   raise,
-  riskMultiplier,
   startRound,
 } from './game/engine'
-import type { GameState, Side, Target } from './game/types'
+import { MODES, MODE_ORDER, type Chamber, type GameState, type ModeId, type Side, type Target } from './game/types'
 import { Atmosphere } from './fx/Atmosphere'
+import { STRINGS, loadLang, saveLang, type Lang } from './i18n/strings'
 import {
   playChips,
   playClick,
   playCock,
   playGunshot,
   playSpin,
+  playSting,
+  setVenue,
   startAmbience,
   unlockAudio,
 } from './audio/sfx'
@@ -39,15 +47,21 @@ import './App.css'
 
 const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
 
+type Screen = 'title' | 'menu' | 'table'
+
 interface TellRecord {
   wasBluff: boolean
 }
 
 export default function App() {
-  const [state, setState] = useState<GameState>(createGame)
-  const [started, setStarted] = useState(false)
+  const [lang, setLang] = useState<Lang>(loadLang)
+  const [screen, setScreen] = useState<Screen>('title')
+  const [modeId, setModeId] = useState<ModeId>('classic')
+  const [opponentId, setOpponentId] = useState<OpponentId>('calloway')
+
+  const [state, setState] = useState<GameState>(() => createGame('classic'))
   const [loadChoice, setLoadChoice] = useState(2)
-  const [raiseAmount, setRaiseAmount] = useState(ANTE)
+  const [raiseAmount, setRaiseAmount] = useState(20)
   const [sceneState, setSceneState] = useState<SceneState>('neutral')
   const [flash, setFlash] = useState(0)
   const [flashSource, setFlashSource] = useState<Side | null>(null)
@@ -58,6 +72,8 @@ export default function App() {
   const [caption, setCaption] = useState('')
   const [tells, setTells] = useState<TellRecord[]>([])
   const [read, setRead] = useState<DealerRead | null>(null)
+  /** Player chips when the hand was dealt, so the result can show the swing. */
+  const [handOpening, setHandOpening] = useState(0)
   /** True while a shot or an opponent decision is playing out; locks input. */
   const [cinematic, setCinematic] = useState(false)
 
@@ -68,23 +84,41 @@ export default function App() {
   const stateRef = useRef<GameState>(state)
   const busyRef = useRef(false)
 
+  const t = STRINGS[lang]
+  const persona = OPPONENTS[opponentId]
+  const mode = state.mode
+  /** Every cinematic pause is scaled by the table's pacing. */
+  const beat = useCallback((ms: number) => wait(ms * mode.pacing), [mode.pacing])
+
   const commit = useCallback((s: GameState) => {
     stateRef.current = s
     setState(s)
   }, [])
 
+  useEffect(() => {
+    saveLang(lang)
+    document.documentElement.lang = lang === 'es' ? 'es-MX' : 'en'
+  }, [lang])
+
+  useEffect(() => {
+    setVenue(persona.venue)
+  }, [persona.venue])
+
   const odds = liveOdds(state)
   const left = liveRemaining(state)
   const bluffsSeen = tells.length
-  const bluffsCaught = tells.filter((t) => t.wasBluff).length
+  const bluffsCaught = tells.filter((x) => x.wasBluff).length
 
   /** Refreshes the opponent's shown mood and records whether it was a bluff. */
-  const refreshTell = useCallback((s: GameState) => {
-    const r = readDealer(s, CALLOWAY)
-    setRead(r)
-    setSceneState(r.shown)
-    if (r.shown !== 'neutral') setTells((prev) => [...prev, { wasBluff: r.bluffing }])
-  }, [])
+  const refreshTell = useCallback(
+    (s: GameState) => {
+      const r = readDealer(s, persona)
+      setRead(r)
+      setSceneState(r.shown)
+      if (r.shown !== 'neutral') setTells((prev) => [...prev, { wasBluff: r.bluffing }])
+    },
+    [persona],
+  )
 
   /** Plays a shot as a beat of cinema rather than an instant state change. */
   const playShot = useCallback(
@@ -94,18 +128,18 @@ export default function App() {
 
       if (shooter === 'dealer' && target === 'opponent') {
         setSceneState('aiming')
-        setCaption('他抬起枪口，对准了你。')
-        await wait(1000)
+        setCaption(t.beats.theyAimYou)
+        await beat(1000)
       } else if (shooter === 'dealer') {
-        setCaption('他把枪口抵住自己的太阳穴。')
-        await wait(800)
+        setCaption(t.beats.theyAimSelf)
+        await beat(800)
       } else {
-        setCaption(target === 'self' ? '你把枪口对准自己。' : '你把枪口对准他。')
-        await wait(600)
+        setCaption(target === 'self' ? t.beats.youAimSelf : t.beats.youAimThem)
+        await beat(600)
       }
 
       playCock()
-      await wait(560)
+      await beat(560)
 
       const result = fire(s, shooter, target)
 
@@ -116,58 +150,68 @@ export default function App() {
         setSmokeBursts((n) => n + 1)
         if (result.victim === 'player') {
           setHurt(true)
-          setCaption('枪响。你的视野塌了下去。')
+          setCaption(t.beats.bangYou)
         } else {
           setSceneState('rattled')
-          setCaption('枪响。他向后仰了过去，帽子落在地上。')
+          setCaption(t.beats.bangThem)
         }
       } else {
         playClick()
-        setCaption('咔哒 —— 空的。')
+        setCaption(result.blankAnte > 0 ? t.beats.blankBonus(result.blankAnte) : t.beats.click)
       }
 
       // Let the shot land before the board updates, so the hit reads on screen.
-      await wait(result.chamber === 'live' ? 1900 : 900)
+      await beat(result.chamber === 'live' ? 1900 : 900)
       commit(result.state)
       setZoom(0)
       setHurt(false)
+      if (result.state.phase === 'round_over') playSting(result.state.outcome?.winner === 'player')
       if (result.state.phase === 'betting') refreshTell(result.state)
     },
-    [commit, refreshTell],
+    [beat, commit, refreshTell, t],
   )
 
   /** Runs exactly one opponent decision against the authoritative state. */
   const dealerStep = useCallback(async () => {
-    await wait(750)
+    await beat(750)
     let s = stateRef.current
 
     if (s.phase === 'facing_raise') {
-      const answer = respondToRaise(s, CALLOWAY)
+      const answer = respondToRaise(s, persona)
       if (answer === 'fold') {
-        setCaption('他把手从筹码上收了回去。这一局他不跟。')
-        commit(fold(s, 'dealer'))
+        setCaption(t.beats.theyFold)
+        const next = fold(s, 'dealer')
+        commit(next)
+        playSting(true)
         return
       }
       playChips()
-      setCaption('他盯了你很久，然后跟了。')
+      setCaption(t.beats.theyCall)
       s = call(s, 'dealer')
       commit(s)
-      await wait(800)
+      await beat(800)
       if (s.turn !== 'dealer') return
     }
 
     if (s.phase !== 'betting') return
 
-    const bet = chooseBet(s, CALLOWAY)
+    const bet = chooseBet(s, persona)
     if (bet.action === 'raise') {
       playChips()
-      setCaption(`他把 ${bet.amount} 枚筹码推到桌心，等你表态。`)
+      setCaption(t.beats.theyRaise(bet.amount))
       commit(raise(s, 'dealer', bet.amount))
       return
     }
 
-    await playShot('dealer', chooseTarget(s, CALLOWAY))
-  }, [commit, playShot])
+    if (choosePass(s, persona)) {
+      playChips()
+      setCaption(t.beats.theyPass)
+      commit(passIron(s, 'dealer'))
+      return
+    }
+
+    await playShot('dealer', chooseTarget(s, persona))
+  }, [beat, commit, persona, playShot, t])
 
   /**
    * Drives the opponent until the table is waiting on the player again. Called
@@ -175,7 +219,7 @@ export default function App() {
    */
   const pump = useCallback(async () => {
     let guard = 0
-    while (guard++ < 40) {
+    while (guard++ < 60) {
       const s = stateRef.current
       const dealerToAct =
         s.turn === 'dealer' && (s.phase === 'betting' || s.phase === 'facing_raise')
@@ -201,30 +245,44 @@ export default function App() {
     [pump],
   )
 
-  const begin = () => {
+  /** Leaves the title card for the table picker. */
+  const openMenu = () => {
     unlockAudio()
     startAmbience()
-    setStarted(true)
+    setScreen('menu')
+  }
+
+  const sitDown = () => {
+    unlockAudio()
+    startAmbience()
+    const fresh = createGame(modeId)
+    commit(fresh)
+    setLoadChoice(MODES[modeId].loads[0])
+    setSceneState('neutral')
+    setTells([])
+    setRead(null)
+    setCaption('')
+    setScreen('table')
   }
 
   const onLoad = () =>
     act(async () => {
       unlockAudio()
+      const current = stateRef.current
+      const live = current.mode.loadedBy === 'dealer' ? dealerChoosesLoad(current.mode) : loadChoice
+      setLoadChoice(live)
       setSpinning(true)
       playSpin()
-      setCaption('你把子弹压进弹巢，合上，旋转。')
-      await wait(1150)
-      const s = startRound(stateRef.current, loadChoice)
+      setCaption(current.mode.loadedBy === 'dealer' ? t.beats.dealerLoads(live) : t.beats.loading)
+      await beat(1150)
+      const s = startRound(current, live)
       commit(s)
+      setHandOpening(s.chips.player + s.ante)
       setSpinning(false)
-      setRaiseAmount(Math.max(ANTE, Math.round(s.pot * 0.4)))
+      setRaiseAmount(Math.max(s.mode.anteBase, Math.round(s.pot * 0.4)))
       refreshTell(s)
-      setCaption(
-        s.turn === 'player'
-          ? '弹巢合上了，谁也不知道第一发在哪。你先动手。'
-          : '弹巢合上了。他伸手去拿枪。',
-      )
-      await wait(500)
+      setCaption(s.turn === 'player' ? t.beats.sealedYouFirst : t.beats.sealedTheyFirst)
+      await beat(500)
     })
 
   const onPlayerFire = (target: Target) => act(() => playShot('player', target))
@@ -233,35 +291,45 @@ export default function App() {
     act(async () => {
       const amount = Math.min(raiseAmount, maxRaise(stateRef.current, 'player'))
       playChips()
-      setCaption(`你把 ${amount} 枚筹码推过桌心。`)
+      setCaption(t.beats.youRaise(amount))
       commit(raise(stateRef.current, 'player', amount))
-      await wait(600)
+      await beat(600)
     })
 
   const onPlayerCall = () =>
     act(async () => {
       playChips()
-      setCaption('你跟了。')
+      setCaption(t.beats.youCall)
       commit(call(stateRef.current, 'player'))
-      await wait(600)
+      await beat(600)
     })
 
   const onPlayerFold = () =>
     act(async () => {
-      setCaption('你把手从枪上挪开，推走了筹码。活着比赢重要。')
+      setCaption(t.beats.youFold)
       commit(fold(stateRef.current, 'player'))
-      await wait(400)
+      playSting(false)
+      await beat(400)
     })
 
-  const onNextRound = () => {
+  const onPlayerPass = () =>
+    act(async () => {
+      playChips()
+      setCaption(t.beats.youPass)
+      commit(passIron(stateRef.current, 'player'))
+      await beat(600)
+    })
+
+  const onNextRound = useCallback(() => {
     commit(advanceRound(stateRef.current))
     setSceneState('neutral')
     setRead(null)
     setCaption('')
-  }
+  }, [commit])
 
-  const onRestart = () => {
-    commit(createGame())
+  const onRematch = () => {
+    commit(createGame(modeId))
+    setLoadChoice(MODES[modeId].loads[0])
     setSceneState('neutral')
     setTells([])
     setRead(null)
@@ -276,24 +344,160 @@ export default function App() {
     state.turn === 'dealer' && (state.phase === 'betting' || state.phase === 'facing_raise')
   const raiseCap = Math.max(1, maxRaise(state, 'player'))
   const clampedRaise = Math.min(raiseAmount, raiseCap)
+  const canLoad = state.phase === 'loading' && !cinematic
+  const raiseOpen = playerToAct && state.phase === 'betting' && canRaise(state, 'player')
+  const passOpen = playerToAct && canPass(state, 'player')
 
-  if (!started) {
+  /* Keyboard shortcuts keep a fast table fast; every one mirrors a button. */
+  useEffect(() => {
+    if (screen !== 'table') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey) return
+      const key = e.key.toLowerCase()
+      if (key === ' ') {
+        e.preventDefault()
+        if (canLoad) onLoad()
+        else if (state.phase === 'round_over' && !cinematic) onNextRound()
+        else if (playerToAct && state.phase === 'facing_raise') onPlayerCall()
+        return
+      }
+      if (!playerToAct) return
+      if (key === '1' && state.phase === 'betting') onPlayerFire('self')
+      if (key === '2' && state.phase === 'betting') onPlayerFire('opponent')
+      if (key === 'r' && raiseOpen) onPlayerRaise()
+      if (key === 'p' && passOpen) onPlayerPass()
+      if (key === 'f' && state.phase === 'facing_raise') onPlayerFold()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  const swing = state.outcome ? state.chips.player - handOpening : 0
+
+  if (screen === 'title') {
     return (
       <div className="app">
-        <Scene state="neutral" flash={0} flashSource={null} hurt={false} zoom={0} showRevolver />
+        <Scene
+          opponent={opponentId}
+          state="neutral"
+          flash={0}
+          flashSource={null}
+          hurt={false}
+          zoom={0}
+          showRevolver
+        />
         <Atmosphere smokeBursts={0} />
+        <LangToggle lang={lang} onPick={setLang} />
         <div className="title">
-          <p className="title__kicker">西 部 · 赌 命</p>
-          <h1 className="title__name">最 后 一 发</h1>
+          <p className="title__kicker">{t.title.kicker}</p>
+          <h1 className="title__name">{t.title.name}</h1>
           <p className="title__sub">
-            六个弹巢，你决定装几发实弹。你们都知道装了多少，却谁也不知道顺序。
-            <br />
-            对准自己活下来，行动权还在你手里；对准他，无论空实都换他上。
+            {t.title.tagline.split('\n').map((line, i) => (
+              <span key={i}>
+                {line}
+                <br />
+              </span>
+            ))}
           </p>
-          <button className="btn btn--primary btn--lg" onClick={begin}>
-            坐 下
+          <button className="btn btn--primary btn--lg" onClick={openMenu}>
+            {t.title.sit}
           </button>
-          <p className="title__note">纯娱乐模拟 · 不涉及任何真实货币</p>
+          <p className="title__note">{t.title.disclaimer}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (screen === 'menu') {
+    const picked = MODES[modeId]
+    const copy = t.modes[modeId]
+    return (
+      <div className="app">
+        <Scene
+          opponent={opponentId}
+          state="neutral"
+          flash={0}
+          flashSource={null}
+          hurt={false}
+          zoom={0}
+          showRevolver
+        />
+        <Atmosphere smokeBursts={0} />
+        <LangToggle lang={lang} onPick={setLang} />
+        <div className="menu">
+          <h2 className="menu__heading">{t.menu.chooseTable}</h2>
+
+          <div className="menu__cols">
+            <section className="menu__col">
+              <h3 className="menu__label">{t.menu.chooseMode}</h3>
+              <div className="menu__list">
+                {MODE_ORDER.map((id) => (
+                  <button
+                    key={id}
+                    className={`pick${modeId === id ? ' is-on' : ''}`}
+                    onClick={() => setModeId(id)}
+                  >
+                    <span className="pick__name">{t.modes[id].name}</span>
+                    <span className="pick__tag">{t.modes[id].tag}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="menu__col">
+              <h3 className="menu__label">{t.menu.chooseOpponent}</h3>
+              <div className="menu__list">
+                {OPPONENT_ORDER.map((id) => (
+                  <button
+                    key={id}
+                    className={`pick${opponentId === id ? ' is-on' : ''}`}
+                    onClick={() => setOpponentId(id)}
+                  >
+                    <span className="pick__name">{t.opponents[id].name}</span>
+                    <span className="pick__tag">{t.opponents[id].where}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="menu__col menu__col--wide">
+              <h3 className="menu__label">{t.menu.rules}</h3>
+              <p className="menu__blurb">{copy.blurb}</p>
+              <ul className="menu__rules">
+                {copy.rules.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <dl className="menu__stats">
+                <div>
+                  <dt>{t.menu.chambers}</dt>
+                  <dd>{picked.chambers}</dd>
+                </div>
+                <div>
+                  <dt>{t.menu.stakes}</dt>
+                  <dd>
+                    {anteFor(picked, Math.min(...picked.loads))}–
+                    {anteFor(picked, Math.max(...picked.loads))}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t.menu.betting}</dt>
+                  <dd>{picked.betting ? t.menu.bettingOn : t.menu.bettingOff}</dd>
+                </div>
+              </dl>
+              <p className="menu__blurb menu__blurb--who">{t.opponents[opponentId].blurb}</p>
+            </section>
+          </div>
+
+          <div className="menu__go">
+            <button className="btn" onClick={() => setScreen('title')}>
+              {t.menu.back}
+            </button>
+            <button className="btn btn--primary btn--lg" onClick={sitDown}>
+              {t.menu.deal}
+            </button>
+          </div>
+          <p className="title__note">{t.title.disclaimer}</p>
         </div>
       </div>
     )
@@ -302,45 +506,51 @@ export default function App() {
   return (
     <div className="app">
       <Scene
+        opponent={opponentId}
         state={sceneState}
         flash={flash}
         flashSource={flashSource}
         hurt={hurt}
         zoom={zoom}
-        showRevolver={state.phase !== 'loading'}
+        showRevolver={state.phase !== 'loading' && sceneState !== 'aiming'}
       />
       <Atmosphere smokeBursts={smokeBursts} />
 
       <div className="hud">
         <header className="hud__top">
           <div className={`chipstack${waitingOnDealer ? ' is-active' : ''}`}>
-            <span className="chipstack__label">对面 · {CALLOWAY.name}</span>
+            <span className="chipstack__label">{t.opponents[opponentId].name}</span>
             <span className="chipstack__value">{state.chips.dealer}</span>
-            <span className="chipstack__turn">{waitingOnDealer ? '他在想' : ''}</span>
+            <span className="chipstack__turn">{waitingOnDealer ? t.hud.thinking : ''}</span>
           </div>
           <div className="pot">
-            <span className="pot__label">桌 心</span>
+            <span className="pot__label">{t.hud.pot}</span>
             <span className="pot__value">{state.pot}</span>
-            <span className="pot__round">第 {state.round} 局</span>
+            <span className="pot__round">
+              {t.modes[mode.id].name} · {t.hud.round} {state.round}
+            </span>
           </div>
           <div className={`chipstack chipstack--me${playerToAct ? ' is-active' : ''}`}>
-            <span className="chipstack__label">你</span>
+            <span className="chipstack__label">{t.hud.you}</span>
             <span className="chipstack__value">{state.chips.player}</span>
-            <span className="chipstack__turn">{playerToAct ? '该你了' : ''}</span>
+            <span className="chipstack__turn">{playerToAct ? t.hud.yourTurn : ''}</span>
           </div>
         </header>
 
         <aside className="readout">
           <Cylinder
             live={state.phase === 'loading' ? loadChoice : state.loadedLive}
+            chambers={mode.chambers}
             fired={state.fired}
             liveLeft={left}
             mode={state.phase === 'loading' ? 'open' : 'sealed'}
             spinning={spinning}
+            liveLabel={t.hud.live}
+            blankLabel={t.hud.blanks}
           />
           {state.phase !== 'loading' && state.cylinder.length > 0 && (
             <div className="readout__odds">
-              <span className="readout__oddsLabel">下一发是实弹</span>
+              <span className="readout__oddsLabel">{t.hud.liveNext}</span>
               <span
                 className={`readout__oddsValue${odds >= 0.6 ? ' is-hot' : ''}${
                   odds >= 1 ? ' is-certain' : ''
@@ -351,22 +561,20 @@ export default function App() {
               <div className="readout__bar">
                 <div className="readout__barFill" style={{ width: `${odds * 100}%` }} />
               </div>
-              {odds >= 1 && <span className="readout__warn">这一发必响</span>}
+              {odds >= 1 && <span className="readout__warn">{t.hud.certain}</span>}
             </div>
           )}
           {read && state.phase !== 'loading' && (
             <div className="readout__tell">
-              <span className="readout__tellLabel">他的神色</span>
+              <span className="readout__tellLabel">{t.hud.tell}</span>
               <span className="readout__tellValue">
                 {read.shown === 'confident'
-                  ? '松弛，嘴角有笑'
+                  ? t.hud.tellEasy
                   : read.shown === 'rattled'
-                    ? '紧绷，额头出汗'
-                    : '毫无波澜'}
+                    ? t.hud.tellRattled
+                    : t.hud.tellCalm}
               </span>
-              <span className="readout__tellHint">
-                已看过他 {bluffsSeen} 次表情，其中 {bluffsCaught} 次是演的
-              </span>
+              <span className="readout__tellHint">{t.hud.tellCounter(bluffsSeen, bluffsCaught)}</span>
             </div>
           )}
         </aside>
@@ -374,85 +582,99 @@ export default function App() {
         {caption && <div className="caption">{caption}</div>}
 
         <footer className="actions">
-          {state.phase === 'loading' && !cinematic && (
+          {canLoad && (
             <div className="loadpanel">
-              <p className="loadpanel__title">往六个弹巢里装几发实弹？</p>
-              <div className="loadpanel__choices">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    className={`chamberbtn${loadChoice === n ? ' is-on' : ''}`}
-                    onClick={() => setLoadChoice(n)}
-                  >
-                    <span className="chamberbtn__n">{n}</span>
-                    <span className="chamberbtn__x">×{riskMultiplier(n).toFixed(1)}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="loadpanel__hint">
-                装得越满，底注越高，也越快逼出「必响」那一发。本局底注{' '}
-                {Math.round(ANTE * riskMultiplier(loadChoice))}。
+              <p className="loadpanel__title">
+                {mode.loadedBy === 'dealer' ? t.load.dealerPicks : t.load.question}
               </p>
+              {mode.loadedBy === 'player' && mode.loads.length > 1 && (
+                <div className="loadpanel__choices">
+                  {mode.loads.map((n) => (
+                    <button
+                      key={n}
+                      className={`chamberbtn${loadChoice === n ? ' is-on' : ''}`}
+                      onClick={() => setLoadChoice(n)}
+                    >
+                      <span className="chamberbtn__n">{n}</span>
+                      <span className="chamberbtn__x">{anteFor(mode, n)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="loadpanel__hint">{t.load.hint(anteFor(mode, loadChoice))}</p>
               <button className="btn btn--primary" onClick={onLoad} disabled={spinning}>
-                装弹并旋转
+                {t.load.go}
               </button>
             </div>
           )}
 
           {playerToAct && state.phase === 'betting' && (
             <div className="actionrow">
-              <div className="raisebox">
-                <span className="raisebox__label">加注</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={raiseCap}
-                  value={clampedRaise}
-                  onChange={(e) => setRaiseAmount(Number(e.target.value))}
-                  disabled={!canRaise(state, 'player')}
-                />
-                <button className="btn btn--slim" onClick={onPlayerRaise} disabled={!canRaise(state, 'player')}>
-                  推出 {clampedRaise}
+              {mode.betting && (
+                <div className="raisebox">
+                  <span className="raisebox__label">{t.actions.raiseLabel}</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={raiseCap}
+                    value={clampedRaise}
+                    onChange={(e) => setRaiseAmount(Number(e.target.value))}
+                    disabled={!raiseOpen}
+                  />
+                  <button className="btn btn--slim" onClick={onPlayerRaise} disabled={!raiseOpen}>
+                    {t.actions.push(clampedRaise)}
+                  </button>
+                </div>
+              )}
+              {passOpen && (
+                <button className="btn btn--slim btn--pass" onClick={onPlayerPass}>
+                  {t.actions.pass}
+                  <small>{t.actions.passHint(mode.passToll)}</small>
                 </button>
-              </div>
+              )}
               <button className="btn btn--risk" onClick={() => onPlayerFire('self')}>
-                对准自己
-                <small>空响则继续由你行动</small>
+                {t.actions.atSelf}
+                <small>{t.actions.atSelfHint}</small>
               </button>
               <button className="btn btn--kill" onClick={() => onPlayerFire('opponent')}>
-                对准他
-                <small>无论空实都换他行动</small>
+                {t.actions.atThem}
+                <small>{t.actions.atThemHint}</small>
               </button>
             </div>
           )}
 
           {playerToAct && state.phase === 'facing_raise' && (
             <div className="actionrow">
-              <div className="callnote">他要你再压 {state.toCall} 枚才能继续。</div>
+              <div className="callnote">{t.actions.owed(state.toCall)}</div>
               <button className="btn btn--primary" onClick={onPlayerCall}>
-                跟 {Math.min(state.toCall, state.chips.player)}
+                {t.actions.call(Math.min(state.toCall, state.chips.player))}
               </button>
               <button className="btn" onClick={onPlayerFold}>
-                放弃这局
-                <small>输掉桌心，但不用碰枪</small>
+                {t.actions.fold}
+                <small>{t.actions.foldHint}</small>
               </button>
             </div>
           )}
 
-          {state.phase === 'round_over' && !cinematic && (
+          {state.phase === 'round_over' && !cinematic && state.outcome && (
             <div className="result">
               <p
                 className={`result__line${
-                  state.outcome?.winner === 'player' ? ' is-win' : ' is-loss'
+                  state.outcome.winner === 'player' ? ' is-win' : ' is-loss'
                 }`}
               >
-                {state.outcome?.winner === 'player'
-                  ? `这一局你活下来了，${state.outcome.pot} 枚筹码归你。`
-                  : `这一局归他，桌心 ${state.outcome?.pot ?? 0} 枚被他收走。`}
-                {state.outcome?.reason === 'fold' ? '（有人退了，枪没响）' : ''}
+                {state.outcome.winner === 'player'
+                  ? t.result.youWin(state.outcome.pot)
+                  : t.result.youLose(state.outcome.pot)}
+                {state.outcome.reason === 'fold' ? t.result.byFold : ''}
               </p>
+              <p className={`result__swing${swing >= 0 ? ' is-win' : ' is-loss'}`}>
+                {swing >= 0 ? '+' : '−'}
+                {Math.abs(swing)}
+              </p>
+              <Reveal chambers={state.outcome.revealed} label={t.result.chambersWere} />
               <button className="btn btn--primary" onClick={onNextRound}>
-                继续
+                {t.result.next}
               </button>
             </div>
           )}
@@ -460,17 +682,53 @@ export default function App() {
           {state.phase === 'match_over' && (
             <div className="result">
               <p className="result__line">
-                {state.chips.player <= 0
-                  ? '你输光了。他把帽子压低，起身走进夜色里。'
-                  : '他一枚筹码都不剩了。酒馆忽然很安静。'}
+                {state.chips.player <= 0 ? t.result.matchLost : t.result.matchWon}
               </p>
-              <button className="btn btn--primary" onClick={onRestart}>
-                再坐一次
-              </button>
+              <div className="actionrow">
+                <button className="btn" onClick={() => setScreen('menu')}>
+                  {t.result.changeTable}
+                </button>
+                <button className="btn btn--primary" onClick={onRematch}>
+                  {t.result.rematch}
+                </button>
+              </div>
             </div>
           )}
         </footer>
+
+        <p className="keyhint">{t.keys.hint}</p>
       </div>
+    </div>
+  )
+}
+
+/** The cylinder as it actually sat, shown only once the hand cannot be replayed. */
+function Reveal({ chambers, label }: { chambers: Chamber[]; label: string }) {
+  return (
+    <div className="reveal">
+      <span className="reveal__label">{label}</span>
+      <span className="reveal__pips">
+        {chambers.map((c, i) => (
+          <i key={i} className={`reveal__pip reveal__pip--${c}`} />
+        ))}
+      </span>
+    </div>
+  )
+}
+
+function LangToggle({ lang, onPick }: { lang: Lang; onPick: (l: Lang) => void }) {
+  const langs = useMemo(() => Object.keys(STRINGS) as Lang[], [])
+  return (
+    <div className="langtoggle">
+      {langs.map((l) => (
+        <button
+          key={l}
+          className={`langtoggle__btn${lang === l ? ' is-on' : ''}`}
+          onClick={() => onPick(l)}
+        >
+          {STRINGS[l].langName}
+        </button>
+      ))}
     </div>
   )
 }

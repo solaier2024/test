@@ -1,14 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Mood } from '../game/ai'
+import { OPPONENTS, type Mood, type OpponentId } from '../game/ai'
+import type { VenueId } from '../game/types'
 
 export type SceneState = Mood | 'aiming'
 
-const FRAMES: Record<SceneState, string> = {
-  neutral: 'art/cowboy_neutral.png',
-  confident: 'art/cowboy_smirk.png',
-  rattled: 'art/cowboy_afraid.png',
-  aiming: 'art/cowboy_aiming.png',
+/** Filename stem of each opponent's pre-rendered plate set. */
+const PREFIX: Record<OpponentId, string> = {
+  calloway: 'cowboy',
+  viuda: 'viuda',
 }
+
+const ROOM: Record<VenueId, { back: string; prop: string }> = {
+  saloon: { back: 'art/saloon_backplate.png', prop: 'art/table_with_revolver.png' },
+  cantina: { back: 'art/cantina_backplate.png', prop: 'art/cantina_with_revolver.png' },
+}
+
+const SUFFIX: Record<SceneState, string> = {
+  neutral: 'neutral',
+  confident: 'smirk',
+  rattled: 'afraid',
+  aiming: 'aiming',
+}
+
+const ORDER: SceneState[] = ['neutral', 'confident', 'rattled', 'aiming']
+
+/**
+ * States that have an eyes-closed twin. A blink needs the rest of the frame to
+ * be unchanged, so only the two settled expressions get one; someone rattled or
+ * sighting down a barrel holding a stare is in character anyway.
+ */
+const BLINKABLE: SceneState[] = ['neutral', 'confident']
 
 /** A hard kick that settles over about a second, like a camera being struck. */
 const RECOIL: Keyframe[] = [
@@ -33,6 +54,7 @@ const RECOIL: Keyframe[] = [
 ]
 
 interface SceneProps {
+  opponent: OpponentId
   state: SceneState
   /** Increments once per live round; drives the muzzle flash and the recoil. */
   flash: number
@@ -47,9 +69,25 @@ interface SceneProps {
  * The cinematic plate. Every character state is a full pre-rendered frame with
  * matching lighting, so states cross-fade instead of needing cut-out alpha.
  */
-export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: SceneProps) {
+export function Scene({
+  opponent,
+  state,
+  flash,
+  flashSource,
+  hurt,
+  zoom,
+  showRevolver,
+}: SceneProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
+  /** The expression currently caught mid-blink, if any. */
+  const [blinkFor, setBlinkFor] = useState<SceneState | null>(null)
+
+  const venue = OPPONENTS[opponent].venue
+  const prefix = PREFIX[opponent]
+  const room = ROOM[venue]
+  const frame = (s: SceneState, closed = false) =>
+    `art/${prefix}_${SUFFIX[s]}${closed ? '_blink' : ''}.png`
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -74,6 +112,40 @@ export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: S
     })
   }, [flash])
 
+  /*
+   * Blinks fire on an irregular schedule so the frame never feels like a still.
+   * Restarting the loop whenever the expression changes also guarantees no
+   * blink plate is left showing across a cross-dissolve into another state.
+   */
+  const canBlink = BLINKABLE.includes(state)
+  useEffect(() => {
+    if (!canBlink) return
+
+    let closeAt = 0
+    let openAt = 0
+    const schedule = () => {
+      closeAt = window.setTimeout(
+        () => {
+          setBlinkFor(state)
+          openAt = window.setTimeout(() => {
+            setBlinkFor(null)
+            schedule()
+          }, 120)
+        },
+        2200 + Math.random() * 4200,
+      )
+    }
+    schedule()
+
+    return () => {
+      window.clearTimeout(closeAt)
+      window.clearTimeout(openAt)
+      setBlinkFor(null)
+    }
+  }, [canBlink, state, opponent])
+
+  const blinking = blinkFor === state
+
   const plateTransform = `translate3d(${(-parallax.x * 22).toFixed(2)}px, ${(
     -parallax.y * 11
   ).toFixed(2)}px, 0) scale(${1.06 + zoom * 0.06})`
@@ -81,15 +153,28 @@ export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: S
   return (
     <div ref={rootRef} className={`scene${hurt ? ' scene--hurt' : ''}`}>
       <div className="scene__plates" style={{ transform: plateTransform }}>
-        <img className="scene__plate" src="art/saloon_backplate.png" alt="" />
-        {(Object.keys(FRAMES) as SceneState[]).map((key) => (
+        <img className="scene__plate" src={room.back} alt="" />
+        {ORDER.map((key) => (
           <img
-            key={key}
+            key={`${opponent}-${key}`}
             className={`scene__plate scene__plate--char${state === key ? ' is-active' : ''}`}
-            src={FRAMES[key]}
+            src={frame(key)}
             alt=""
           />
         ))}
+        {/*
+         * The eyes-closed twin of the current expression, identical to it in
+         * every other respect, so snapping it on for a fifth of a second reads
+         * as a blink rather than as a change of frame.
+         */}
+        {canBlink && (
+          <img
+            key={`${opponent}-${state}-blink`}
+            className={`scene__plate scene__plate--blink${blinking ? ' is-active' : ''}`}
+            src={frame(state, true)}
+            alt=""
+          />
+        )}
         {/*
          * The revolver is rendered into a copy of the same plate rather than
          * composited as a cut-out prop, so its contact shadow and rim light
@@ -97,11 +182,15 @@ export function Scene({ state, flash, flashSource, hurt, zoom, showRevolver }: S
          * of any character state without disturbing the rest of the frame.
          */}
         {showRevolver && (
-          <img className="scene__plate scene__plate--prop" src="art/table_with_revolver.png" alt="" />
+          <img
+            className={`scene__plate scene__plate--prop scene__plate--prop-${venue}`}
+            src={room.prop}
+            alt=""
+          />
         )}
       </div>
 
-      <div className="scene__lamp" />
+      <div className={`scene__lamp scene__lamp--${venue}`} />
       <div className="scene__vignette" />
       {flash > 0 && (
         <div key={flash} className={`scene__flash scene__flash--${flashSource ?? 'dealer'}`} />

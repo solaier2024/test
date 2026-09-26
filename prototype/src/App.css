@@ -57,6 +57,25 @@ body {
   object-fit: cover;
   user-select: none;
   -webkit-user-drag: none;
+  /*
+   * A slow drift applied to every plate at once, so nothing shifts relative to
+   * anything else and the still frame reads as a held camera rather than a
+   * photograph. It only ever scales up, so the overscan is never exposed.
+   */
+  animation: cameraBreathe 6.4s ease-in-out infinite;
+}
+
+@keyframes cameraBreathe {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  38% {
+    transform: translate3d(-1.5px, -3.1px, 0) scale(1.007);
+  }
+  64% {
+    transform: translate3d(1.1px, -1.4px, 0) scale(1.004);
+  }
 }
 
 .scene__plate--char {
@@ -68,11 +87,33 @@ body {
   opacity: 1;
 }
 
+/*
+ * The eyes-closed twin is identical to the open-eyed plate everywhere except
+ * the lids, so it can simply be faded in over the top: only the eyes change.
+ */
+.scene__plate--blink {
+  opacity: 0;
+  transition: opacity 70ms linear;
+}
+
+.scene__plate--blink.is-active {
+  opacity: 1;
+  transition-duration: 45ms;
+}
+
 /* Reveals only the corner of the prop plate that holds the revolver. */
 .scene__plate--prop {
+  animation: cameraBreathe 6.4s ease-in-out infinite, revolverBreathe 7s ease-in-out infinite;
+}
+
+.scene__plate--prop-saloon {
   -webkit-mask-image: radial-gradient(ellipse 26% 23% at 70% 84%, #000 42%, transparent 82%);
   mask-image: radial-gradient(ellipse 26% 23% at 70% 84%, #000 42%, transparent 82%);
-  animation: revolverBreathe 7s ease-in-out infinite;
+}
+
+.scene__plate--prop-cantina {
+  -webkit-mask-image: radial-gradient(ellipse 19% 17% at 36% 88%, #000 44%, transparent 86%);
+  mask-image: radial-gradient(ellipse 19% 17% at 36% 88%, #000 44%, transparent 86%);
 }
 
 @keyframes revolverBreathe {
@@ -97,6 +138,16 @@ body {
   );
   mix-blend-mode: screen;
   animation: lampFlicker 3.4s infinite steps(1);
+}
+
+/* The cantina is lit from the altar candles rather than a hanging oil lamp. */
+.scene__lamp--cantina {
+  background: radial-gradient(
+    ellipse 56% 52% at 71% 52%,
+    rgba(255, 166, 74, 0.2),
+    transparent 64%
+  );
+  animation-duration: 4.6s;
 }
 
 @keyframes lampFlicker {
@@ -258,6 +309,217 @@ body {
   font-size: 11px;
   letter-spacing: 0.2em;
   color: #5a5348;
+}
+
+/* ---------- language ---------- */
+
+.langtoggle {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 5;
+  display: flex;
+  gap: 1px;
+  border: 1px solid rgba(217, 164, 65, 0.24);
+  background: rgba(8, 6, 5, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.langtoggle__btn {
+  padding: 7px 13px;
+  border: 0;
+  background: transparent;
+  color: #6f6759;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition: color 180ms, background 180ms;
+}
+
+.langtoggle__btn:hover {
+  color: var(--bone);
+}
+
+.langtoggle__btn.is-on {
+  background: linear-gradient(180deg, rgba(86, 60, 22, 0.9), rgba(30, 20, 8, 0.9));
+  color: var(--amber);
+}
+
+/* ---------- table select ---------- */
+
+.menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px 24px;
+  overflow-y: auto;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.52), rgba(0, 0, 0, 0.9));
+  animation: fadeIn 700ms ease;
+}
+
+.menu__heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: normal;
+  letter-spacing: 0.52em;
+  color: var(--amber-dim);
+}
+
+.menu__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 26px;
+  width: min(1060px, 94vw);
+  padding: 24px 28px;
+  border: 1px solid rgba(217, 164, 65, 0.2);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(14, 10, 7, 0.9), rgba(6, 5, 4, 0.82));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 0 60px rgba(217, 164, 65, 0.035);
+  backdrop-filter: blur(5px);
+}
+
+.menu__col {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+}
+
+.menu__col--wide {
+  border-left: 1px solid rgba(217, 164, 65, 0.14);
+  padding-left: 26px;
+}
+
+.menu__label {
+  margin: 0;
+  font-size: 10px;
+  font-weight: normal;
+  letter-spacing: 0.34em;
+  color: #6f6759;
+}
+
+.menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-left-width: 3px;
+  border-radius: 2px;
+  background: rgba(16, 12, 8, 0.7);
+  color: var(--bone);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 180ms, background 180ms, box-shadow 180ms;
+}
+
+.pick:hover {
+  border-color: rgba(217, 164, 65, 0.5);
+}
+
+.pick.is-on {
+  border-color: rgba(217, 164, 65, 0.38);
+  border-left-color: var(--amber);
+  background: linear-gradient(90deg, rgba(76, 53, 19, 0.85), rgba(20, 14, 7, 0.85));
+  box-shadow: 0 0 26px rgba(217, 164, 65, 0.12);
+}
+
+.pick__name {
+  font-size: 15px;
+  letter-spacing: 0.15em;
+}
+
+.pick.is-on .pick__name {
+  color: var(--amber);
+}
+
+.pick__tag {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: #6f6759;
+}
+
+.menu__blurb {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ash);
+}
+
+.menu__blurb--who {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(217, 164, 65, 0.12);
+  font-size: 12px;
+  font-style: italic;
+  color: #7b7365;
+}
+
+.menu__rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.menu__rules li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--bone);
+}
+
+.menu__rules li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f2d488, #8a6421);
+}
+
+.menu__stats {
+  display: flex;
+  gap: 26px;
+  margin: 2px 0 0;
+}
+
+.menu__stats dt {
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  color: #6f6759;
+  text-transform: uppercase;
+}
+
+.menu__stats dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu__go {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 /* ---------- hud ---------- */
@@ -708,6 +970,105 @@ body {
   color: #b8695c;
 }
 
+.result__swing {
+  margin: -4px 0 0;
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 22px #000;
+  animation: swingIn 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.result__swing.is-win {
+  color: #e6c069;
+}
+
+.result__swing.is-loss {
+  color: #b8695c;
+}
+
+@keyframes swingIn {
+  0% { opacity: 0; transform: translateY(14px) scale(0.86); }
+  60% { opacity: 1; transform: translateY(0) scale(1.08); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* The cylinder as it actually sat, shown once the hand cannot be replayed. */
+.reveal {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.reveal__label {
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  color: #6f6759;
+  text-transform: uppercase;
+}
+
+.reveal__pips {
+  display: flex;
+  gap: 6px;
+}
+
+.reveal__pip {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid #5c5144;
+  animation: pipIn 400ms backwards;
+}
+
+.reveal__pip--live {
+  background: radial-gradient(circle at 35% 30%, #f2d488, #8a6421);
+  border-color: #b3842f;
+}
+
+.reveal__pip--blank {
+  background: #15110c;
+}
+
+.reveal__pip:nth-child(2) { animation-delay: 70ms; }
+.reveal__pip:nth-child(3) { animation-delay: 140ms; }
+.reveal__pip:nth-child(4) { animation-delay: 210ms; }
+.reveal__pip:nth-child(5) { animation-delay: 280ms; }
+.reveal__pip:nth-child(6) { animation-delay: 350ms; }
+
+@keyframes pipIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.btn--pass:hover:not(:disabled) {
+  border-color: #7f8fb0;
+  box-shadow: 0 0 26px rgba(127, 143, 176, 0.2);
+}
+
+.keyhint {
+  position: absolute;
+  right: 22px;
+  bottom: 14px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: #4f483e;
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .menu__cols {
+    grid-template-columns: 1fr 1fr;
+  }
+  .menu__col--wide {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid rgba(217, 164, 65, 0.14);
+    padding-top: 18px;
+  }
+}
+
 @media (max-width: 900px) {
   .readout {
     left: 14px;
@@ -720,5 +1081,11 @@ body {
   .btn {
     min-width: 120px;
     font-size: 13px;
+  }
+  .menu__cols {
+    grid-template-columns: 1fr;
+  }
+  .keyhint {
+    display: none;
   }
 }
