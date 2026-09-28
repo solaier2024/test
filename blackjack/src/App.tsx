@@ -761,12 +761,13 @@ function Table(p: TableProps) {
             </div>
 
             <p className="keys">{t.keys}</p>
-            <button type="button" className="chrome leave" onClick={p.onLeave}>
-              {t.leave}
-            </button>
           </div>
         )}
       </div>
+
+      <button type="button" className="chrome leave" onClick={p.onLeave}>
+        {t.leave}
+      </button>
 
       <p className="hint">{p.lean ? t.tellHint : t.watchHands}</p>
       <p className="disclaimer floating">{t.disclaimer}</p>

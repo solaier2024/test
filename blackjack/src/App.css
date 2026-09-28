@@ -6,7 +6,7 @@
   overflow: hidden;
   /* The height the control bar occupies. The felt reserves exactly this, so the
      two can never overlap however the bar's contents change. */
-  --hud-h: 142px;
+  --hud-h: 132px;
 }
 
 /*
@@ -40,15 +40,16 @@
 .breath {
   position: absolute;
   inset: 0;
-  animation: breathe 6400ms ease-in-out infinite;
-  transform-origin: 50% 46%;
+  animation: breathe 5600ms ease-in-out infinite;
+  transform-origin: 50% 44%;
 }
 
 @keyframes breathe {
-  0% { transform: translate3d(0, 0, 0) scale(1.006); }
-  33% { transform: translate3d(-3px, 2px, 0) scale(1.011); }
-  66% { transform: translate3d(2px, -3px, 0) scale(1.007); }
-  100% { transform: translate3d(0, 0, 0) scale(1.006); }
+  0% { transform: translate3d(0, 0, 0) scale(1.008); }
+  28% { transform: translate3d(-5px, 4px, 0) scale(1.016); }
+  56% { transform: translate3d(4px, -6px, 0) scale(1.01); }
+  80% { transform: translate3d(-2px, 2px, 0) scale(1.014); }
+  100% { transform: translate3d(0, 0, 0) scale(1.008); }
 }
 
 .plate,
@@ -298,14 +299,16 @@
 
 .shoe-label,
 .gauge-label {
-  font-size: 9px;
+  font-size: 9.5px;
   letter-spacing: 0.22em;
-  color: var(--ink-dim);
+  color: #d8c8a6;
   white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 .shoe-body {
   position: relative;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
   width: 26px;
   height: 12vh;
   min-height: 70px;
@@ -355,7 +358,8 @@
 .tally {
   font-size: 9px;
   letter-spacing: 0.08em;
-  color: rgba(185, 168, 137, 0.8);
+  color: #c3b394;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
 }
 
 .gauge {
@@ -1056,12 +1060,13 @@
   }
 
   .chrome.leave {
-    position: static;
-    transform: none;
-    margin-top: 2px;
+    top: auto;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
     font-size: 8.5px;
     min-height: 44px;
-    background: none;
+    background: rgba(4, 6, 8, 0.85);
     border: none;
   }
 
