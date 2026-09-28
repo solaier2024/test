@@ -109,8 +109,16 @@ await page.getByRole('button', { name: /FIND A TABLE|BUSCAR MESA/ }).click()
 await page.waitForSelector('.tables-page')
 await page.locator('.table-card').nth(1).getByRole('button').click()
 await page.waitForSelector('.table-page')
-// The grain canvas sits over everything and would be counted as difference.
-await page.addStyleTag({ content: '.atmosphere { display: none !important; }' })
+/*
+ * Two things have to be held still to compare the costume across screens. The
+ * grain canvas repaints over everything, and the shared camera drift scales the
+ * table's plate by up to 1.6% - which against a 528px box of lace is about eight
+ * pixels of offset and enough on its own to score 15. The opening's video has no
+ * such transform, so the drift is switched off here to compare like with like.
+ */
+await page.addStyleTag({
+  content: '.atmosphere { display: none !important; } .breath { animation: none !important; transform: none !important; }',
+})
 await page.waitForTimeout(1500)
 shots.table = join(DIR, 'table.png')
 await page.screenshot({ path: shots.table, clip: { x: 400, y: 20, width: 500, height: 480 } })
@@ -120,12 +128,12 @@ await page.screenshot({ path: costume.table, clip: COSTUME })
 await browser.close()
 
 /*
- * How far apart two live costume samples may be. Not zero: both are screenshots
- * of a scene under the shared camera drift, and the plate underneath differs by
- * expression, so a few units of difference is the floor. Well under what a
- * different neckline scores, which was nine to thirty-eight.
+ * How far apart the two live costume samples may be. Not zero: one is a VP9 frame
+ * and the other a JPEG plate, and that codec difference alone measures about 1.7
+ * over a box full of lace. Five separates it from a costume that has actually
+ * changed, which scored nine to thirty-eight before it was locked.
  */
-const COSTUME_LIMIT = 7
+const COSTUME_LIMIT = 5
 
 /** Mean absolute luma difference against the same crop of a reference plate. */
 function score(shot, ref) {
@@ -172,8 +180,13 @@ for (const [name, shot] of Object.entries(shots)) {
  * samples to each other, so it needs no reference file and cannot be satisfied by
  * both of them being wrong in the same way as some plate on disk.
  */
-if (costume.intro_title && costume.table) {
-  const d = score(costume.table, costume.intro_title)
+/*
+ * Sampled on the third shot, not the title card. The title is centred in the
+ * viewport, which puts "DEALER'S CHOICE" directly across the costume box - and
+ * that alone scored 8.2 while the costume underneath it was correct to 1.7.
+ */
+if (costume.intro_look && costume.table) {
+  const d = score(costume.table, costume.intro_look)
   console.log('')
   console.log(`costume, opening vs table: ${d.toFixed(2)} (limit ${COSTUME_LIMIT})`)
   if (d > COSTUME_LIMIT) {
