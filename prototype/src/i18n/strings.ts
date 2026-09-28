@@ -91,7 +91,7 @@ export interface Strings {
     question: string
     dealerPicks: string
     hint: (ante: number) => string
-    dealerHint: (ante: number) => string
+    dealerHint: (low: number, high: number) => string
     go: string
   }
 
@@ -102,10 +102,15 @@ export interface Strings {
     atSelfHint: string
     atThem: string
     atThemHint: string
+    /** Replaces the pair once every chamber left is live. */
+    onlyShot: string
+    onlyShotHint: string
     call: (amount: number) => string
     fold: string
     foldHint: string
     owed: (amount: number) => string
+    /** Stands in for the amount owed when calling cannot win the hand. */
+    nothingToCall: string
     pass: string
     passHint: (toll: number) => string
   }
@@ -131,6 +136,8 @@ export interface Strings {
     theyPass: string
     dealerLoads: (live: number) => string
     blankBonus: (amount: number) => string
+    /** Read out in place of the choice the last chamber does not offer. */
+    nothingLeft: string
   }
 
   result: {
@@ -289,8 +296,8 @@ const en: Strings = {
     dealerPicks: 'They load the cylinder. You only get to watch.',
     hint: (ante) =>
       `Load it heavier and the ante climbs — but you reach the chamber that cannot miss that much sooner. Ante ${ante}.`,
-    dealerHint: (ante) =>
-      `You will see the count the moment the cylinder closes, and not one thing before that. Ante ${ante}.`,
+    dealerHint: (low, high) =>
+      `You will see the count the moment the cylinder closes, and not one thing before that. Ante runs ${low}–${high}.`,
     go: 'LOAD AND SPIN',
   },
 
@@ -301,10 +308,14 @@ const en: Strings = {
     atSelfHint: 'Ride it out and the turn stays yours',
     atThem: 'ACROSS THE TABLE',
     atThemHint: 'Live or empty, the turn passes',
+    onlyShot: 'END IT',
+    onlyShotHint: 'Nothing left in there but live rounds',
     call: (amount) => `CALL ${amount}`,
     fold: 'FOLD THE HAND',
     foldHint: 'Lose the pot, keep your skin',
     owed: (amount) => `They want ${amount} more out of you.`,
+    nothingToCall:
+      'The next one cannot miss, and calling only hands the iron back to them. There is nothing here to call.',
     pass: 'PASS THE IRON',
     passHint: (toll) => `Skip your chamber for ${toll} · once a hand`,
   },
@@ -330,6 +341,7 @@ const en: Strings = {
     theyPass: 'They pass the iron back to you, unfired, and pay for the privilege.',
     dealerLoads: (live) => `They thumb ${live} live round${live === 1 ? '' : 's'} in, and spin.`,
     blankBonus: (amount) => `The house adds ${amount} for riding that one out.`,
+    nothingLeft: 'Every chamber left in there is loaded. There is nothing left to decide.',
   },
 
   result: {
@@ -488,8 +500,8 @@ const es: Strings = {
     dealerPicks: 'Ellos cargan el tambor. A ti sólo te toca mirar.',
     hint: (ante) =>
       `Entre más cargado, más sube la entrada — pero llegas más rápido a la recámara que no falla. Entrada ${ante}.`,
-    dealerHint: (ante) =>
-      `Vas a saber cuántas son en cuanto cierre el tambor, y ni una cosa antes. Entrada ${ante}.`,
+    dealerHint: (low, high) =>
+      `Vas a saber cuántas son en cuanto cierre el tambor, y ni una cosa antes. La entrada va de ${low} a ${high}.`,
     go: 'CARGAR Y GIRAR',
   },
 
@@ -500,10 +512,14 @@ const es: Strings = {
     atSelfHint: 'Si aguantas, el turno sigue siendo tuyo',
     atThem: 'AL OTRO LADO',
     atThemHint: 'Salga o no salga, el turno se pasa',
+    onlyShot: 'ACÁBALO',
+    onlyShotHint: 'Ahí dentro ya no queda más que plomo',
     call: (amount) => `VER ${amount}`,
     fold: 'RETIRARSE',
     foldHint: 'Pierdes el pozo, conservas el pellejo',
     owed: (amount) => `Te quieren sacar ${amount} más.`,
+    nothingToCall:
+      'La que sigue no falla, y verla nada más les regresa el fierro. Aquí ya no hay nada que ver.',
     pass: 'PASAR EL FIERRO',
     passHint: (toll) => `Sáltate tu recámara por ${toll} · una vez por mano`,
   },
@@ -529,6 +545,7 @@ const es: Strings = {
     theyPass: 'Te regresan el fierro sin disparar, y pagan por el gusto.',
     dealerLoads: (live) => `Meten ${live} bala${live === 1 ? '' : 's'} al tambor y lo giran.`,
     blankBonus: (amount) => `La casa pone ${amount} más por haberla aguantado.`,
+    nothingLeft: 'Todas las recámaras que quedan están cargadas. Ya no hay nada que decidir.',
   },
 
   result: {

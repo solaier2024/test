@@ -64,6 +64,34 @@ export function liveRemaining(state: GameState): number {
   return state.cylinder.filter((c) => c === 'live').length
 }
 
+/**
+ * True when every chamber left in the cylinder is live.
+ *
+ * A live round always settles the hand, so a sealed cylinder can never run
+ * out of live rounds: the last chamber is always the one that goes off, and
+ * so is every chamber after the blanks are spent. Once that is true the hand
+ * has nothing left in it that deserves to be called a decision - the gun
+ * either points across the table or it is being thrown away on purpose - and
+ * everything below refuses to offer the ways of throwing it away.
+ */
+export function isCertain(state: GameState): boolean {
+  return state.cylinder.length > 0 && liveRemaining(state) === state.cylinder.length
+}
+
+/** Riding out your own chamber is only a gamble while it might be empty. */
+export function canShootSelf(state: GameState, side: Side): boolean {
+  return state.phase === 'betting' && state.turn === side && !isCertain(state)
+}
+
+/**
+ * Matching a raise hands the turn back to whoever made it. Against a chamber
+ * that cannot miss that buys nothing but a bigger pot to lose, so the only
+ * answer left is to fold.
+ */
+export function canCall(state: GameState, side: Side): boolean {
+  return state.phase === 'facing_raise' && state.turn === side && !isCertain(state)
+}
+
 /** The stake scales with how loaded the cylinder is, relative to the mode. */
 export function riskMultiplier(mode: ModeConfig, live: number): number {
   const lightest = Math.min(...mode.loads)
@@ -124,7 +152,9 @@ export function canRaise(state: GameState, side: Side): boolean {
   return (
     state.mode.betting &&
     state.raisesThisChamber < MAX_RAISES_PER_CHAMBER &&
-    maxRaise(state, side) > 0
+    maxRaise(state, side) > 0 &&
+    // Nobody can answer a raise against a certainty, so making one is theatre.
+    !isCertain(state)
   )
 }
 
@@ -133,7 +163,9 @@ export function canPass(state: GameState, side: Side): boolean {
     state.passesLeft[side] > 0 &&
     state.phase === 'betting' &&
     state.turn === side &&
-    state.chips[side] >= state.mode.passToll
+    state.chips[side] >= state.mode.passToll &&
+    // Sliding a chamber you know is live across is handing over the hand.
+    !isCertain(state)
   )
 }
 
@@ -228,17 +260,20 @@ export function fire(state: GameState, shooter: Side, target: Target): ShotResul
   next.phase = 'betting'
   const blankAnte = next.mode.blankAnte > 0 ? forceAnte(next, next.mode.blankAnte) : 0
 
-  // A forced ante can empty a stack; the hand cannot continue on fumes.
-  if (next.chips.player <= 0 || next.chips.dealer <= 0) {
-    const winner = next.chips.player > next.chips.dealer ? 'player' : 'dealer'
-    settle(next, winner, 'fold')
-  }
-
+  /*
+   * A stack can hit zero here, either all-in from the betting or drained by
+   * the forced ante. The hand carries on anyway: pulling the trigger costs
+   * nothing, the last chamber is always live, and a pot this size has to be
+   * decided by the gun. Raising and passing gate themselves off on chips, and
+   * the match ends when the next hand is dealt.
+   */
   return { state: next, chamber, shooter, target, victim: null, blankAnte }
 }
 
 /** Sets up the next hand, or ends the match when someone is cleaned out. */
 export function advanceRound(state: GameState): GameState {
+  // A double tap on the button that deals the next hand must not deal two.
+  if (state.phase !== 'round_over') return state
   const next: GameState = { ...state }
   if (next.chips.player <= 0 || next.chips.dealer <= 0) {
     next.phase = 'match_over'

@@ -22,12 +22,15 @@ import {
   advanceRound,
   anteFor,
   call,
+  canCall,
   canPass,
   canRaise,
+  canShootSelf,
   createGame,
   dealerChoosesLoad,
   fire,
   fold,
+  isCertain,
   liveOdds,
   liveRemaining,
   maxRaise,
@@ -364,6 +367,20 @@ export default function App() {
     }
   }, [dealerStep])
 
+  /**
+   * The last chamber is always live, and so is every chamber once the blanks
+   * are gone. At that point the turn holder has exactly one move that is not
+   * a way of losing on purpose, so the table makes it instead of asking: a
+   * choice between winning and losing is not a choice, it is a button.
+   */
+  const resolveForced = useCallback(async () => {
+    const s = stateRef.current
+    if (s.phase !== 'betting' || s.turn !== 'player' || !isCertain(s)) return
+    setCaption(t.beats.nothingLeft)
+    await beat(900)
+    await playShot('player', 'opponent')
+  }, [beat, playShot, t])
+
   /** Serialises every player-initiated action against the opponent driver. */
   const act = useCallback(
     async (fn: () => Promise<void> | void) => {
@@ -373,12 +390,13 @@ export default function App() {
       try {
         await fn()
         await pump()
+        await resolveForced()
       } finally {
         busyRef.current = false
         setCinematic(false)
       }
     },
-    [pump],
+    [pump, resolveForced],
   )
 
   /** Leaves the title card for the table picker. */
@@ -464,6 +482,8 @@ export default function App() {
     })
 
   const onNextRound = useCallback(() => {
+    // A second tap before React has swapped the panel must not deal twice.
+    if (busyRef.current || stateRef.current.phase !== 'round_over') return
     commit(advanceRound(stateRef.current))
     setSceneState('neutral')
     setRead(null)
@@ -490,6 +510,14 @@ export default function App() {
   const canLoad = state.phase === 'loading' && !cinematic
   const raiseOpen = playerToAct && state.phase === 'betting' && canRaise(state, 'player')
   const passOpen = playerToAct && canPass(state, 'player')
+  /*
+   * Everything a certain chamber takes off the table. The hand normally never
+   * reaches the player with one of these showing, because `resolveForced`
+   * settles it first, but the buttons answer to the rules rather than to the
+   * orchestrator so that a beat missed here can only cost a beat.
+   */
+  const selfOpen = playerToAct && canShootSelf(state, 'player')
+  const callOpen = playerToAct && canCall(state, 'player')
   /*
    * Once a hand is settled the board stops describing it. The narration would
    * otherwise collide with the result panel, and the odds and the read on
@@ -530,11 +558,11 @@ export default function App() {
         e.preventDefault()
         if (canLoad) onLoad()
         else if (state.phase === 'round_over' && !cinematic) onNextRound()
-        else if (playerToAct && state.phase === 'facing_raise') onPlayerCall()
+        else if (callOpen) onPlayerCall()
         return
       }
       if (!playerToAct) return
-      if (key === '1' && state.phase === 'betting') onPlayerFire('self')
+      if (key === '1' && selfOpen) onPlayerFire('self')
       if (key === '2' && state.phase === 'betting') onPlayerFire('opponent')
       if (key === 'r' && raiseOpen) onPlayerRaise()
       if (key === 'p' && passOpen) onPlayerPass()
@@ -755,7 +783,13 @@ export default function App() {
             chambers={mode.chambers}
             fired={state.fired}
             liveLeft={left}
-            mode={state.phase === 'loading' ? 'open' : 'sealed'}
+            mode={
+              state.phase !== 'loading'
+                ? 'sealed'
+                : mode.loadedBy === 'dealer'
+                  ? 'unknown'
+                  : 'open'
+            }
             spinning={spinning}
             liveLabel={t.hud.live}
             blankLabel={t.hud.blanks}
@@ -813,7 +847,10 @@ export default function App() {
               )}
               <p className="loadpanel__hint">
                 {mode.loadedBy === 'dealer'
-                  ? t.load.dealerHint(anteFor(mode, loadChoice))
+                  ? t.load.dealerHint(
+                      anteFor(mode, Math.min(...mode.loads)),
+                      anteFor(mode, Math.max(...mode.loads)),
+                    )
                   : t.load.hint(anteFor(mode, loadChoice))}
               </p>
               <button className="btn btn--primary" onClick={onLoad} disabled={spinning}>
@@ -823,7 +860,7 @@ export default function App() {
           )}
 
           {playerToAct && state.phase === 'betting' && (
-            <div className="actionrow">
+            <div className={`actionrow${selfOpen ? '' : ' actionrow--single'}`}>
               {mode.betting && (
                 <div className="raisebox">
                   <span className="raisebox__label">{t.actions.raiseLabel}</span>
@@ -846,24 +883,30 @@ export default function App() {
                   <small>{t.actions.passHint(mode.passToll)}</small>
                 </button>
               )}
-              <button className="btn btn--risk" onClick={() => onPlayerFire('self')}>
-                {t.actions.atSelf}
-                <small>{t.actions.atSelfHint}</small>
-              </button>
+              {selfOpen && (
+                <button className="btn btn--risk" onClick={() => onPlayerFire('self')}>
+                  {t.actions.atSelf}
+                  <small>{t.actions.atSelfHint}</small>
+                </button>
+              )}
               <button className="btn btn--kill" onClick={() => onPlayerFire('opponent')}>
-                {t.actions.atThem}
-                <small>{t.actions.atThemHint}</small>
+                {selfOpen ? t.actions.atThem : t.actions.onlyShot}
+                <small>{selfOpen ? t.actions.atThemHint : t.actions.onlyShotHint}</small>
               </button>
             </div>
           )}
 
           {playerToAct && state.phase === 'facing_raise' && (
-            <div className="actionrow">
-              <div className="callnote">{t.actions.owed(state.toCall)}</div>
-              <button className="btn btn--primary" onClick={onPlayerCall}>
-                {t.actions.call(Math.min(state.toCall, state.chips.player))}
-              </button>
-              <button className="btn" onClick={onPlayerFold}>
+            <div className={`actionrow${callOpen ? '' : ' actionrow--single'}`}>
+              <div className="callnote">
+                {callOpen ? t.actions.owed(state.toCall) : t.actions.nothingToCall}
+              </div>
+              {callOpen && (
+                <button className="btn btn--primary" onClick={onPlayerCall}>
+                  {t.actions.call(Math.min(state.toCall, state.chips.player))}
+                </button>
+              )}
+              <button className={`btn${callOpen ? '' : ' btn--primary'}`} onClick={onPlayerFold}>
                 {t.actions.fold}
                 <small>{t.actions.foldHint}</small>
               </button>

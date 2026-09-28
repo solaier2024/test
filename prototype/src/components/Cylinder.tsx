@@ -10,8 +10,10 @@ interface CylinderProps {
   /**
    * 'open' shows exactly which chambers take a round while you load them.
    * 'sealed' hides the order, which is the whole tension of the round.
+   * 'unknown' is a cylinder somebody else is about to load for you: even the
+   * count is theirs to pick, so the readout must not quote last hand's.
    */
-  mode: 'open' | 'sealed'
+  mode: 'open' | 'sealed' | 'unknown'
   spinning: boolean
   /** Localised labels for the count beneath the disc. */
   liveLabel: string
@@ -66,6 +68,7 @@ export function Cylinder({
           const cy = r + Math.sin(angle) * orbit
           const spent = mode === 'sealed' && i < fired
           const showsBrass = mode === 'open' && i < live
+          const showsUnknown = mode === 'unknown' || (mode === 'sealed' && !spent)
 
           return (
             <g key={i}>
@@ -78,7 +81,7 @@ export function Cylinder({
                 strokeWidth="1.2"
               />
               {showsBrass && <circle cx={cx} cy={cy} r={chamberR * 0.72} fill="url(#cyl-brass)" />}
-              {mode === 'sealed' && !spent && (
+              {showsUnknown && (
                 <circle
                   cx={cx}
                   cy={cy}
@@ -101,10 +104,10 @@ export function Cylinder({
       </svg>
       <div className="cylinder__caption">
         <span className="cylinder__live">
-          {mode === 'open' ? live : liveLeft} {liveLabel}
+          {mode === 'unknown' ? '?' : mode === 'open' ? live : liveLeft} {liveLabel}
         </span>
         <span className="cylinder__blank">
-          {mode === 'open' ? chambers - live : blanksLeft} {blankLabel}
+          {mode === 'unknown' ? '?' : mode === 'open' ? chambers - live : blanksLeft} {blankLabel}
         </span>
       </div>
     </div>

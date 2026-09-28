@@ -1,4 +1,4 @@
-import { canPass, canRaise, liveOdds, maxRaise } from './engine'
+import { canPass, canRaise, isCertain, liveOdds, maxRaise } from './engine'
 import type { GameState, Target, VenueId } from './types'
 
 export type Mood = 'neutral' | 'confident' | 'rattled'
@@ -64,8 +64,8 @@ export function readDealer(state: GameState, persona: DealerPersona): DealerRead
 }
 
 export function chooseTarget(state: GameState, persona: DealerPersona): Target {
+  if (isCertain(state)) return 'opponent'
   const p = liveOdds(state)
-  if (p >= 1) return 'opponent'
   // Below their nerve they eat the chamber to hold tempo; a little noise
   // keeps them from being perfectly predictable.
   const jitter = (Math.random() - 0.5) * 0.12
@@ -108,6 +108,8 @@ export function chooseBet(state: GameState, persona: DealerPersona): DealerBet {
 export type DealerResponse = 'call' | 'fold'
 
 export function respondToRaise(state: GameState, persona: DealerPersona): DealerResponse {
+  // Calling against a chamber that cannot miss only makes the loss bigger.
+  if (isCertain(state)) return 'fold'
   const p = liveOdds(state)
   const price = state.toCall
   const odds = price / (state.pot + price)

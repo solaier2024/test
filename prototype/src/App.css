@@ -1128,6 +1128,16 @@ body {
   color: var(--ash);
 }
 
+/* The lone remaining action carries the weight the pair used to share. */
+.actionrow--single > .btn {
+  min-width: 250px;
+}
+
+.actionrow--single .callnote {
+  max-width: 330px;
+  line-height: 1.5;
+}
+
 /* ---------- load panel ---------- */
 
 .loadpanel {
@@ -1844,6 +1854,12 @@ body {
   .raisebox,
   .btn--pass,
   .callnote {
+    grid-column: 1 / -1;
+  }
+
+  /* Once the cylinder takes the other option away, what is left is not a
+     pair, and half a row of button reads like something is missing. */
+  .actionrow--single > .btn {
     grid-column: 1 / -1;
   }
 
