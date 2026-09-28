@@ -568,8 +568,14 @@ function level(): number {
  * the ear hears new instruments but the same loudness - so the bus comes up
  * with them, and the difference between a fresh cylinder and a nearly empty
  * one is a real crescendo rather than a change of instrumentation.
+ *
+ * Curved rather than straight, and started low. A linear ride from a high
+ * floor spent most of its travel between "loud" and "slightly louder"; the
+ * exponent holds the bottom of the range down so there is somewhere for the
+ * top of it to go, which measures as roughly nine decibels across the odds
+ * a player actually sees instead of six.
  */
-const bedLevel = () => 0.38 + 0.62 * level()
+const bedLevel = () => 0.24 + 0.76 * level() ** 1.2
 
 /** Follows the intensity rather than jumping, or every chamber would click. */
 function rideBed(seconds = 1.1): void {

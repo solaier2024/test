@@ -12,7 +12,7 @@
 import { chromium } from 'playwright'
 import { skipIntro } from './lib/skip-intro.mjs'
 
-const BASE = process.argv[2] ?? 'http://127.0.0.1:5173/'
+const BASE = process.argv[2] ?? 'http://localhost:5173/'
 
 /*
  * Whatever the page connects to the destination also gets connected to an
@@ -29,6 +29,28 @@ const PROBE = () => {
       window.__probe = probe
     }
     return connect.call(this, dest, ...rest)
+  }
+
+  /*
+   * The same peak-hold read, but callable from inside the page so a
+   * measurement can be armed before the thing it is measuring is triggered.
+   * A one-shot is over in a tenth of a second; asking for it from the test
+   * process after the click has already missed it.
+   */
+  window.__readPeak = async (ms) => {
+    const probe = window.__probe
+    if (!probe) return -200
+    const buf = new Float32Array(probe.fftSize)
+    let loudest = 0
+    const until = performance.now() + ms
+    while (performance.now() < until) {
+      probe.getFloatTimeDomainData(buf)
+      let sum = 0
+      for (const s of buf) sum += s * s
+      loudest = Math.max(loudest, Math.sqrt(sum / buf.length))
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    return loudest > 0 ? 20 * Math.log10(loudest) : -200
   }
 }
 
@@ -130,7 +152,14 @@ expect('the title card still has music', afterSkip > -62, `${afterSkip.toFixed(1
 await page.getByRole('button', { name: 'TAKE A SEAT' }).click()
 await page.waitForTimeout(1100)
 await page.getByRole('button', { name: 'SIT DOWN' }).click()
-await page.waitForTimeout(1100)
+await page.waitForTimeout(2400)
+
+// An empty cylinder is the bottom of the arrangement's range. Measuring it
+// is the only way to know the build has anywhere to build from: a bed that
+// is already near the top when nothing is loaded cannot get tenser later,
+// which is exactly what it used to do.
+const calm = await page.evaluate(READ, 2600)
+
 // Five live rounds in six puts the odds readout near the top of its range,
 // which is what the arrangement is gated on.
 await page.locator('.chamberbtn').nth(4).click()
@@ -145,6 +174,30 @@ expect(
   table > afterSkip + 2,
   `${table.toFixed(1)} dBFS at ${odds} live, title was ${afterSkip.toFixed(1)}`,
 )
+expect(
+  'and far harder than the empty table',
+  table > calm + 7,
+  `${table.toFixed(1)} dBFS at ${odds} live, empty was ${calm.toFixed(1)}`,
+)
+
+/* ---- the gun is louder than the band ----------------------------------- */
+
+// The whole point of ducking the music bus is that a shot is the loudest
+// thing in the room. Fired over the densest bed the game has, so if it wins
+// here it wins everywhere.
+const before = await page.evaluate(READ, 900)
+const shot = await page.evaluate(async (ms) => {
+  const button = [...document.querySelectorAll('.btn--risk')][0]
+  const read = window.__readPeak(ms)
+  button?.click()
+  return read
+}, 1400)
+expect(
+  'the gunshot beats the bed under it',
+  shot > before + 4,
+  `${shot.toFixed(1)} dBFS against a ${before.toFixed(1)} bed`,
+)
+await page.waitForTimeout(3200)
 
 /* ---- mute really mutes -------------------------------------------------- */
 
