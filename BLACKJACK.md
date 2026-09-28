@@ -3,7 +3,8 @@
 一张桌子、一位发牌的女庄家、以视频为基座。这份文档评估**怎么做**,
 以及**哪里会翻车**。
 
-配套 [SERIES.md](SERIES.md)(系列定位)与 [VIDEO.md](VIDEO.md)(视频基座通用路线)。
+配套 [SERIES.md](SERIES.md)(系列定位)、[VIDEO.md](VIDEO.md)(视频基座通用路线)
+与 **[OPENING_AND_SCORE.md](OPENING_AND_SCORE.md)(开场 CG 与配乐设计)**。
 基线是 `cursor/western-saloon-roulette-casino-fa3e` 分支上的第一款。
 
 **先说结论:这是整个系列里视频化最划算的一张桌子。**
