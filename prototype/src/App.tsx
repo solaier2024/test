@@ -508,6 +508,8 @@ export default function App() {
   const raiseCap = Math.max(1, maxRaise(state, 'player'))
   const clampedRaise = Math.min(raiseAmount, raiseCap)
   const canLoad = state.phase === 'loading' && !cinematic
+  /** A table with one legal load has no question to put to you. */
+  const picksLoad = mode.loadedBy === 'player' && mode.loads.length > 1
   const raiseOpen = playerToAct && state.phase === 'betting' && canRaise(state, 'player')
   const passOpen = playerToAct && canPass(state, 'player')
   /*
@@ -829,9 +831,13 @@ export default function App() {
           {canLoad && (
             <div className="loadpanel">
               <p className="loadpanel__title">
-                {mode.loadedBy === 'dealer' ? t.load.dealerPicks : t.load.question}
+                {mode.loadedBy === 'dealer'
+                  ? t.load.dealerPicks
+                  : picksLoad
+                    ? t.load.question
+                    : t.load.fixed(mode.loads[0], mode.chambers)}
               </p>
-              {mode.loadedBy === 'player' && mode.loads.length > 1 && (
+              {picksLoad && (
                 <div className="loadpanel__choices">
                   {mode.loads.map((n) => (
                     <button
@@ -851,7 +857,9 @@ export default function App() {
                       anteFor(mode, Math.min(...mode.loads)),
                       anteFor(mode, Math.max(...mode.loads)),
                     )
-                  : t.load.hint(anteFor(mode, loadChoice))}
+                  : picksLoad
+                    ? t.load.hint(anteFor(mode, loadChoice))
+                    : t.load.fixedHint(anteFor(mode, mode.loads[0]))}
               </p>
               <button className="btn btn--primary" onClick={onLoad} disabled={spinning}>
                 {t.load.go}

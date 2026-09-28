@@ -308,6 +308,25 @@ describe('the chamber that cannot miss', () => {
     }
   })
 
+  it('is what the odds readout counts down to, one blank at a time', () => {
+    for (const id of MODE_ORDER) {
+      for (let seed = 0; seed < 100; seed++) {
+        let s = startRound(createGame(id), anyLoad(id))
+        let previous = 0
+        while (s.phase === 'betting') {
+          // What the HUD prints is the real chance the next chamber is live.
+          expect(liveOdds(s)).toBeCloseTo(liveRemaining(s) / s.cylinder.length)
+          // Spending a chamber can only ever spend a blank, so it can only
+          // ever make the cylinder more dangerous than the number just shown.
+          expect(liveOdds(s)).toBeGreaterThanOrEqual(previous)
+          previous = liveOdds(s)
+          s = fire(s, s.turn, 'self').state
+        }
+        expect(s.outcome?.reason).toBe('shot')
+      }
+    }
+  })
+
   it('takes every losing move off the table for both sides', () => {
     for (const id of MODE_ORDER) {
       const certain = rig(id, ['live', 'live'])

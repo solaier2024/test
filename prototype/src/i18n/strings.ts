@@ -90,7 +90,10 @@ export interface Strings {
   load: {
     question: string
     dealerPicks: string
+    /** Tables where the load is fixed have nothing to ask you. */
+    fixed: (live: number, chambers: number) => string
     hint: (ante: number) => string
+    fixedHint: (ante: number) => string
     dealerHint: (low: number, high: number) => string
     go: string
   }
@@ -294,8 +297,11 @@ const en: Strings = {
   load: {
     question: 'How many live rounds go in?',
     dealerPicks: 'They load the cylinder. You only get to watch.',
+    fixed: (live, chambers) =>
+      `${live} live round${live === 1 ? '' : 's'}, ${chambers} chambers. This table does not let you argue with that.`,
     hint: (ante) =>
       `Load it heavier and the ante climbs — but you reach the chamber that cannot miss that much sooner. Ante ${ante}.`,
+    fixedHint: (ante) => `Nothing to pick and nothing to hide behind. Ante ${ante}.`,
     dealerHint: (low, high) =>
       `You will see the count the moment the cylinder closes, and not one thing before that. Ante runs ${low}–${high}.`,
     go: 'LOAD AND SPIN',
@@ -498,8 +504,11 @@ const es: Strings = {
   load: {
     question: '¿Cuántas balas le metes?',
     dealerPicks: 'Ellos cargan el tambor. A ti sólo te toca mirar.',
+    fixed: (live, chambers) =>
+      `${live} bala${live === 1 ? '' : 's'}, ${chambers} recámaras. En esta mesa eso no se discute.`,
     hint: (ante) =>
       `Entre más cargado, más sube la entrada — pero llegas más rápido a la recámara que no falla. Entrada ${ante}.`,
+    fixedHint: (ante) => `Nada que escoger y nada atrás de qué esconderse. Entrada ${ante}.`,
     dealerHint: (low, high) =>
       `Vas a saber cuántas son en cuanto cierre el tambor, y ni una cosa antes. La entrada va de ${low} a ${high}.`,
     go: 'CARGAR Y GIRAR',

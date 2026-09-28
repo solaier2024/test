@@ -113,10 +113,8 @@ export function respondToRaise(state: GameState, persona: DealerPersona): Dealer
   const p = liveOdds(state)
   const price = state.toCall
   const odds = price / (state.pot + price)
-  // They fold when the chips demanded outweigh how safe the cylinder feels,
-  // and never fold a spot where they can simply pass the chamber along.
+  // They fold when the chips demanded outweigh how safe the cylinder feels.
   const survival = 1 - p * 0.5
-  if (p >= 0.85) return 'call'
   if (odds > survival * (0.6 + persona.aggression * 0.5)) return 'fold'
   if (price > state.chips.dealer * 0.75 && p > 0.5) return 'fold'
   return 'call'
