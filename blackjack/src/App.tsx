@@ -729,7 +729,11 @@ function Table(p: TableProps) {
           )}
         </div>
 
-        <p className="note-line">{p.note || '\u00a0'}</p>
+        {/* Narration, or the standing hint when there is nothing to narrate.
+            Leaning wins over both, because that is the moment the hint is for. */}
+        <p className={`note-line${p.lean ? ' watching' : ''}`}>
+          {p.lean ? t.tellHint : p.note || t.watchHands}
+        </p>
 
         {over ? (
           <div className="over">
@@ -818,7 +822,6 @@ function Table(p: TableProps) {
         {t.leave}
       </button>
 
-      <p className="hint">{p.lean ? t.tellHint : t.watchHands}</p>
       <p className="disclaimer floating">{t.disclaimer}</p>
       <Atmosphere reduced={p.reduced} heat={g.heat} lean={p.lean} />
     </main>
