@@ -156,9 +156,15 @@ function encode(name, frames) {
   const stage = stageFrames(frames)
   const input = ['-framerate', String(FPS), '-i', join(stage, '%05d.png')]
 
+  /*
+   * CRF 34 was too lossy for this costume. VP9 smooths fine black lace against
+   * skin, so the trim came out visibly thinner in the clips than on the JPEG
+   * plate underneath them - which reads as the costume changing when the clip
+   * starts, even though the plates are byte-locked. 28 holds the lace.
+   */
   for (const [suffix, w, h, crf, bitrate] of [
-    ['', W, H, 34, '0'],
-    ['.sm', SMALL_W, SMALL_H, 38, '0'],
+    ['', W, H, 28, '0'],
+    ['.sm', SMALL_W, SMALL_H, 33, '0'],
   ]) {
     ff([...input, '-vf', `scale=${w}:${h}`, '-c:v', 'libvpx-vp9', '-crf', String(crf), '-b:v', bitrate,
       '-row-mt', '1', '-an', join(OUT, `${name}${suffix}.webm`)])

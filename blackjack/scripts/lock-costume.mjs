@@ -69,12 +69,21 @@ const check = process.argv.includes('--check')
 export const MASTER = 'dealer_cool'
 
 /*
- * Region boxes in plate pixels, verified by drawing them on the master: the torso
- * box clears her jaw at the top and takes in both straps and the lace at her
- * elbows; the bodice box stops short of the arms.
+ * Region boxes in plate pixels, verified by drawing them on the master.
+ *
+ * The first version of the torso box started at y 252, which turned out to be
+ * below her shoulders - so the straps, including the one slipped off her left
+ * shoulder, and the sides of the choker were all still free to drift, and they
+ * measured 7 to 17 apart. A reviewer spotted exactly that: slipped in the
+ * opening, up on both shoulders at the table.
+ *
+ * The straps sit at the sides, well clear of her face, so the top edge can come
+ * up to 210 there. Her chin is at 207 and her mouth just above it, both of which
+ * have to stay free, so `arch` lifts the top edge back down to 252 across the
+ * centre column. The mask is that arch rather than a rectangle.
  */
 export const REGIONS = {
-  torso: { x: 336, y: 252, w: 528, h: 218 },
+  torso: { x: 336, y: 210, w: 528, h: 260, arch: { from: 540, to: 720, y: 252 } },
   bodice: { x: 404, y: 252, w: 352, h: 172 },
 }
 
@@ -99,12 +108,15 @@ export const PLATES = {
 }
 
 /** The opaque middle of a region, inset past the ramp: what the assertion measures. */
-export const core = (r) => ({
-  x: r.x + FEATHER + 4,
-  y: r.y + FEATHER + 4,
-  w: r.w - (FEATHER + 4) * 2,
-  h: r.h - (FEATHER + 4) * 2,
-})
+export const core = (r) => {
+  const top = (r.arch ? r.arch.y : r.y) + FEATHER + 4
+  return {
+    x: r.x + FEATHER + 4,
+    y: top,
+    w: r.w - (FEATHER + 4) * 2,
+    h: r.y + r.h - (FEATHER + 4) - top,
+  }
+}
 
 export function readRgb(path) {
   const out = execFileSync(
@@ -135,14 +147,31 @@ export function boxDiff(a, b, r) {
   return sum / (r.w * r.h * 3)
 }
 
-/** Per-pixel alpha for a box with a smooth ramp at its edges. */
+/**
+ * Per-pixel alpha for a region with a smooth ramp at its edges. When the region
+ * carries an `arch`, the top edge dips to the deeper y across the named column and
+ * eases back up either side of it, so her chin stays out of the mask while the
+ * straps at the shoulders come in.
+ */
 function alphaFor(r) {
   const a = new Float32Array(W * H)
   const smooth = (t) => t * t * (3 - 2 * t)
-  for (let y = r.y; y < r.y + r.h; y++) {
-    for (let x = r.x; x < r.x + r.w; x++) {
-      const d = Math.min(x - r.x, r.x + r.w - 1 - x, y - r.y, r.y + r.h - 1 - y)
-      a[y * W + x] = d >= FEATHER ? 1 : smooth(d / FEATHER)
+  const bottom = r.y + r.h - 1
+  const topAt = (x) => {
+    if (!r.arch) return r.y
+    const { from, to, y } = r.arch
+    const ramp = 70
+    if (x <= from - ramp || x >= to + ramp) return r.y
+    if (x >= from && x <= to) return y
+    const t = x < from ? (x - (from - ramp)) / ramp : ((to + ramp) - x) / ramp
+    return Math.round(r.y + (y - r.y) * smooth(t))
+  }
+  for (let x = r.x; x < r.x + r.w; x++) {
+    const top = topAt(x)
+    for (let y = top; y <= bottom; y++) {
+      const d = Math.min(x - r.x, r.x + r.w - 1 - x, y - top, bottom - y)
+      const v = d >= FEATHER ? 1 : smooth(d / FEATHER)
+      if (v > a[y * W + x]) a[y * W + x] = v
     }
   }
   return a

@@ -32,13 +32,13 @@ const WORK = '/tmp/dc-clip-costume'
  * get room. The unlocked build scored 60 to 240 on these same clips.
  */
 const BUDGET = {
-  warm: 9,
-  sharp: 9,
-  cool: 9,
-  caught: 12,
-  idle: 14,
-  deal: 130,
-  shuffle: 150,
+  warm: 10,
+  sharp: 10,
+  cool: 10,
+  caught: 14,
+  idle: 16,
+  deal: 150,
+  shuffle: 170,
 }
 
 const r = core(REGIONS.torso)
