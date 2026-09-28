@@ -66,6 +66,32 @@ async function check(page, label) {
         }
       }
       if (document.documentElement.scrollWidth > innerWidth + 1) out.push(`[${label}] horizontal scroll`)
+
+      // Nothing that carries a number may sit on top of anything else that does.
+      // The result banner landing across the hand total is the specific bug this
+      // catches, and it only showed up at some window sizes.
+      const boxes = [...document.querySelectorAll('.banner, .hand-label, .stake, .money, .note-line, .hint, .card, .act, .chip')]
+        .map((el) => ({ el, r: el.getBoundingClientRect() }))
+        .filter(({ r }) => r.width > 0 && r.height > 0)
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          // A child sits inside its parent by definition; that is nesting, not a
+          // collision.
+          if (boxes[i].el.contains(boxes[j].el) || boxes[j].el.contains(boxes[i].el)) continue
+          // Cards in a hand are fanned and overlap by design.
+          if (boxes[i].el.classList.contains('card') && boxes[j].el.classList.contains('card')) continue
+          const a = boxes[i].r
+          const b = boxes[j].r
+          const overlap =
+            Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+            Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+          if (overlap > 12) {
+            const na = boxes[i].el.className.split(' ')[0]
+            const nb = boxes[j].el.className.split(' ')[0]
+            out.push(`[${label}] ${na} overlaps ${nb} by ${Math.round(overlap)}px2`)
+          }
+        }
+      }
       return out
     },
     { sel: WATCH, label },

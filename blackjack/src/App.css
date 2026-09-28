@@ -4,9 +4,11 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
-  /* The height the control bar occupies. The felt reserves exactly this, so the
-     two can never overlap however the bar's contents change. */
-  --hud-h: 132px;
+  /* The height the control bar occupies; the felt reserves exactly this, so the
+     two cannot overlap however the bar's contents change. It has to scale with
+     viewport *height* as well, because a 640px-tall window has to fit the same
+     bar and the same two card rows out of a third less room. */
+  --hud-h: clamp(120px, 19vh, 146px);
 }
 
 /*
@@ -148,7 +150,7 @@
    * because a guess is how the money line ended up printed across the cards.
    */
   top: 67%;
-  bottom: var(--hud-h);
+  bottom: calc(var(--hud-h) + 6px);
   z-index: 10;
   perspective: 1100px;
   perspective-origin: 50% 0%;
@@ -185,8 +187,9 @@
   min-height: 1px;
 }
 
+/* Width, but capped by height too: on a short window the limit is vertical. */
 .card {
-  width: clamp(34px, 3.7vw, 54px);
+  width: clamp(28px, min(3.7vw, 6.4vh), 54px);
   aspect-ratio: 240 / 336;
   margin-left: clamp(-22px, -1.6vw, -10px);
   /* Two shadows: a tight contact one that pins it to the baize and a long soft
@@ -267,11 +270,18 @@
   text-shadow: 0 0 14px rgba(200, 162, 74, 0.55);
 }
 
+/* The stake rides in the label row. Under the cards it was a fixed-pixel race
+   against the control bar, and that race gets lost again at the next size. */
 .stake {
   font-size: clamp(9.5px, 1vw, 12.5px);
   color: var(--gold);
   letter-spacing: 0.08em;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.stake::before {
+  content: '·';
+  margin-right: 0.45em;
+  opacity: 0.55;
 }
 
 /* ------------------------------------------------------------- the readouts */
@@ -425,7 +435,7 @@
 
 .note-line {
   margin: 0;
-  flex-basis: 100%;
+  min-height: 1.3em;
   font-size: clamp(10.5px, 1.1vw, 13px);
   letter-spacing: 0.02em;
   color: rgba(240, 228, 204, 0.72);
@@ -434,24 +444,28 @@
 }
 
 /*
- * The result is over the felt, not inside the control bar. Putting it in the bar
- * changed the bar's height every hand, which moved the buttons under the
- * player's thumb between one press and the next.
+ * The result sits on the bare baize to the left of the cards, beside the chips.
+ * Centred over the picture there is no height that clears both the dealer and the
+ * hand labels at every window size; sharing the narration's line cost the control
+ * bar 29px it did not have and printed the chip count across the cards. That
+ * corner of the felt is genuinely empty.
  */
 .banner {
   position: absolute;
-  left: 50%;
-  top: 62.5%;
-  transform: translateX(-50%);
+  left: 3.5%;
+  top: 68%;
   z-index: 35;
+  margin: 0;
+  max-width: 26vw;
   display: flex;
-  align-items: baseline;
-  gap: 0.7em;
-  white-space: nowrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1em;
   font-family: var(--display);
-  font-size: clamp(14px, 2.3vw, 30px);
+  font-size: clamp(12px, 1.5vw, 20px);
+  line-height: 1.15;
   color: #e97b7f;
-  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.95);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.98), 0 0 40px rgba(0, 0, 0, 0.8);
   animation: arrive 260ms ease-out both;
   pointer-events: none;
 }
@@ -474,8 +488,7 @@
   width: 100%;
 }
 
-.acts,
-.chips-row {
+.acts {
   display: flex;
   gap: clamp(5px, 0.8vw, 11px);
   flex-wrap: wrap;
@@ -742,7 +755,7 @@
   font-size: clamp(12px, 1.5vw, 17px);
   font-style: italic;
   color: var(--ink-dim);
-  max-width: 34ch;
+  max-width: 46ch;
 }
 
 .section {
@@ -965,8 +978,12 @@
   }
 
   .banner {
-    top: 34dvh;
-    font-size: clamp(14px, 5.2vw, 24px);
+    left: 50%;
+    top: 20dvh;
+    transform: translateX(-50%);
+    align-items: center;
+    max-width: 90vw;
+    font-size: clamp(13px, 4.4vw, 20px);
   }
 
   .readouts {
@@ -1046,15 +1063,9 @@
     grid-column: span 2;
   }
 
-  .chips-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    width: 100%;
-  }
-
-  .chips-row .chip {
+  .acts .chip {
     min-width: 0;
-    padding: 0 4px;
+    padding: 0 2px;
   }
 
   .controls > .act.primary {

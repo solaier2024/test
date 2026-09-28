@@ -632,13 +632,13 @@ function Table(p: TableProps) {
                   <b className={s.total > 21 ? 'bust' : ''}>{s.total}</b>
                   {h.doubled && <i className="tag">×2</i>}
                   {result && <i className={`tag ${result}`}>{result}</i>}
+                  <span className="stake">{h.bet}</span>
                 </span>
                 <div className="cards">
                   {h.cards.map((c) => (
                     <PlayingCard key={c.id} card={c} fresh />
                   ))}
                 </div>
-                <span className="stake">{h.bet}</span>
               </div>
             )
           })}
@@ -656,13 +656,15 @@ function Table(p: TableProps) {
         </div>
       </aside>
 
-      {/* The result sits over the felt rather than in the control bar, so the
-          bar's height never changes and the buttons never move under a thumb. */}
+      {/* The result goes on the bare baize to the left of the cards, beside the
+          chips. Centred over the picture there is no height that clears both the
+          dealer and the hand labels at every window size, and in the control bar
+          it costs vertical room the bar does not have. That corner is empty. */}
       {p.banner && (
-        <div className={`banner${p.banner.good ? ' good' : ''}`}>
+        <p className={`banner${p.banner.good ? ' good' : ''}`}>
           <strong>{p.banner.head}</strong>
           {p.banner.body && <span>{p.banner.body}</span>}
-        </div>
+        </p>
       )}
 
       <div className="hud">
@@ -680,8 +682,9 @@ function Table(p: TableProps) {
               {t.houseCallName[g.houseCall]} <b data-fee={g.houseFee}>+{g.houseFee}</b>
             </em>
           )}
-          {p.note && <p className="note-line">{p.note}</p>}
         </div>
+
+        <p className="note-line">{p.note || '\u00a0'}</p>
 
         {over ? (
           <div className="over">
@@ -693,9 +696,12 @@ function Table(p: TableProps) {
           </div>
         ) : (
           <div className="controls">
-            {g.phase === 'betting' && (
-              <>
-                <div className="chips-row">
+            <div className="acts">
+              {/* Chips share the action row. Their own row made the bar taller in
+                  the betting phase than in any other, and on a short window that
+                  overflow landed on the felt. */}
+              {g.phase === 'betting' && (
+                <>
                   {chipSteps.map((n) => (
                     <button
                       type="button"
@@ -707,14 +713,12 @@ function Table(p: TableProps) {
                       {n}
                     </button>
                   ))}
-                </div>
-                <button type="button" data-act="deal" className="act primary" onClick={p.onDeal} disabled={p.busy}>
-                  {t.deal}
-                </button>
-              </>
-            )}
+                  <button type="button" data-act="deal" className="act primary" onClick={p.onDeal} disabled={p.busy}>
+                    {t.deal}
+                  </button>
+                </>
+              )}
 
-            <div className="acts">
               {g.phase === 'player' && (
                 <>
                   <button type="button" data-act="hit" className="act primary" onClick={() => p.onAct('hit')} disabled={p.busy}>
