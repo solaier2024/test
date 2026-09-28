@@ -9,8 +9,9 @@ import { STRINGS, type Lang } from './i18n/strings'
 import { useNarrow, useReducedMotion } from './platform'
 import { prefetchClips } from './prefetch'
 import * as sfx from './audio/sfx'
-import { setCue, setMood, shuffleSeam, startIntroScore, stopIntroScore } from './audio/score'
-import { stopThePiano, unlock } from './audio/engine'
+import { grito, setCue, setMood, shuffleSeam, startIntroScore, stopIntroScore } from './audio/score'
+import { isMuted, onAudioState, stopThePiano, unlock } from './audio/engine'
+import { purr, say, sayTotal, setVoiceEnabled, setVoiceLang, stopVoice } from './audio/voice'
 import {
   ROSA,
   chooseCheat,
@@ -62,7 +63,21 @@ export default function App() {
 
   const [lang, setLang] = useState<Lang>(() => (localStorage.getItem(LANG_KEY) as Lang) ?? 'en')
   const t = STRINGS[lang]
-  useEffect(() => localStorage.setItem(LANG_KEY, lang), [lang])
+  useEffect(() => {
+    localStorage.setItem(LANG_KEY, lang)
+    setVoiceLang(lang)
+  }, [lang])
+
+  // Speech synthesis is outside WebAudio, so the mute switch has to reach it by
+  // hand or she keeps talking over a silent table.
+  useEffect(
+    () =>
+      onAudioState(() => {
+        setVoiceEnabled(!isMuted())
+        if (isMuted()) stopVoice()
+      }),
+    [],
+  )
 
   const [screen, setScreen] = useState<Screen>(() =>
     localStorage.getItem(INTRO_SEEN) ? 'title' : 'intro',
@@ -177,8 +192,9 @@ export default function App() {
       gref.current = g
       setRevealed(BEATS.length + g.dealerHand.cards.length)
       sfx.cardFlip()
+      sayTotal(total(g.dealerHand.cards), 'house')
       sync()
-      await sleep(reduced ? 120 : 520)
+      await sleep(reduced ? 120 : 760)
     }
     g = gref.current
     const s = g.settlement
@@ -201,6 +217,18 @@ export default function App() {
     setBanner({ head, body: s.net !== 0 ? `${s.net > 0 ? '+' : ''}${s.net}` : undefined, good: s.net > 0 })
     setNote(s.falseCall ? t.voidWhy : '')
     sfx.sting(s.net > 0)
+    // Somebody in the corner lets one out when the band lands a turnaround, and
+    // when you take a pot off the house.
+    if (s.net > 0) grito()
+    window.setTimeout(() => {
+      if (s.caught) say('caught', { gap: 0, base: 340 })
+      else if (s.falseCall) say('missed', { gap: 0, base: 344 })
+      else if (s.perHand.includes('natural')) say('blackjack', { gap: 0 })
+      else if (s.perHand.every((r) => r === 'bust')) say('bust', { gap: 0 })
+      else if (s.net > 0) say('win', { gap: 0 })
+      else if (s.net < 0) say('lose', { gap: 0 })
+      else say('push', { gap: 0 })
+    }, 520)
 
     const mood = reactionTo(s.net, Boolean(s.caught), s.falseCall)
     if (mood === 'caught') showFace('caught', 'caught')
@@ -241,6 +269,7 @@ export default function App() {
     dealAtRef.current = performance.now()
     play('deal', { rate: 1 })
     sfx.shoeClick()
+    say('deal')
 
     for (let i = 0; i < BEATS.length; i++) {
       const wait = BEATS[i] - (i === 0 ? 0 : BEATS[i - 1])
@@ -251,6 +280,10 @@ export default function App() {
 
     setBusy(false)
     if (gref.current.phase === 'player') {
+      // She reads your total out. This is the line that fires most often, so it
+      // is the short one.
+      const mine = gref.current.hands[0]
+      if (mine) window.setTimeout(() => sayTotal(total(mine.cards), 'you'), 260)
       setNote(t.yourMove)
       showFace(readRef.current.shown === 'warm' ? 'warm' : readRef.current.shown === 'sharp' ? 'sharp' : 'cool',
         readRef.current.shown === 'warm' ? 'warm' : readRef.current.shown === 'sharp' ? 'sharp' : undefined)
@@ -295,13 +328,18 @@ export default function App() {
         play('deal', { rate: 1.3 })
         sfx.cardSlide()
         setRevealed((r) => r + (after - before))
+        if (what === 'hit') purr()
       }
       if (what === 'double' || what === 'split') sfx.chips(3)
       sync()
       await sleep(reduced ? 80 : 340)
 
       setBusy(false)
-      if (gref.current.phase === 'player') setNote(t.yourMove)
+      if (gref.current.phase === 'player') {
+        const h = gref.current.hands[gref.current.active]
+        if (h && after > before) window.setTimeout(() => sayTotal(total(h.cards), 'you'), 120)
+        setNote(t.yourMove)
+      }
       else await finish()
     },
     [busy, finish, play, reduced, sync, t],
@@ -343,6 +381,7 @@ export default function App() {
       setNote(t.shuffling)
       showFace('shuffling', 'shuffle')
       sfx.riffle(1.1)
+      say('shuffle')
       // The seam: the score turns its phrase over on her shuffle, so the form is
       // longer than what is written and every reset has a reason on screen.
       shuffleSeam()
@@ -413,6 +452,8 @@ export default function App() {
       idle()
       void unlock()
       sfx.chips(4)
+      setVoiceEnabled(true)
+      window.setTimeout(() => say('sit'), 700)
     },
     [idle],
   )

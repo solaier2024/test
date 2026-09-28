@@ -11,6 +11,9 @@
  * not follow the room when the piano stops.
  */
 
+/** Resting level of the music bus; the ducking curve returns to exactly this. */
+const MUSIC_LEVEL = 0.92
+
 let ctx: AudioContext | null = null
 let master: GainNode
 let musicNode: GainNode
@@ -32,7 +35,7 @@ export function ac(): AudioContext {
   master.connect(ctx.destination)
 
   musicNode = ctx.createGain()
-  musicNode.gain.value = 0.55
+  musicNode.gain.value = MUSIC_LEVEL
   musicNode.connect(master)
 
   sfxNode = ctx.createGain()
@@ -112,9 +115,9 @@ export function duck(amount: number, hold: number, release: number): void {
   const now = c.currentTime
   g.cancelScheduledValues(now)
   g.setValueAtTime(g.value, now)
-  g.linearRampToValueAtTime(0.55 * (1 - amount), now + 0.03)
-  g.setValueAtTime(0.55 * (1 - amount), now + 0.03 + hold)
-  g.linearRampToValueAtTime(0.55, now + 0.03 + hold + release)
+  g.linearRampToValueAtTime(MUSIC_LEVEL * (1 - amount), now + 0.03)
+  g.setValueAtTime(MUSIC_LEVEL * (1 - amount), now + 0.03 + hold)
+  g.linearRampToValueAtTime(MUSIC_LEVEL, now + 0.03 + hold + release)
 }
 
 /**
@@ -130,6 +133,16 @@ export function stopThePiano(seconds: number): void {
   g.linearRampToValueAtTime(0.0001, now + 0.08)
   g.setValueAtTime(0.0001, now + seconds)
   g.linearRampToValueAtTime(0.3, now + seconds + 1.6)
+}
+
+/**
+ * Sends a copy of the master output somewhere else as well as to the speakers.
+ * render-score.mjs uses this to record the real graph, so what lands on disk is
+ * what the game plays rather than a second arrangement written for testing.
+ */
+export function tapOutput(node: AudioNode): void {
+  ac()
+  master.connect(node)
 }
 
 export function isMuted(): boolean {
