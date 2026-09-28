@@ -289,8 +289,8 @@ const DISSOLVE = 0.4
  */
 function buildOpening() {
   const shots = [
-    // The one lit window in town. A slow push down the street.
-    { tag: 'street', frames: pushIn('intro_street', 2.4, { from: 1.0, to: 1.1, panY: 0.02 }) },
+    // Warm light spilling out of a doorway. A slow push toward it: an invitation.
+    { tag: 'street', frames: pushIn('intro_street', 2.4, { from: 1.0, to: 1.12, panX: 0.03 }) },
     // Through the room, past the faro layout and the birdcage.
     { tag: 'hall', frames: pushIn('intro_hall', 2.2, { from: 1.12, to: 1.02, panX: 0.05 }) },
     // She looks up. This is the first time the player is seen.
@@ -302,17 +302,23 @@ function buildOpening() {
         { hold: 'dealer_cool', frames: 18 },
       ]),
     },
-    // Her hands, cutting. The teaching shot.
+    /*
+     * Her hands, cutting - and keeping one card back. The teaching shot, and the
+     * longest one in the cut: it is the only thing in the opening the player has
+     * to carry into the game, and the bokeh behind the gloves is her own bodice
+     * and choker so there is no doubt whose hands these are.
+     */
     {
       tag: 'hands',
       frames: timeline([
-        { hold: 'intro_hands_a', frames: 8 },
-        { from: 'intro_hands_a', to: 'intro_hands_b', frames: 38, ease: 'easeInOut' },
-        { hold: 'intro_hands_b', frames: 14 },
+        { hold: 'intro_hands_a', frames: 10 },
+        { from: 'intro_hands_a', to: 'intro_hands_b', frames: 44, ease: 'easeInOut' },
+        { hold: 'intro_hands_b', frames: 18 },
       ]),
     },
-    // One card, and the chair it is waiting for. That chair is yours.
-    { tag: 'chair', frames: pushIn('intro_chair', 2.5, { from: 1.14, to: 1.0, panY: -0.015 }) },
+    // One card, a glass poured, and the chair it is all waiting for. That chair
+    // is yours - the only shot in the opening addressed to the player.
+    { tag: 'chair', frames: pushIn('intro_chair', 2.3, { from: 1.14, to: 1.0, panY: -0.015 }) },
     // And a smile, under the title.
     {
       tag: 'smile',

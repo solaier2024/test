@@ -147,7 +147,7 @@
    * The bottom edge is the control bar's declared height rather than a guess,
    * because a guess is how the money line ended up printed across the cards.
    */
-  top: 60%;
+  top: 67%;
   bottom: var(--hud-h);
   z-index: 10;
   perspective: 1100px;
@@ -441,7 +441,7 @@
 .banner {
   position: absolute;
   left: 50%;
-  top: 52%;
+  top: 62.5%;
   transform: translateX(-50%);
   z-index: 35;
   display: flex;
