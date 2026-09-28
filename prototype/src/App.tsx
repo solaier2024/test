@@ -763,7 +763,11 @@ export default function App() {
           {oddsShown && (
             <div className={`readout__odds is-${heat}`}>
               <span className="readout__oddsLabel">{t.hud.liveNext}</span>
-              <span className="readout__oddsValue">{Math.round(odds * 100)}%</span>
+              {/* Keyed on the number so a changed chamber remounts it and the
+                  odds tick over rather than silently becoming a worse figure. */}
+              <span className="readout__oddsValue" key={Math.round(odds * 100)}>
+                {Math.round(odds * 100)}%
+              </span>
               <div className="readout__bar">
                 <div className="readout__barFill" style={{ width: `${odds * 100}%` }} />
               </div>

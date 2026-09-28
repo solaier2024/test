@@ -25,6 +25,8 @@ export interface OpponentCopy {
  */
 export interface Strings {
   langName: string
+  /** For phones, where the full names are most of the width of the screen. */
+  langShort: string
 
   modes: Record<ModeId, ModeCopy>
   opponents: Record<OpponentId, OpponentCopy>
@@ -153,6 +155,7 @@ export interface Strings {
 
 const en: Strings = {
   langName: 'English',
+  langShort: 'EN',
 
   modes: {
     classic: {
@@ -351,6 +354,7 @@ const en: Strings = {
 
 const es: Strings = {
   langName: 'Español (MX)',
+  langShort: 'ES',
 
   modes: {
     classic: {
