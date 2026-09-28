@@ -497,6 +497,14 @@ export default function App() {
    */
   const handLive = state.phase === 'betting' || state.phase === 'facing_raise'
   const settled = state.phase === 'round_over' || state.phase === 'match_over'
+  const oddsShown = handLive && state.cylinder.length > 0
+  const sidePanels = oddsShown || Boolean(read && handLive)
+  /*
+   * One word for how bad it is, so the readout, the bar and the two shooting
+   * buttons can all answer to the same thing instead of each carrying their
+   * own threshold and drifting apart.
+   */
+  const heat = odds >= 1 ? 'certain' : odds >= 0.6 ? 'hot' : odds >= 0.4 ? 'warm' : 'cool'
 
   /*
    * The arrangement is gated on how likely the next chamber is to be live, so
@@ -719,7 +727,7 @@ export default function App() {
         <SoundToggle t={t} />
       </div>
 
-      <div className="hud">
+      <div className={`hud heat-${oddsShown ? heat : 'cool'}`}>
         <header className="hud__top">
           <div className={`chipstack${waitingOnDealer ? ' is-active' : ''}`}>
             <span className="chipstack__label">{t.opponents[opponentId].name}</span>
@@ -740,9 +748,9 @@ export default function App() {
           </div>
         </header>
 
-        <aside className="readout">
+        <aside className={`readout${sidePanels ? '' : ' readout--bare'}`}>
           <Cylinder
-            size={compact ? 88 : 132}
+            size={compact ? (sidePanels ? 78 : 88) : 132}
             live={state.phase === 'loading' ? loadChoice : state.loadedLive}
             chambers={mode.chambers}
             fired={state.fired}
@@ -752,16 +760,10 @@ export default function App() {
             liveLabel={t.hud.live}
             blankLabel={t.hud.blanks}
           />
-          {handLive && state.cylinder.length > 0 && (
-            <div className="readout__odds">
+          {oddsShown && (
+            <div className={`readout__odds is-${heat}`}>
               <span className="readout__oddsLabel">{t.hud.liveNext}</span>
-              <span
-                className={`readout__oddsValue${odds >= 0.6 ? ' is-hot' : ''}${
-                  odds >= 1 ? ' is-certain' : ''
-                }`}
-              >
-                {Math.round(odds * 100)}%
-              </span>
+              <span className="readout__oddsValue">{Math.round(odds * 100)}%</span>
               <div className="readout__bar">
                 <div className="readout__barFill" style={{ width: `${odds * 100}%` }} />
               </div>

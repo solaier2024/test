@@ -390,7 +390,7 @@ body {
   display: flex;
   gap: 1px;
   border: 1px solid rgba(217, 164, 65, 0.24);
-  background: rgba(8, 6, 5, 0.72);
+  background: rgba(8, 6, 5, 0.82);
   backdrop-filter: blur(3px);
 }
 
@@ -400,9 +400,9 @@ body {
   gap: 8px;
   padding: 6px 10px;
   border: 1px solid rgba(217, 164, 65, 0.24);
-  background: rgba(8, 6, 5, 0.72);
+  background: rgba(8, 6, 5, 0.82);
   backdrop-filter: blur(3px);
-  color: #6f6759;
+  color: #9a9080;
   font-family: inherit;
   font-size: 10px;
   letter-spacing: 0.18em;
@@ -450,7 +450,7 @@ body {
   padding: 7px 13px;
   border: 0;
   background: transparent;
-  color: #6f6759;
+  color: #9a9080;
   font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.18em;
@@ -527,6 +527,8 @@ body {
 }
 
 .pick {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -540,7 +542,7 @@ body {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms, background 180ms, box-shadow 180ms;
+  transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 120ms;
 }
 
 .pick.is-on {
@@ -563,7 +565,7 @@ body {
 .pick__tag {
   font-size: 10.5px;
   letter-spacing: 0.05em;
-  color: #6f6759;
+  color: #8d8371;
 }
 
 /* Opponents are picked by face, cropped straight out of their own plate. */
@@ -823,35 +825,63 @@ body {
   color: #6f6759;
 }
 
+/*
+ * The odds are the only number on the board the player can act on, so they
+ * get the treatment: a colour that ramps with the danger, a bar with real
+ * weight, and a left edge that lights up rather than staying a decorative
+ * hairline. Everything keys off one `is-` class set from a single threshold
+ * in App, so the readout, the bar and the shooting buttons cannot disagree.
+ */
 .readout__odds,
 .readout__tell {
   display: flex;
   flex-direction: column;
   gap: 5px;
   padding: 11px 13px;
-  border-left: 2px solid rgba(217, 164, 65, 0.4);
-  background: linear-gradient(90deg, rgba(8, 6, 5, 0.8), rgba(8, 6, 5, 0.18));
+  border-left: 3px solid var(--edge, rgba(217, 164, 65, 0.4));
+  background: linear-gradient(90deg, rgba(8, 6, 5, 0.86), rgba(8, 6, 5, 0.2));
+  transition: border-color 500ms ease;
+}
+
+.readout__odds {
+  --edge: rgba(217, 164, 65, 0.4);
+  --heat: var(--bone);
+}
+
+.readout__odds.is-warm {
+  --edge: #c08a3a;
+  --heat: #e9bb6a;
+}
+
+.readout__odds.is-hot {
+  --edge: #c9662c;
+  --heat: #ef9a52;
+}
+
+.readout__odds.is-certain {
+  --edge: #c0362b;
+  --heat: #f0584a;
+  background: linear-gradient(90deg, rgba(48, 10, 7, 0.9), rgba(8, 6, 5, 0.2));
 }
 
 .readout__oddsLabel,
 .readout__tellLabel {
   font-size: 10px;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.2em;
+  line-height: 1.4;
   color: var(--ash);
 }
 
 .readout__oddsValue {
-  font-size: 28px;
-  color: var(--bone);
+  font-size: 34px;
+  line-height: 1;
+  color: var(--heat);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 26px rgba(0, 0, 0, 0.9);
+  transition: color 500ms ease;
 }
 
-.readout__oddsValue.is-hot {
-  color: #e08b4a;
-}
-
-.readout__oddsValue.is-certain {
-  color: #d8453a;
+.is-certain .readout__oddsValue {
   animation: pulse 900ms ease-in-out infinite;
 }
 
@@ -861,32 +891,52 @@ body {
 }
 
 .readout__bar {
-  height: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
   overflow: hidden;
 }
 
 .readout__barFill {
   height: 100%;
-  background: linear-gradient(90deg, #8a6b2c, #e3a14b, #d8453a);
-  transition: width 500ms ease;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #8a6b2c, #e3a14b 62%, #d8453a);
+  box-shadow: 0 0 12px rgba(227, 161, 75, 0.45);
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A light travelling the bar once it is bad enough to be worth watching. */
+.is-hot .readout__bar::after,
+.is-certain .readout__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 228, 180, 0.5), transparent);
+  animation: barSweep 2.2s linear infinite;
+}
+
+@keyframes barSweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
 }
 
 .readout__warn {
   font-size: 11px;
-  letter-spacing: 0.2em;
-  color: #d8453a;
+  letter-spacing: 0.18em;
+  color: #f0584a;
 }
 
 .readout__tellValue {
   font-size: 16px;
+  line-height: 1.35;
   color: var(--bone);
 }
 
 .readout__tellHint {
   font-size: 10.5px;
   line-height: 1.6;
-  color: #6b6357;
+  color: #8d8371;
 }
 
 /* ---------- caption ---------- */
@@ -930,6 +980,7 @@ body {
 
 .btn {
   position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -948,19 +999,74 @@ body {
   transition: border-color 200ms, background 200ms, transform 120ms, box-shadow 200ms;
 }
 
+/*
+ * The press. A tap has to be answered inside the frame it happens in, or the
+ * control feels broken on a phone where there is no hover to have told you
+ * the thing was live in the first place. The sweep is a pseudo-element
+ * rather than a background change so it can be instant going in and slow
+ * coming out, which is what reads as a physical button rather than a state
+ * flag being flipped.
+ */
+.btn::after,
+.pick::after,
+.chamberbtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 120% 160% at 50% 120%, rgba(240, 200, 120, 0.3), transparent 70%);
+  transition: opacity 420ms ease-out;
+}
+
+.btn:active:not(:disabled)::after,
+.pick:active::after,
+.chamberbtn:active::after {
+  opacity: 1;
+  transition-duration: 0ms;
+}
+
 .btn small {
   font-size: 10px;
   letter-spacing: 0.06em;
-  color: #7b7365;
+  color: #9a9080;
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.985);
 }
 
+.chamberbtn:active,
+.pick:active {
+  transform: scale(0.975);
+}
+
+/*
+ * Dimming alone left disabled buttons almost invisible against the plate.
+ * Keeping most of the contrast and taking away the frame instead says
+ * "not now" without saying "not there".
+ */
 .btn:disabled {
-  opacity: 0.35;
+  opacity: 0.5;
+  border-color: rgba(217, 164, 65, 0.1);
+  background: rgba(8, 6, 5, 0.55);
+  box-shadow: none;
   cursor: not-allowed;
+}
+
+.btn:disabled small {
+  color: #57503f;
+}
+
+/* Keyboard players get the same answer the mouse gets, and a visible one. */
+:where(.btn, .pick, .chamberbtn, .langtoggle__btn, .soundtoggle, .linkbtn, .intro__skip):focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.raisebox input[type='range']:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 4px;
 }
 
 .btn--primary {
@@ -1038,6 +1144,8 @@ body {
 }
 
 .chamberbtn {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1050,7 +1158,7 @@ body {
   color: var(--ash);
   font-family: inherit;
   cursor: pointer;
-  transition: all 180ms;
+  transition: border-color 180ms, background 180ms, box-shadow 180ms, transform 120ms;
 }
 
 .chamberbtn__n {
@@ -1079,17 +1187,32 @@ body {
   text-align: center;
   font-size: 12px;
   line-height: 1.8;
-  color: #6b6357;
+  color: #978d7a;
 }
 
 /* ---------- result ---------- */
 
+/*
+ * A card, like the load panel, rather than loose text. Settled hands used to
+ * float in the empty half of a portrait screen with nothing holding them,
+ * which read as a rendering accident rather than as the end of a hand.
+ */
 .result {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  padding: 20px 26px;
+  border: 1px solid rgba(217, 164, 65, 0.2);
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(10, 7, 5, 0.9), rgba(6, 5, 4, 0.72));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.66);
+  backdrop-filter: blur(4px);
   animation: capIn 500ms ease;
+}
+
+.result .actionrow {
+  margin-top: 2px;
 }
 
 /* Leaving the table is always available but never the obvious move. */
@@ -1304,7 +1427,7 @@ body {
   text-align: center;
   font-size: 10.5px;
   letter-spacing: 0.14em;
-  color: #6f6759;
+  color: #8d8371;
 }
 
 /* How much is left, so skipping is a choice rather than an escape. */
@@ -1330,6 +1453,28 @@ body {
   text-decoration: underline;
   text-underline-offset: 5px;
   cursor: pointer;
+}
+
+/*
+ * The two shooting buttons answer to the same heat the readout does. At the
+ * top of it the cylinder cannot miss, and the button that points the gun at
+ * your own head should not look like the one that passes the turn.
+ */
+.heat-hot .btn--risk,
+.heat-certain .btn--risk {
+  border-color: rgba(200, 135, 60, 0.7);
+  box-shadow: 0 0 22px rgba(200, 135, 60, 0.18), inset 0 0 22px rgba(200, 135, 60, 0.07);
+}
+
+.heat-certain .btn--risk {
+  border-color: rgba(192, 54, 43, 0.85);
+  background: linear-gradient(180deg, rgba(52, 14, 10, 0.95), rgba(14, 8, 6, 0.95));
+  animation: dangerEdge 1.6s ease-in-out infinite;
+}
+
+@keyframes dangerEdge {
+  0%, 100% { box-shadow: 0 0 0 rgba(192, 54, 43, 0); }
+  50% { box-shadow: 0 0 26px rgba(192, 54, 43, 0.4); }
 }
 
 /* ---------- pointer affordances ---------- */
@@ -1433,8 +1578,16 @@ body {
        home indicator are not places to put content. */
     justify-content: flex-start;
     gap: 14px;
-    padding: calc(58px + env(safe-area-inset-top)) 12px calc(104px + env(safe-area-inset-bottom));
+    /* Clears the toolbar, which floats over this screen rather than in it.
+       At 58px the heading sat four pixels under the language buttons. */
+    padding: calc(76px + env(safe-area-inset-top)) 12px calc(104px + env(safe-area-inset-bottom));
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Half a phone's width was going into the tracking alone. */
+  .menu__heading {
+    font-size: 13px;
+    letter-spacing: 0.3em;
   }
 
   .menu__cols {
@@ -1572,29 +1725,55 @@ body {
     grid-row: 3;
     translate: none;
     flex-direction: row;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
     width: auto;
     padding: 4px 0 8px;
+  }
+
+  /*
+   * Loading and settled hands have no odds and no read to show, and the
+   * cylinder left alone on the left of a phone with two thirds of the row
+   * empty beside it looked like something had failed to load.
+   */
+  .readout--bare {
+    justify-content: center;
+    padding: 4px 0 6px;
+  }
+
+  .readout--bare .cylinder {
+    align-items: center;
   }
 
   .readout__odds,
   .readout__tell {
     flex: 1;
     min-width: 0;
-    padding: 7px 10px;
+    padding: 7px 9px;
   }
 
+  /* The number the hand turns on, sized like it. */
   .readout__oddsValue {
-    font-size: 21px;
+    font-size: 30px;
+  }
+
+  .readout__oddsLabel,
+  .readout__tellLabel {
+    font-size: 9px;
+    letter-spacing: 0.14em;
   }
 
   .readout__tellValue {
-    font-size: 13px;
+    font-size: 12.5px;
   }
 
   .readout__tellHint {
     font-size: 9.5px;
+  }
+
+  .readout__warn {
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
   }
 
   .cylinder__caption {
@@ -1753,6 +1932,16 @@ body {
     max-width: 88vw;
     bottom: calc(18px + env(safe-area-inset-bottom));
   }
+
+  /* The tracking is what pushes "no payouts" onto a line of its own. */
+  .title__note,
+  .intro__note {
+    letter-spacing: 0.06em;
+  }
+
+  .title__note {
+    font-size: 11px;
+  }
 }
 
 /* A phone held sideways has the aspect ratio but not the height. */
@@ -1803,11 +1992,22 @@ body {
   .scene__breathe,
   .scene__plate--prop,
   .scene__lamp,
-  .readout__oddsValue.is-certain {
+  .is-certain .readout__oddsValue,
+  .is-hot .readout__bar::after,
+  .is-certain .readout__bar::after,
+  .heat-hot .btn--risk,
+  .heat-certain .btn--risk {
     animation: none;
   }
 
   .scene__plates {
     transition: none;
+  }
+
+  /* The press still has to answer, so the sweep stays; only the travel goes. */
+  .btn:active:not(:disabled),
+  .chamberbtn:active,
+  .pick:active {
+    transform: none;
   }
 }
