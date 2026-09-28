@@ -283,7 +283,16 @@ function intermediate(frames, tag) {
   return { path: out, seconds: frames.length / FPS }
 }
 
-const DISSOLVE = 0.4
+/*
+ * Dissolve length per join, in order. Shots three and four are CUTS, not
+ * dissolves: four is a macro of her hands from a different camera, and its
+ * out-of-focus background is the same costume at a completely different scale
+ * sitting in the same part of the frame. Cross-fading those two makes the
+ * neckline and the straps appear to morph, which reads as the costume changing -
+ * a reviewer reported it as exactly that. Cutting to a detail and cutting back is
+ * better grammar anyway.
+ */
+const DISSOLVE = [0.4, 0.4, 0, 0, 0.4]
 
 /*
  * Six shots, twelve seconds. Shot four is her hands cutting the deck and it is
@@ -349,8 +358,12 @@ function buildOpening() {
   const chain = []
   for (let i = 1; i < segs.length; i++) {
     const out = `x${i}`
-    chain.push(`[${label}][${i}:v]xfade=transition=fade:duration=${DISSOLVE}:offset=${(acc - DISSOLVE).toFixed(3)}[${out}]`)
-    acc = acc + segs[i].seconds - DISSOLVE
+    // xfade needs a duration, so a "cut" is the shortest one it will take: two
+    // frames, which is below the threshold of anything reading as a blend.
+    const want = DISSOLVE[i - 1] ?? 0.4
+    const d = want === 0 ? 2 / FPS : want
+    chain.push(`[${label}][${i}:v]xfade=transition=fade:duration=${d.toFixed(3)}:offset=${(acc - d).toFixed(3)}[${out}]`)
+    acc = acc + segs[i].seconds - d
     label = out
   }
   chain.push(`[${label}]fade=t=in:st=0:d=0.6,fade=t=out:st=${(acc - 0.5).toFixed(3)}:d=0.5[v]`)
