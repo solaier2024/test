@@ -396,7 +396,11 @@ pitch 1.75    rate 0.9    volume 0.72
   断言出千后牌靴 + 桌面的牌 id 集合与开局完全一致,而且记牌数对得上
 - **破绽时序**有测试:真破绽必然早于牌落桌,诱饵必然晚于牌落桌(各 300 次)
 - **配乐不泄露真相**有测试:三度颜色随 `shown` 变,换 `truth` 不动
-- **片头与牌桌是同一版人物**有测量(`scripts/verify-identity.mjs`),线上取帧打分
+- **片头与牌桌是同一版人物、同一套衣服**有测量(`scripts/verify-identity.mjs`),
+  线上取帧打分,并直接比较**线上片头与线上牌桌的服装区**(不需要参考文件,
+  所以不可能靠"两边一起错"通过)
+- **服装钉死**有两道断言:成片级(`verify-costume.mjs`,`build-clips` 会强制跑)
+  与片段级(`verify-clip-costume.mjs`,量的是逐帧位移)
 - **五种窗口尺寸 × 三个阶段**的边缘体检(`scripts/verify-edges.mjs`),没有元素掉出画面
 - **画面在动**有专门的测量(`scripts/verify-motion.mjs`):关掉颗粒层后
   画面区域的变化是静态控制条的 18 倍。
@@ -467,7 +471,10 @@ node scripts/build-clips.mjs              # 关键帧 → 光流 → 缓动重�
 node scripts/playthrough.mjs [url] [n]    # 长时段实测:账目、布局、报错
 node scripts/verify-edges.mjs [url]       # 五种窗口尺寸 × 三个阶段,有没有东西掉出画面
 node scripts/verify-motion.mjs [url]      # 画面到底有没有在动(关掉颗粒层,拿静态控制条当基准)
-node scripts/verify-identity.mjs <url> <ref.jpg> [old.jpg]   # 片头里的人和桌上的人是不是同一版
+node scripts/verify-identity.mjs <url> <ref.jpg> [old.jpg]   # 片头与桌上是同一版人物、同一套衣服
+node scripts/lock-costume.mjs [--check]   # 把服装钉到主成片上(改了主成片就要重跑)
+node scripts/verify-costume.mjs           # 每张成片穿的是不是同一套(build-clips 会自动跑)
+node scripts/verify-clip-costume.mjs      # 服装在片段内部有没有在动
 node scripts/render-score.mjs [outdir] [url]   # 把真实音频图录成 wav,配乐可以打开来听
 node scripts/verify-audio.mjs [url]       # 节奏密度 / 亮度 / 电平的断言,以及她到底说没说话
 node scripts/verify-deploy.mjs <url>      # 把部署好的站当无缓存新访客走一遍

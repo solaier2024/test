@@ -35,6 +35,12 @@ for (const p of [reference, older].filter(Boolean)) {
 }
 
 const DIR = '/tmp/dc-identity'
+/*
+ * The costume box in plate pixels. At a 1280x720 viewport the plate maps about
+ * one-to-one into the scene, so the same box can be screenshotted off the live
+ * page - give or take the shared camera drift, which is a handful of pixels.
+ */
+const COSTUME = { x: 336, y: 252, width: 528, height: 218 }
 mkdirSync(DIR, { recursive: true })
 const fail = []
 
@@ -75,10 +81,15 @@ async function grabIntro(at, name) {
   // Only her half of the frame: the room behind her is identical in both
   // versions, so including it would wash the comparison out.
   await page.screenshot({ path, clip: { x: 400, y: 20, width: 500, height: 480 } })
+  // And her costume on its own, which is the thing that was drifting.
+  const dress = join(DIR, `costume-${name}.png`)
+  await page.screenshot({ path: dress, clip: COSTUME })
+  costume[name] = dress
   return path
 }
 
 const shots = {}
+const costume = {}
 if (await page.locator('.intro-video').count()) {
   shots.intro_look = await grabIntro(5.4, 'intro_look')
   shots.intro_title = await grabIntro(11.4, 'intro_title')
@@ -103,15 +114,30 @@ await page.addStyleTag({ content: '.atmosphere { display: none !important; }' })
 await page.waitForTimeout(1500)
 shots.table = join(DIR, 'table.png')
 await page.screenshot({ path: shots.table, clip: { x: 400, y: 20, width: 500, height: 480 } })
+costume.table = join(DIR, 'costume-table.png')
+await page.screenshot({ path: costume.table, clip: COSTUME })
 
 await browser.close()
 
+/*
+ * How far apart two live costume samples may be. Not zero: both are screenshots
+ * of a scene under the shared camera drift, and the plate underneath differs by
+ * expression, so a few units of difference is the floor. Well under what a
+ * different neckline scores, which was nine to thirty-eight.
+ */
+const COSTUME_LIMIT = 7
+
 /** Mean absolute luma difference against the same crop of a reference plate. */
 function score(shot, ref) {
-  const crop = join(DIR, `ref-${ref.split('/').pop()}.png`)
-  execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ref, '-vf',
-    'scale=1280:720,crop=500:480:400:20', crop])
-  const out = execFileSync('ffmpeg', ['-v', 'error', '-i', shot, '-i', crop, '-lavfi',
+  let against = ref
+  // A full plate has to be cropped to the sample's geometry first; two samples of
+  // the same size are compared as they are.
+  if (/\.jpg$/.test(ref)) {
+    against = join(DIR, `ref-${ref.split('/').pop()}.png`)
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ref, '-vf',
+      'scale=1280:720,crop=500:480:400:20', against])
+  }
+  const out = execFileSync('ffmpeg', ['-v', 'error', '-i', shot, '-i', against, '-lavfi',
     '[0][1]blend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-',
     '-f', 'null', '-'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   const m = /YAVG=([0-9.]+)/.exec(out)
@@ -138,6 +164,21 @@ for (const [name, shot] of Object.entries(shots)) {
     fail.push(`${name} is not clearly closer to the current plate (${now.toFixed(2)} vs ${then.toFixed(2)})`)
   }
   if (now > 40) fail.push(`${name} is a long way from the reference (${now.toFixed(2)})`)
+}
+
+/*
+ * And the question the bug report was actually about: is she wearing the same
+ * clothes at the table as she is in the opening? This compares the two live
+ * samples to each other, so it needs no reference file and cannot be satisfied by
+ * both of them being wrong in the same way as some plate on disk.
+ */
+if (costume.intro_title && costume.table) {
+  const d = score(costume.table, costume.intro_title)
+  console.log('')
+  console.log(`costume, opening vs table: ${d.toFixed(2)} (limit ${COSTUME_LIMIT})`)
+  if (d > COSTUME_LIMIT) {
+    fail.push(`the costume differs between the opening and the table (${d.toFixed(2)})`)
+  }
 }
 
 console.log('')

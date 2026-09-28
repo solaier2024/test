@@ -366,6 +366,19 @@ function buildOpening() {
   return frames
 }
 
+/*
+ * Refuse to encode from plates whose costume has drifted. The clips are optical
+ * flow between two stills, so a neckline a few pixels out on one plate becomes a
+ * neckline sliding up her chest on screen - and it is far cheaper to catch that
+ * here than to notice it in a recording after six minutes of encoding.
+ */
+if (process.env.SKIP_COSTUME_CHECK !== '1') try {
+  execFileSync('node', [join(HERE, 'verify-costume.mjs')], { stdio: 'inherit' })
+} catch {
+  console.error('\nthe plates are not costume-locked; refusing to build clips from them')
+  process.exit(1)
+}
+
 mkdirSync(OUT, { recursive: true })
 mkdirSync(CACHE, { recursive: true })
 
