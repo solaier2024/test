@@ -10,7 +10,7 @@
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { chromium } from 'playwright'
 
-const URL = process.env.GAME_URL ?? 'http://127.0.0.1:5173/'
+const URL = process.env.GAME_URL ?? 'http://localhost:5173/'
 const OUT = process.env.OUT_DIR ?? 'demo-capture'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

@@ -12,7 +12,7 @@ import { writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 import { skipIntro } from './lib/skip-intro.mjs'
 
-const URL = process.env.GAME_URL ?? 'http://127.0.0.1:5173/'
+const URL = process.env.GAME_URL ?? 'http://localhost:5173/'
 const OUT = process.argv[3] ?? '/tmp/blink'
 
 /** Eye region and a control region, as fractions of the viewport. */
@@ -30,15 +30,20 @@ await skipIntro(page)
 await page.goto(URL, { waitUntil: 'networkidle' })
 await page.waitForTimeout(1200)
 
+/*
+ * Both opponents are checked at the table. The title card used to show a
+ * still plate that blinked; it plays a clip now, and a clip covers the
+ * plates and does its own blinking, so there is nothing to observe there.
+ */
 const who = process.argv[2] ?? 'calloway'
+await page.getByRole('button', { name: 'TAKE A SEAT' }).click()
+await page.waitForTimeout(700)
 if (who === 'viuda') {
-  await page.getByRole('button', { name: 'TAKE A SEAT' }).click()
-  await page.waitForTimeout(700)
   await page.getByRole('button', { name: 'La Viuda' }).click()
   await page.waitForTimeout(700)
-  await page.getByRole('button', { name: 'SIT DOWN' }).click()
-  await page.waitForTimeout(1500)
 }
+await page.getByRole('button', { name: 'SIT DOWN' }).click()
+await page.waitForTimeout(1500)
 
 // --- part one: does it fire by itself, and on an irregular schedule? ---
 await page.evaluate(() => {
@@ -59,9 +64,22 @@ const holds = closes
   .filter(Boolean)
   .map((o, i) => Math.round(o.t - closes[i].t))
 
-console.log(`${who}: ${closes.length} blinks in 30s`)
+console.log(`${who}: ${closes.length} plate blinks in 30s`)
 console.log(`  gaps between blinks (ms): ${gaps.join(', ')}`)
 console.log(`  eyes held shut (ms):      ${holds.join(', ')}`)
+
+/*
+ * The plate blink is the fallback, and since the idle clip went in there is
+ * nothing left for it to fall back from: a looping clip covers the plates and
+ * blinks on its own. So an idle clip running is the passing answer too, and
+ * a face that is neither blinking nor covered by one is the failure.
+ */
+const idle = await page.evaluate(() => {
+  const v = document.querySelector('.scene__clip, .scene video')
+  return v ? { loop: v.loop, paused: v.paused, src: v.currentSrc.split('/').pop() } : null
+})
+console.log(`  idle clip: ${idle ? `${idle.src}, ${idle.paused ? 'paused' : 'running'}` : 'none'}`)
+const alive = closes.length > 0 || Boolean(idle && !idle.paused)
 
 // --- part two: when it is on, what actually changed? ---
 const rect = ([x, y, w, h]) => ({
@@ -106,4 +124,5 @@ for (const [state, on] of [
 console.log(`  crops written to ${OUT}-${who}-*.png`)
 
 await browser.close()
-process.exit(closes.length > 0 ? 0 : 1)
+console.log(alive ? '\nOK: the face is alive' : '\nFAILED: a still face, and no clip over it')
+process.exit(alive ? 0 : 1)

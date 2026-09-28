@@ -8,7 +8,7 @@
 import { mkdirSync } from 'node:fs'
 import { chromium, devices } from 'playwright'
 
-const BASE = process.argv[2] ?? 'http://127.0.0.1:5173/'
+const BASE = process.argv[2] ?? 'http://localhost:5173/'
 const OUT = process.argv[3] ?? '/tmp/mobile'
 mkdirSync(OUT, { recursive: true })
 
