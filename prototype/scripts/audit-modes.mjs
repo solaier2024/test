@@ -9,7 +9,7 @@
  *
  * Usage: node scripts/audit-modes.mjs [baseUrl] [outDir] [onlyTheseModes]
  */
-import { chromium } from 'playwright'
+import { chromium, devices } from 'playwright'
 import { mkdirSync } from 'node:fs'
 import { skipIntro } from './lib/skip-intro.mjs'
 
@@ -62,7 +62,12 @@ const install = () => {
 }
 
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1400, height: 900 } })
+// PHONE=1 runs the same pass in portrait, where the action row is a grid and
+// a button that loses its partner has to be told to take the whole width.
+const context = await browser.newContext(
+  process.env.PHONE ? devices['iPhone 14'] : { viewport: { width: 1400, height: 900 } },
+)
+const page = await context.newPage()
 await skipIntro(page)
 
 const problems = []
@@ -111,11 +116,13 @@ for (const table of TABLES.filter((t) => !only || only.includes(t.mode))) {
      * loop decides there is nothing to click and goes back to waiting.
      */
     if (!caught) {
-      // Read the DOM rather than using a locator: a locator would wait for a
-      // caption to appear, and most of the time there is not one to wait for.
-      const line = await page.evaluate(() => document.querySelector('.caption')?.textContent ?? '')
-      if (/nothing left to decide/i.test(line)) {
-        await page.screenshot({ path: `${OUT}/${slug}-forced.png` })
+      // Read the DOM rather than using a locator: a locator would wait for
+      // the readout to appear, and most of the time there is none to wait for.
+      const showing = await page.evaluate(
+        () => document.querySelector('.readout__oddsValue')?.textContent?.trim() ?? '',
+      )
+      if (showing === '100%') {
+        await page.screenshot({ path: `${OUT}/${slug}-certain.png` })
         caught = true
       }
     }
