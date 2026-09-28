@@ -199,7 +199,7 @@ export default function App() {
                 : t.push
 
     setBanner({ head, body: s.net !== 0 ? `${s.net > 0 ? '+' : ''}${s.net}` : undefined, good: s.net > 0 })
-    setNote('')
+    setNote(s.falseCall ? t.voidWhy : '')
     sfx.sting(s.net > 0)
 
     const mood = reactionTo(s.net, Boolean(s.caught), s.falseCall)
@@ -631,7 +631,11 @@ function Table(p: TableProps) {
                   <em>{t.yourHand}</em>
                   <b className={s.total > 21 ? 'bust' : ''}>{s.total}</b>
                   {h.doubled && <i className="tag">×2</i>}
-                  {result && <i className={`tag ${result}`}>{result}</i>}
+                  {result && (
+                    <i className={`tag ${g.settlement?.falseCall ? 'voided' : result}`}>
+                      {g.settlement?.falseCall ? t.voidTag : result}
+                    </i>
+                  )}
                   <span className="stake">{h.bet}</span>
                 </span>
                 <div className="cards">

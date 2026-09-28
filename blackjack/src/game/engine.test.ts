@@ -499,3 +499,62 @@ describe('what the felt shows once a round is void', () => {
     expect(right.holeDown).toBe(false)
   })
 })
+
+/*
+ * Two things a reviewer watching the recording read as bugs. Both are correct,
+ * and both are now asserted rather than argued about.
+ */
+describe('what the felt is actually saying', () => {
+  it('reads a ten and an ace as twenty-one, not eleven', () => {
+    expect(score([card('K'), card('A', 1)])).toEqual({ total: 21, soft: true })
+    expect(score([card('A'), card('10', 1)])).toEqual({ total: 21, soft: true })
+    expect(isNatural(held([card('K'), card('A', 1)]))).toBe(true)
+  })
+
+  /*
+   * With her hole card down the table shows her UPCARD total, not her hand. An
+   * ace showing therefore reads 11, which looks like a scoring bug and is not:
+   * the second card is face down and has not been counted.
+   */
+  it('shows only her upcard while the hole card is face down', () => {
+    const g: GameState = {
+      ...createGame('casa', seeded(137)),
+      dealerHand: held([card('A'), card('K', 1)], 0),
+      holeDown: true,
+    }
+    expect(total(g.dealerHand.cards.slice(0, 1))).toBe(11)
+    expect(total(g.dealerHand.cards)).toBe(21)
+  })
+
+  /*
+   * A wrong call kills the round on the spot. She does not then play her hand
+   * out, so her total can sit at something she would never have stood on - which
+   * is the penalty, not the dealer breaking her own rule.
+   */
+  it('does not make her play on after a wrong call, however low she is sitting', () => {
+    const rnd = seeded(139)
+    const g: GameState = {
+      ...createGame('casa', rnd),
+      phase: 'player',
+      hands: [held([card('7'), card('5', 1)], 20)],
+      dealerHand: held([card('9', 2), card('5', 3)], 0),
+      tell: makeTell(null, false, rnd),
+    }
+    const wrong = callCheat(g, 400)
+    expect(wrong.settlement!.falseCall).toBe(true)
+    // Fourteen, untouched: she never drew, because there was no hand left to play.
+    expect(total(wrong.dealerHand.cards)).toBe(14)
+    expect(wrong.dealerHand.cards).toHaveLength(2)
+  })
+
+  it('but does make her draw to seventeen when the hand is played properly', () => {
+    const rnd = seeded(149)
+    const g: GameState = {
+      ...createGame('casa', rnd),
+      dealerHand: held([card('9'), card('5', 1)], 0),
+      hands: [held([card('K', 2), card('8', 3)], 20, { done: true })],
+    }
+    const played = playDealer(g, { cheat: null }, rnd)
+    expect(total(played.dealerHand.cards)).toBeGreaterThanOrEqual(17)
+  })
+})

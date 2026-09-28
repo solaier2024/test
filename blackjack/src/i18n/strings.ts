@@ -63,6 +63,8 @@ export interface Strings {
   dealerBust: string
   caughtHer: (kind: string) => string
   calledWrong: string
+  voidTag: string
+  voidWhy: string
   cheatName: Record<'second' | 'peek' | 'cold', string>
   houseCallName: Record<'no_double' | 'flat_natural' | 'no_split', string>
   houseCallSaid: (rule: string, fee: number) => string
@@ -149,6 +151,8 @@ const en: Strings = {
   dealerBust: 'SHE BREAKS',
   caughtHer: (kind) => `CAUGHT HER — ${kind}`,
   calledWrong: 'NOTHING THERE',
+  voidTag: 'void',
+  voidWhy: 'You called it. The hand dies where it stands and the stake is hers.',
   cheatName: {
     second: 'she dealt the second card',
     peek: 'she read her hole card',
@@ -249,6 +253,8 @@ const es: Strings = {
   dealerBust: 'SE PASA',
   caughtHer: (kind) => `LA CACHASTE — ${kind}`,
   calledWrong: 'AHÍ NO HABÍA NADA',
+  voidTag: 'anulada',
+  voidWhy: 'Cantaste. La mano muere donde está y la apuesta es suya.',
   cheatName: {
     second: 'repartió la segunda',
     peek: 'le echó ojo a su tapada',

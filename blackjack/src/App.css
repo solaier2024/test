@@ -264,6 +264,7 @@
 .tag.win, .tag.natural { color: #8fd3a4; }
 .tag.lose, .tag.bust { color: #e4666a; }
 .tag.push { color: var(--gold); }
+.tag.voided { color: #9c8fb4; }
 
 .hand.active .hand-label b {
   color: var(--gold);
