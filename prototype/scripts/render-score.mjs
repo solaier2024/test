@@ -1,7 +1,8 @@
 /**
- * Bounces the score to .wav files so it can be listened to and measured.
+ * Bounces the score and the one-shots to .wav files so they can be listened
+ * to and measured.
  *
- * The music is synthesised live in a browser, which makes it awkward to judge
+ * The audio is synthesised live in a browser, which makes it awkward to judge
  * and impossible to diff. This drives exactly the same modules through an
  * OfflineAudioContext instead of the wall clock, so what comes out is what
  * the game plays, only faster than real time and in a file.
@@ -9,25 +10,54 @@
  *   node scripts/render-score.mjs [outDir]
  *
  * Needs `npm run dev` running: the modules are pulled straight from Vite so
- * there is no second copy of the score to fall out of date.
+ * there is no second copy of the audio to fall out of date.
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { chromium } from 'playwright'
 
-const BASE = process.env.GAME_URL ?? 'http://127.0.0.1:5173/'
+const BASE = process.env.GAME_URL ?? 'http://localhost:5173/'
 const OUT = process.argv[2] ?? '/tmp/score'
 mkdirSync(OUT, { recursive: true })
 
-/** What to bounce: the opening, and the table at both ends of its range. */
+/**
+ * What to bounce.
+ *
+ * The five `table_*` takes are the point of the whole file: they are the same
+ * arrangement at five points along the live-chamber odds, so "does it build"
+ * is a column of numbers rather than an opinion.
+ */
 const TAKES = [
-  { name: 'intro', kind: 'intro', level: 0, seconds: 12 },
+  { name: 'intro', kind: 'intro', seconds: 12 },
   { name: 'title', kind: 'title', level: 0, seconds: 11 },
   // Low enough that the gallop is the only percussion, which is what makes
   // this take worth having: the hoofbeat timing can be measured off it.
   { name: 'menu', kind: 'menu', level: 0.1, seconds: 12 },
-  { name: 'table_cold', kind: 'table', level: 0.1, seconds: 11 },
+  // Named for the odds the player is looking at, and fed the intensity App
+  // would actually pass for them, so the numbers can be read straight across.
+  { name: 'table_loading', kind: 'table', level: 0.06, seconds: 10 },
+  { name: 'table_odds_00', kind: 'table', level: 0.16, seconds: 10 },
+  { name: 'table_odds_25', kind: 'table', level: 0.37, seconds: 10 },
+  { name: 'table_odds_50', kind: 'table', level: 0.58, seconds: 10 },
+  { name: 'table_odds_75', kind: 'table', level: 0.79, seconds: 10 },
+  { name: 'table_odds_100', kind: 'table', level: 1, seconds: 10 },
   // Two full passes, because the second one is arranged differently.
   { name: 'table_hot', kind: 'table', level: 1, seconds: 21 },
+
+  { name: 'sfx_gunshot', kind: 'sfx', call: 'playGunshot', seconds: 2.6 },
+  { name: 'sfx_click', kind: 'sfx', call: 'playClick', seconds: 2.6 },
+  { name: 'sfx_cock', kind: 'sfx', call: 'playCock', seconds: 1.6 },
+  { name: 'sfx_heartbeat', kind: 'sfx', call: 'playHeartbeat', seconds: 1.6 },
+  { name: 'sfx_sting_win', kind: 'sfx', call: 'playSting', arg: true, seconds: 3.2 },
+  { name: 'sfx_sting_loss', kind: 'sfx', call: 'playSting', arg: false, seconds: 3.2 },
+  { name: 'sfx_spin', kind: 'sfx', call: 'playSpin', seconds: 2.4 },
+
+  /*
+   * The two that actually settle the argument: the loudest the score ever
+   * gets, with a shot fired over the top of it. If the ducking works the
+   * report still owns the moment; if it does not, this is where it shows.
+   */
+  { name: 'mix_shot', kind: 'table', level: 1, seconds: 8, fire: { at: 3, call: 'playGunshot' } },
+  { name: 'mix_click', kind: 'table', level: 1, seconds: 8, fire: { at: 3, call: 'playClick' } },
 ]
 
 const browser = await chromium.launch()
@@ -47,22 +77,39 @@ await page.route(BASE, (route) =>
 await page.goto(BASE)
 
 for (const take of TAKES) {
-  const b64 = await page.evaluate(async ({ kind, level, seconds }) => {
+  const b64 = await page.evaluate(async ({ kind, level, seconds, call, arg, fire }) => {
     const rate = 44100
     const offline = new OfflineAudioContext(2, Math.ceil(rate * seconds), rate)
 
     /*
      * The engine reaches for `new AudioContext()` exactly once and caches it.
      * Handing it the offline context is what makes the same code renderable;
-     * a second copy of the score built for testing would be worthless.
+     * a second copy of the audio built for testing would be worthless.
      */
     window.AudioContext = function () {
       return offline
     }
 
     const music = await import('/src/audio/music.ts')
+    const sfx = await import('/src/audio/sfx.ts')
+
     if (kind === 'intro') music.startIntroScore(0)
+    else if (kind === 'sfx') sfx[call](arg)
     else music.renderLoop(kind, level, seconds)
+
+    /*
+     * Firing part-way in needs the render paused at that point, because the
+     * one-shots all schedule themselves from `currentTime` and there is no
+     * way to ask them for a future one. The suspend is armed rather than
+     * awaited: it only comes due once rendering is running, so waiting on it
+     * first is a deadlock.
+     */
+    if (fire) {
+      void offline.suspend(fire.at).then(() => {
+        sfx[fire.call]()
+        void offline.resume()
+      })
+    }
 
     const rendered = await offline.startRendering()
 

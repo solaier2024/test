@@ -43,6 +43,7 @@ import {
   playClick,
   playCock,
   playGunshot,
+  playHeartbeat,
   playSpin,
   playSting,
   setVenue,
@@ -242,6 +243,8 @@ export default function App() {
       setZoom(1)
       /** True when we are watching them bring the gun up on us. */
       const drawnOnYou = shooter === 'dealer' && target === 'opponent'
+      /** Your own pulse, only when the cylinder has earned it. */
+      const pulse = liveOdds(s) >= 0.55
 
       if (drawnOnYou) {
         // The plate is set first and the clip laid over it, so the dissolve
@@ -249,12 +252,14 @@ export default function App() {
         // clip's last frame lands on a plate that has already settled.
         setSceneState('aiming')
         setCaption(t.beats.theyAimYou)
+        if (pulse) playHeartbeat()
         await playClip(`${stem}_raise`, CLIP_MS.raise)
       } else if (shooter === 'dealer') {
         setCaption(t.beats.theyAimSelf)
         await beat(800)
       } else {
         setCaption(target === 'self' ? t.beats.youAimSelf : t.beats.youAimThem)
+        if (pulse) playHeartbeat()
         await beat(600)
       }
 
@@ -501,8 +506,10 @@ export default function App() {
    */
   useEffect(() => {
     if (screen !== 'table') setIntensity(0)
-    else if (!handLive) setIntensity(0.08)
-    else setIntensity(0.2 + odds * 0.8)
+    // Loading sits under the gallop's threshold on purpose: the table is
+    // quiet until there is something in the cylinder to be afraid of.
+    else if (!handLive) setIntensity(0.06)
+    else setIntensity(0.16 + odds * 0.84)
   }, [screen, handLive, odds])
 
   /* Keyboard shortcuts keep a fast table fast; every one mirrors a button. */

@@ -37,7 +37,20 @@ export function ac(): AudioContext {
 
   master = c.createGain()
   master.gain.value = muted ? 0.0001 : MASTER_LEVEL
-  master.connect(c.destination)
+
+  /*
+   * A saturator across the output, not a limiter with a release: the gunshot
+   * and the sub drops under it both want to be louder than the rest of the
+   * mix put together, and without something catching the sum they clip the
+   * device instead. tanh leaves everything below about half scale alone and
+   * squeezes the peaks, which is also what makes the loud moments hold
+   * together rather than turning to fizz.
+   */
+  const ceiling = c.createWaveShaper()
+  ceiling.curve = softClip(1.15)
+  ceiling.oversample = '2x'
+  master.connect(ceiling)
+  ceiling.connect(c.destination)
 
   convolver = c.createConvolver()
   convolver.buffer = roomImpulse(c, venue)
@@ -185,7 +198,7 @@ export function onAudioChange(fn: () => void): () => void {
  * music and the report fight over the same few hundred milliseconds and the
  * shot stops sounding dangerous.
  */
-export function duckMusic(depth = 0.2, hold = 0.16, release = 1.1): void {
+export function duckMusic(depth = 0.2, hold = 0.16, release = 1.1, overshoot = 1): void {
   const c = ac()
   const g = (music as GainNode).gain
   const t = c.currentTime
@@ -193,7 +206,18 @@ export function duckMusic(depth = 0.2, hold = 0.16, release = 1.1): void {
   g.setValueAtTime(Math.max(g.value, 0.0001), t)
   g.linearRampToValueAtTime(MUSIC_LEVEL * depth, t + 0.025)
   g.setValueAtTime(MUSIC_LEVEL * depth, t + hold)
-  g.linearRampToValueAtTime(MUSIC_LEVEL, t + hold + release)
+  if (overshoot > 1) {
+    /*
+     * Coming back past where it started before settling. This is the sound of
+     * a held breath being let out, and it is the whole reason an empty
+     * chamber feels like anything: the relief is in the music swelling, not
+     * in the click itself, which is a small dry noise either way.
+     */
+    g.linearRampToValueAtTime(MUSIC_LEVEL * overshoot, t + hold + release * 0.6)
+    g.linearRampToValueAtTime(MUSIC_LEVEL, t + hold + release * 1.8)
+  } else {
+    g.linearRampToValueAtTime(MUSIC_LEVEL, t + hold + release)
+  }
 }
 
 /* ------------------------------------------------------------- primitives */

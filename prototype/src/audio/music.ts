@@ -21,11 +21,19 @@ import { ac, musicBus, noiseBuffer, reverbIn, softClip } from './engine'
 
 export type Cue = 'none' | 'intro' | 'title' | 'menu' | 'table'
 
-/** How hard each screen plays before the live-chamber odds are added on top. */
+/**
+ * How hard each screen plays before the live-chamber odds are added on top.
+ *
+ * The table's floor is deliberately near the bottom. It used to sit at 0.42,
+ * which meant a fresh cylinder already had the gallop, the snare and the
+ * choir going, and there was nowhere left to build to - the arrangement was
+ * loud the whole time instead of getting loud. From down here the whole range
+ * is available and the odds can actually spend it.
+ */
 const FLOOR: Record<Exclude<Cue, 'none' | 'intro'>, { bpm: number; floor: number }> = {
-  title: { bpm: 68, floor: 0.08 },
-  menu: { bpm: 80, floor: 0.2 },
-  table: { bpm: 96, floor: 0.42 },
+  title: { bpm: 68, floor: 0.06 },
+  menu: { bpm: 80, floor: 0.16 },
+  table: { bpm: 100, floor: 0.1 },
 }
 
 /** i - VII - VI - V in D minor, one bar each. */
@@ -35,6 +43,13 @@ const PROGRESSION = [
   { root: 116.54, third: 146.83, fifth: 174.61 }, // Bb
   { root: 110.0, third: 138.59, fifth: 164.81 }, // A, major, and the C# bites
 ]
+
+/**
+ * The tritone above D. Held under the root it is the plainest statement of
+ * "this is going to go wrong" that western harmony has, and it is the top of
+ * the arrangement: it only appears when the next chamber is probably live.
+ */
+const TRITONE = 103.83 // G#2
 
 /**
  * The tune, in eighth notes across the four bars. Whistled at the top of the
@@ -210,8 +225,15 @@ function whistle(v: Voice, at: number, freq: number, dur: number, scoop = 0.94):
   keep(v, air, at + dur)
 }
 
-/** Twanged guitar: a sawtooth through a resonant filter that shuts fast. */
-function twang(v: Voice, at: number, freq: number, gain: number, dur = 0.9): void {
+/**
+ * Twanged guitar: a sawtooth through a resonant filter that shuts fast.
+ *
+ * `bite` runs it into a waveshaper on the way out. A clean twang is the sound
+ * of the wide shot; the same line pushed into the amp is the sound of the
+ * close-up, and having one control for it means the arrangement can get
+ * nastier without getting merely louder.
+ */
+function twang(v: Voice, at: number, freq: number, gain: number, dur = 0.9, bite = 0): void {
   const c = ac()
   const o = c.createOscillator()
   o.type = 'sawtooth'
@@ -219,7 +241,7 @@ function twang(v: Voice, at: number, freq: number, gain: number, dur = 0.9): voi
 
   const lp = c.createBiquadFilter()
   lp.type = 'lowpass'
-  lp.Q.value = 7
+  lp.Q.value = 7 + bite * 5
   lp.frequency.setValueAtTime(Math.min(freq * 9, 5200), at)
   lp.frequency.exponentialRampToValueAtTime(Math.max(freq * 1.6, 180), at + dur * 0.8)
 
@@ -228,7 +250,17 @@ function twang(v: Voice, at: number, freq: number, gain: number, dur = 0.9): voi
   g.gain.exponentialRampToValueAtTime(gain, at + 0.006)
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur)
 
-  o.connect(lp).connect(g)
+  o.connect(lp)
+  if (bite > 0.02) {
+    const drive = c.createWaveShaper()
+    drive.curve = softClip(1 + bite * 7)
+    const trim = c.createGain()
+    // Distortion raises average level even as it caps the peaks; pull it back.
+    trim.gain.value = 1 / (1 + bite * 1.6)
+    lp.connect(drive).connect(trim).connect(g)
+  } else {
+    lp.connect(g)
+  }
   place(v, g, 0.45)
   g.connect(slapbackSend())
   o.start(at)
@@ -237,11 +269,118 @@ function twang(v: Voice, at: number, freq: number, gain: number, dur = 0.9): voi
 }
 
 /** Tremolo picking: the same note hammered, which is how tension is played. */
-function tremolo(v: Voice, at: number, freq: number, seconds: number, gain: number): void {
+function tremolo(v: Voice, at: number, freq: number, seconds: number, gain: number, bite = 0): void {
   const step = 0.062
   for (let t = 0; t < seconds; t += step) {
-    twang(v, at + t, freq, gain * (t % (step * 2) < step ? 1 : 0.7), 0.16)
+    twang(v, at + t, freq, gain * (t % (step * 2) < step ? 1 : 0.7), 0.16, bite)
   }
+}
+
+/**
+ * The floor dropping out from under a beat. Felt more than heard on a phone
+ * speaker, which is the point: it is the part of the arrangement that does
+ * not have to compete with the whistle for the same few kilohertz.
+ */
+function sub(v: Voice, at: number, gain: number): void {
+  const c = ac()
+  const o = c.createOscillator()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(64, at)
+  o.frequency.exponentialRampToValueAtTime(28, at + 0.34)
+  const shape = c.createWaveShaper()
+  shape.curve = softClip(1.4)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, at)
+  g.gain.exponentialRampToValueAtTime(gain, at + 0.012)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.44)
+  o.connect(shape).connect(g)
+  place(v, g, 0.12)
+  o.start(at)
+  o.stop(at + 0.5)
+  keep(v, o, at + 0.46)
+}
+
+/**
+ * A rising band of noise that stops dead rather than fading. The hit is the
+ * silence it stops into; without the cut it is just a whoosh.
+ */
+function riser(v: Voice, at: number, dur: number, gain: number): void {
+  const c = ac()
+  const src = c.createBufferSource()
+  src.buffer = noiseBuffer(c, dur + 0.15)
+  const bp = c.createBiquadFilter()
+  bp.type = 'bandpass'
+  bp.Q.value = 1.5
+  bp.frequency.setValueAtTime(200, at)
+  bp.frequency.exponentialRampToValueAtTime(4400, at + dur)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, at)
+  g.gain.exponentialRampToValueAtTime(gain, at + dur)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.05)
+  src.connect(bp).connect(g)
+  place(v, g, 0.7)
+  src.start(at)
+  src.stop(at + dur + 0.12)
+  keep(v, src, at + dur + 0.1)
+}
+
+/** The impact a riser lands on: a long sub drop with the air moving with it. */
+function boom(v: Voice, at: number, gain: number): void {
+  const c = ac()
+  const o = c.createOscillator()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(92, at)
+  o.frequency.exponentialRampToValueAtTime(26, at + 0.6)
+  const shape = c.createWaveShaper()
+  shape.curve = softClip(1.5)
+  const g = c.createGain()
+  g.gain.setValueAtTime(0.0001, at)
+  g.gain.exponentialRampToValueAtTime(gain, at + 0.014)
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.95)
+  o.connect(shape).connect(g)
+  place(v, g, 0.45)
+  o.start(at)
+  o.stop(at + 1.05)
+  keep(v, o, at + 1)
+  hit(v, at, 180, 0.8, gain * 0.55, 0.36, 0.9)
+}
+
+/**
+ * Root and tritone held together, detuned just enough to beat against each
+ * other. This is the top layer of the whole score and it only exists because
+ * "the next one will probably kill you" needs a sound of its own.
+ */
+function dread(v: Voice, at: number, root: number, dur: number, gain: number): void {
+  const c = ac()
+  const mix = c.createGain()
+  mix.gain.setValueAtTime(0.0001, at)
+  mix.gain.exponentialRampToValueAtTime(gain, at + dur * 0.45)
+  mix.gain.exponentialRampToValueAtTime(0.0001, at + dur)
+
+  const lp = c.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(320, at)
+  lp.frequency.linearRampToValueAtTime(900, at + dur * 0.7)
+  lp.Q.value = 3
+  lp.connect(mix)
+
+  for (const [f, detune] of [
+    [root / 2, -4],
+    [TRITONE, 5],
+    [TRITONE, -9],
+  ] as const) {
+    const o = c.createOscillator()
+    o.type = 'sawtooth'
+    o.frequency.value = f
+    o.detune.value = detune
+    const og = c.createGain()
+    og.gain.value = 0.34
+    o.connect(og).connect(lp)
+    o.start(at)
+    o.stop(at + dur + 0.05)
+    keep(v, o, at + dur)
+  }
+  place(v, mix, 0.9)
 }
 
 /** Wordless choir. Three detuned saws behind two formants, arriving slowly. */
@@ -385,6 +524,13 @@ function snare(v: Voice, at: number, gain: number): void {
 
 const shaker = (v: Voice, at: number, gain: number) => hit(v, at, 7200, 4, gain, 0.03, 0.08)
 
+/**
+ * A hard, dry wood tick. Reserved for the one state the player cannot argue
+ * with - every chamber left is live - where the arrangement stops building
+ * and starts counting.
+ */
+const clock = (v: Voice, at: number, gain: number) => hit(v, at, 2600, 12, gain, 0.022, 0.05)
+
 /* ------------------------------------------------------------- the loop */
 
 let cue: Cue = 'none'
@@ -417,12 +563,44 @@ function level(): number {
   return Math.min(1, floor + intensity * (1 - floor))
 }
 
+/**
+ * Where the whole bed sits. Adding layers alone does not read as a build -
+ * the ear hears new instruments but the same loudness - so the bus comes up
+ * with them, and the difference between a fresh cylinder and a nearly empty
+ * one is a real crescendo rather than a change of instrumentation.
+ */
+const bedLevel = () => 0.38 + 0.62 * level()
+
+/** Follows the intensity rather than jumping, or every chamber would click. */
+function rideBed(seconds = 1.1): void {
+  if (!bed) return
+  const c = ac()
+  const target = bedLevel()
+  for (const g of [bed.bus.gain, bed.room.gain]) {
+    g.cancelScheduledValues(c.currentTime)
+    g.setValueAtTime(Math.max(g.value, 0.0001), c.currentTime)
+    g.linearRampToValueAtTime(target, c.currentTime + seconds)
+  }
+}
+
+/** The table leans forward as it gets worse. Gentle: 100bpm becomes 111. */
+const tempoFor = (base: number) => base * tempoScale * (1 + level() * 0.11)
+
+/**
+ * How far past a threshold the arrangement currently is, 0 to 1. Layers fade
+ * in over their first stretch rather than switching on at full level, so a
+ * cylinder emptying one chamber at a time is a ramp and not a staircase.
+ */
+const over = (L: number, from: number, span = 0.14) => Math.min(1, Math.max(0, (L - from) / span))
+
 function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
   const L = level()
   const bar = Math.floor(s / 8)
   const chord = PROGRESSION[bar]
   const inBar = s % 8
   const spb = stepSeconds(bpm)
+  /** Drives the waveshapers. Nothing is dirty until the odds are bad. */
+  const bite = over(L, 0.55, 0.45)
 
   // Bass. Always there; it is what the rest is nailed to.
   if (inBar === 0) bass(v, at, chord.root / 2, 0.3, spb * 3)
@@ -430,7 +608,7 @@ function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
   if (inBar === 6) bass(v, at, chord.fifth / 2, 0.17, spb * 1.6)
 
   // Guitar states the chord on the downbeat from the very quietest layer up.
-  if (inBar === 0) twang(v, at, chord.root, 0.1 + L * 0.13, spb * 3.4)
+  if (inBar === 0) twang(v, at, chord.root, 0.1 + L * 0.16, spb * 3.4, bite)
 
   /*
    * The gallop, pushed and pulled a few milliseconds either side of the beat.
@@ -438,47 +616,60 @@ function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
    * makes it sound like hooves.
    */
   const seed = phrase * STEPS + s
-  if (L > 0.22) {
+  const hoof = over(L, 0.18)
+  if (hoof > 0) {
     const accent = inBar % 2 === 0
-    const gain = (accent ? 0.15 : 0.08) * (0.4 + L) * (1 + wobble(seed + 91) * 0.12)
+    const gain = (accent ? 0.16 : 0.085) * (0.35 + L) * hoof * (1 + wobble(seed + 91) * 0.12)
     clop(v, at + wobble(seed) * 0.009, gain)
   }
-  if (L > 0.5) shaker(v, at + spb * 0.5 + wobble(seed + 17) * 0.007, 0.035 * L)
-  if (L > 0.36 && inBar === 4) snare(v, at + wobble(seed + 5) * 0.006, 0.1 * L)
-  if (L > 0.72 && inBar === 6) snare(v, at + spb * 0.5, 0.07 * L)
+  if (L > 0.34 && inBar === 4) snare(v, at + wobble(seed + 5) * 0.006, 0.12 * over(L, 0.34))
+  if (L > 0.46) shaker(v, at + spb * 0.5 + wobble(seed + 17) * 0.007, 0.04 * over(L, 0.46))
+  if (L > 0.66 && inBar === 6) snare(v, at + spb * 0.5, 0.08 * over(L, 0.66))
+  // Double time. The hooves break into a run rather than merely getting loud.
+  if (L > 0.86) clop(v, at + spb * 0.5 + wobble(seed + 43) * 0.007, 0.07 * over(L, 0.86, 0.1))
 
   /*
    * The tune. Every other pass the guitar takes the back half of it off the
    * whistle, so hearing the loop twice is not the same as hearing it twice.
    */
-  if (L > 0.3) {
+  if (L > 0.26) {
     const note = LEAD.find((n) => n.at === s)
     if (note) {
       const whistled = phrase % 2 === 0 || s < 16
       if (whistled) whistle(v, at, note.f, note.len * spb * 0.95)
-      if (!whistled || L > 0.62) {
-        twang(v, at, note.f / 2, (whistled ? 0.11 : 0.21) * L, note.len * spb)
+      if (!whistled || L > 0.52) {
+        twang(v, at, note.f / 2, (whistled ? 0.11 : 0.21) * L, note.len * spb, bite)
       }
-      if (L > 0.85) tremolo(v, at, note.f / 2, note.len * spb * 0.8, 0.055)
+      if (L > 0.74) tremolo(v, at, note.f / 2, note.len * spb * 0.8, 0.06 * over(L, 0.74), bite)
     }
   }
 
   // Choir underneath the back half of each bar, once it is properly tense.
-  if (L > 0.55 && inBar === 0) choir(v, at, chord.third, spb * 7, 0.055 * L)
+  if (L > 0.58 && inBar === 0) choir(v, at, chord.third, spb * 7, 0.065 * over(L, 0.58))
 
   // A bell on the turn of the phrase, alternating where it falls. Sparse.
-  if (L > 0.66 && s === (phrase % 2 === 0 ? 24 : 28)) {
-    bell(v, at, phrase % 2 === 0 ? 587.33 : 880.0, 0.075 * L)
+  if (L > 0.64 && s === (phrase % 2 === 0 ? 24 : 28)) {
+    bell(v, at, phrase % 2 === 0 ? 587.33 : 880.0, 0.08 * over(L, 0.64))
   }
 
   // A three-hit turnaround out of every second pass, to hand the loop over.
   if (L > 0.6 && phrase % 2 === 1 && s >= 29) snare(v, at, 0.05 + (s - 29) * 0.032)
+
+  /*
+   * The danger tier. Everything above this point is the arrangement telling
+   * the player what the odds panel is telling them, and it is deliberately
+   * the only part of the score that is dissonant.
+   */
+  if (L > 0.72 && inBar % 4 === 0) sub(v, at, 0.3 * over(L, 0.72, 0.2))
+  if (L > 0.8 && inBar === 0) dread(v, at, chord.root, spb * 8, 0.085 * over(L, 0.8, 0.18))
+  // Every chamber left is live. The music stops building and starts counting.
+  if (L > 0.97) clock(v, at + spb * 0.5, 0.07)
 }
 
 function pump(): void {
   if (cue === 'none' || cue === 'intro' || !bed) return
   const c = ac()
-  const bpm = FLOOR[cue as Exclude<Cue, 'none' | 'intro'>].bpm * tempoScale
+  const bpm = tempoFor(FLOOR[cue as Exclude<Cue, 'none' | 'intro'>].bpm)
   const spb = stepSeconds(bpm)
 
   while (stepAt < c.currentTime + LOOKAHEAD) {
@@ -508,8 +699,10 @@ export function renderLoop(
 ): void {
   cue = which
   intensity = at
-  const v = voice(1)
-  const bpm = FLOOR[which].bpm * tempoScale
+  // Matching the live bus level, or the render would measure the arrangement
+  // without the crescendo that is most of what the intensity actually does.
+  const v = voice(bedLevel())
+  const bpm = tempoFor(FLOOR[which].bpm)
   const spb = stepSeconds(bpm)
   phrase = 0
   let s = 0
@@ -540,10 +733,12 @@ export function setCue(next: Cue): void {
 
   ac()
   if (!bed) {
-    bed = voice(1)
+    bed = voice(bedLevel())
     step = 0
     phrase = 0
     stepAt = ac().currentTime + 0.08
+  } else {
+    rideBed(0.6)
   }
   if (!timer) timer = window.setInterval(pump, TICK_MS)
   pump()
@@ -561,7 +756,10 @@ function stopLoop(): void {
  * gated on this, so the arrangement tightens as the cylinder empties.
  */
 export function setIntensity(next: number): void {
-  intensity = Math.max(0, Math.min(1, next))
+  const clamped = Math.max(0, Math.min(1, next))
+  if (clamped === intensity) return
+  intensity = clamped
+  rideBed()
 }
 
 /** Faster tables get a faster score; the mapping is deliberately gentle. */
@@ -586,8 +784,35 @@ export function startIntroScore(from = 0): void {
   opening = v
   const t0 = c.currentTime - from
 
-  /** Schedules only what has not already gone past. */
-  const at = (when: number): number | null => (when < from - 0.05 ? null : Math.max(t0 + when, c.currentTime))
+  /** True for anything the film has not already played past. */
+  const due = (when: number) => when >= from - 0.05
+
+  /*
+   * The arc. The film now starts close to inaudible and ends with the whole
+   * band; before this the cue held one loudness for eleven seconds and merely
+   * changed instruments, which is why the last shot did not land.
+   */
+  const ARC: [number, number][] = [
+    [0, 0.3],
+    [2.9, 0.42],
+    [5.6, 0.62],
+    [7.0, 0.82],
+    [8.5, 1.0],
+  ]
+  const arcAt = (when: number): number => {
+    let value = ARC[0][1]
+    for (const [mark, level] of ARC) {
+      if (when < mark) break
+      value = level
+    }
+    return value
+  }
+  for (const g of [v.bus.gain, v.room.gain]) {
+    g.setValueAtTime(arcAt(from), c.currentTime)
+    for (const [when, level] of ARC) {
+      if (due(when) && t0 + when > c.currentTime) g.linearRampToValueAtTime(level, t0 + when)
+    }
+  }
 
   // Wind over the whole thing, and a drone under it.
   const wind = c.createBufferSource()
@@ -630,50 +855,69 @@ export function startIntroScore(from = 0): void {
   keep(v, drone, t0 + 10.5)
 
   /*
-   * Shot by shot. The gun goes into the cylinder at 5.8s, which is where the
-   * gallop starts; the two faces arrive at 7.2 and 8.6, which is where the
-   * choir and then the whole band do.
+   * Shot by shot, and each cut is now a hit rather than a change of texture:
+   * a riser into the cut and a sub drop on it. The gun goes into the cylinder
+   * at 5.8s, which is where the gallop starts; the two faces arrive at 7.2
+   * and 8.6, which is where the choir and then the whole band do.
    */
   const events: [number, () => void][] = [
-    [0.15, () => bell(v, t0 + 0.15, 587.33, 0.1)],
+    [0.15, () => bell(v, t0 + 0.15, 587.33, 0.11)],
     [0.7, () => whistle(v, t0 + 0.7, 587.33, 1.5)],
     [2.3, () => whistle(v, t0 + 2.3, 698.46, 1.0)],
 
+    // Cut to the empty chair.
+    [2.1, () => riser(v, t0 + 2.1, 0.8, 0.1)],
+    [2.9, () => boom(v, t0 + 2.9, 0.34)],
     [3.2, () => twang(v, t0 + 3.2, 146.83, 0.17, 2.2)],
     [3.3, () => bass(v, t0 + 3.3, 73.42, 0.3, 1.4)],
     [3.5, () => whistle(v, t0 + 3.5, 880.0, 1.3)],
     [4.7, () => bass(v, t0 + 4.7, 73.42, 0.22, 1.0)],
     [5.0, () => whistle(v, t0 + 5.0, 783.99, 0.85)],
 
-    [5.8, () => twang(v, t0 + 5.8, 130.81, 0.18, 2.0)],
+    // Cut to the cylinder being loaded.
+    [4.85, () => riser(v, t0 + 4.85, 0.75, 0.13)],
+    [5.6, () => boom(v, t0 + 5.6, 0.4)],
+    [5.8, () => twang(v, t0 + 5.8, 130.81, 0.2, 2.0, 0.3)],
     [6.5, () => whistle(v, t0 + 6.5, 698.46, 0.8)],
 
-    [7.2, () => choir(v, t0 + 7.2, 146.83, 3.0, 0.08)],
-    [7.25, () => twang(v, t0 + 7.25, 116.54, 0.2, 1.8)],
+    // Cut to Calloway.
+    [6.3, () => riser(v, t0 + 6.3, 0.7, 0.15)],
+    [7.0, () => boom(v, t0 + 7.0, 0.46)],
+    [7.2, () => choir(v, t0 + 7.2, 146.83, 3.0, 0.09)],
+    [7.25, () => twang(v, t0 + 7.25, 116.54, 0.22, 1.8, 0.4)],
     [7.3, () => bass(v, t0 + 7.3, 58.27, 0.32, 1.2)],
-    [7.4, () => tremolo(v, t0 + 7.4, 349.23, 1.1, 0.075)],
+    [7.4, () => tremolo(v, t0 + 7.4, 349.23, 1.1, 0.08, 0.35)],
 
-    [8.6, () => twang(v, t0 + 8.6, 110.0, 0.24, 1.9)],
-    [8.62, () => bass(v, t0 + 8.62, 55.0, 0.36, 1.6)],
-    [8.64, () => choir(v, t0 + 8.64, 138.59, 1.9, 0.1)],
-    [8.7, () => tremolo(v, t0 + 8.7, 554.37, 1.0, 0.08)],
-    [9.5, () => bell(v, t0 + 9.5, 554.37, 0.12)],
-    [9.55, () => snare(v, t0 + 9.55, 0.16)],
+    // Cut to La Viuda, and the tritone arrives with her.
+    [7.8, () => riser(v, t0 + 7.8, 0.75, 0.19)],
+    [8.5, () => boom(v, t0 + 8.5, 0.54)],
+    [8.5, () => dread(v, t0 + 8.5, 146.83, 2.6, 0.12)],
+    [8.6, () => twang(v, t0 + 8.6, 110.0, 0.27, 1.9, 0.55)],
+    [8.62, () => bass(v, t0 + 8.62, 55.0, 0.38, 1.6)],
+    [8.64, () => choir(v, t0 + 8.64, 138.59, 1.9, 0.11)],
+    [8.7, () => tremolo(v, t0 + 8.7, 554.37, 1.0, 0.09, 0.5)],
+    [9.5, () => bell(v, t0 + 9.5, 554.37, 0.13)],
+    [9.55, () => snare(v, t0 + 9.55, 0.18)],
     [9.58, () => whistle(v, t0 + 9.58, 587.33, 1.3)],
   ]
 
-  // The gallop under the second half.
+  // The gallop under the second half, riding the arc up with everything else.
   for (let i = 0; i < 26; i++) {
     const when = 5.85 + i * 0.185
     if (when > 9.6) break
-    events.push([when, () => clop(v, t0 + when, i % 2 === 0 ? 0.15 : 0.08)])
+    events.push([when, () => clop(v, t0 + when, i % 2 === 0 ? 0.16 : 0.09)])
   }
-  for (let i = 0; i < 6; i++) {
-    const when = 8.65 + i * 0.16
-    events.push([when, () => snare(v, t0 + when, 0.04 + i * 0.016)])
+  for (let i = 0; i < 8; i++) {
+    const when = 8.55 + i * 0.155
+    events.push([when, () => snare(v, t0 + when, 0.045 + i * 0.018)])
+  }
+  // A pulse under the last two shots, so the run-in is felt as well as heard.
+  for (let i = 0; i < 5; i++) {
+    const when = 7.0 + i * 0.75
+    events.push([when, () => sub(v, t0 + when, 0.2 + i * 0.05)])
   }
 
-  for (const [when, fire] of events) if (at(when) !== null) fire()
+  for (const [when, fire] of events) if (due(when)) fire()
 
   // Let the tail ring past the cut rather than chopping it.
   window.setTimeout(
