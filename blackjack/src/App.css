@@ -435,7 +435,7 @@
 .banner {
   position: absolute;
   left: 50%;
-  top: 42%;
+  top: 52%;
   transform: translateX(-50%);
   z-index: 35;
   display: flex;

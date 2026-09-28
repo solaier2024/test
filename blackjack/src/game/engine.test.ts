@@ -473,3 +473,29 @@ describe('the room cooling off', () => {
     expect(broke.phase).toBe('over')
   })
 })
+
+describe('what the felt shows once a round is void', () => {
+  it('turns her hole card over even when the call was wrong', () => {
+    const rnd = seeded(127)
+    let g = setBet(createGame('single', rnd), 20)
+    g = startRound(g, { cheat: null, tell: makeTell(null, false, rnd) }, rnd)
+    if (g.phase === 'settled') return
+    expect(g.holeDown).toBe(true)
+    const wrong = callCheat(g, 400)
+    expect(wrong.settlement!.falseCall).toBe(true)
+    // You paid for those cards, so you get to see what you accused her over.
+    expect(wrong.holeDown).toBe(false)
+    expect(wrong.hands[0].cards).toHaveLength(2)
+    expect(wrong.dealerHand.cards).toHaveLength(2)
+  })
+
+  it('turns it over when the call was right, too', () => {
+    const rnd = seeded(131)
+    let g = setBet(createGame('single', rnd), 20)
+    g = startRound(g, { cheat: 'second', tell: makeTell('second', false, rnd) }, rnd)
+    if (g.phase === 'settled') return
+    const right = callCheat(g, 380)
+    expect(right.settlement!.caught).toBe('second')
+    expect(right.holeDown).toBe(false)
+  })
+})

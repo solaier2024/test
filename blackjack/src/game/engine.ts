@@ -408,8 +408,13 @@ export function callCheat(state: GameState, sinceDeal: number): GameState {
   }
 
   // Nothing there. The stake goes, the room notices, and the cards are dead.
+  //
+  // Her hole card still turns over. The hand is void either way, and leaving it
+  // face down reads as a bug rather than as a penalty - you paid for those cards,
+  // so you get to see what you accused her over.
   next.seen = { ...next.seen, missed: next.seen.missed + 1 }
   next.heat = Math.min(1, next.heat + 0.17)
+  next.holeDown = false
   const staked = next.hands.reduce((s, h) => s + h.bet, 0)
   next.settlement = { perHand: next.hands.map(() => 'lose' as HandResult), net: -staked, caught: null, falseCall: true }
   next.phase = 'settled'

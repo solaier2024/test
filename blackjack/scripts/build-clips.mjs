@@ -218,15 +218,23 @@ const CLIPS = {
     { from: 'dealer_cool', to: 'dealer_caught', frames: 5, ease: 'easeOut' },
     { hold: 'dealer_caught', frames: 22 },
   ],
-  /* Five seconds of nothing happening, which is the hardest clip to do without
-   * and the one the table sits on between hands. */
+  /*
+   * The hardest clip to do without: the one the table sits on between hands.
+   *
+   * The first cut of this held a single plate for four and a half of its five
+   * seconds and only blinked, and on a recording it read as a photograph. It now
+   * breathes the whole way through - an inhale plate morphed in and back out, so
+   * something is moving in every frame - with the blinks landing inside it.
+   */
   idle: [
+    { from: 'dealer_cool', to: 'dealer_breath', frames: 44, ease: 'easeInOut' },
+    { from: 'dealer_breath', to: 'dealer_cool', frames: 50, ease: 'easeInOut' },
     { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
     { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
-    { hold: 'dealer_cool', frames: 64 },
+    { from: 'dealer_cool', to: 'dealer_breath', frames: 46, ease: 'easeInOut' },
+    { from: 'dealer_breath', to: 'dealer_cool', frames: 52, ease: 'easeInOut' },
     { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
     { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
-    { hold: 'dealer_cool', frames: 72 },
   ],
 }
 
