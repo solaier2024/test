@@ -18,8 +18,9 @@
 
 | 地址 | 说明 |
 | --- | --- |
-| **https://solaier2024.github.io/test/** | 主地址。需要仓库管理员先在 Settings → Pages 里把 Source 选成 "Deploy from a branch" → `gh-pages` / `(root)`，之后每次推送自动更新 |
-| **https://raw.githack.com/solaier2024/test/gh-pages/githack/index.html** | 镜像，现在就能打开。githack 会先弹一次 "External Content Notice"，点 "Open the page" 即进入游戏 |
+| **https://raw.githack.com/solaier2024/test/gh-pages/githack/index.html** | 长期地址，随分支自动更新，现在就能打开。githack 会先弹一次 "External Content Notice"，点 "Open the page" 即进入游戏 |
+| **https://transport-current-features-adelaide.trycloudflare.com/** | 临时隧道，**没有中间页，点开即玩**。跑在这台开发机上，机器回收即失效 |
+| **https://solaier2024.github.io/test/** | 还不能开。需要仓库管理员先在 Settings → Pages 里把 Source 选成 "Deploy from a branch" → `gh-pages` / `(root)`，点完之后每次推送自动更新 |
 
 两个地址指向同一次构建：`gh-pages` 分支根目录是 Pages 版（base 为 `/test/`），
 `githack/` 子目录是镜像版（base 为 `/solaier2024/test/gh-pages/githack/`）。
