@@ -514,6 +514,11 @@ EL PASE 的"过枪"是这条规则的一个受限逃生口：不开火就把枪�
 - **两层防护分别验证过**：临时摘掉"牌桌自己开枪"这一层再跑一遍，必响时
   界面上只剩一个 `END IT`，"对准自己"仍然不出现（竖屏下它会占满整行）。
   换句话说规则层和编排层各自独立成立，不是互相兜底
+- **这套检查确实会红**：把同一个脚本指向修改前的那一版（`git worktree` 拉一份
+  旧 commit 单独起服务），它当场报出 `offered AT YOURSELF at 100%` 和
+  `load panel asks the question with no answers` 两条——也就是说它不是空转
+- **线上那份也跑了一遍**：把脚本指向 githack 镜像上真正发布出去的构建，
+  四张桌同样全部通过
 - **五种片段全部实测播到底**：连打几手牌并记录 `<video>` 的 `currentTime`，
   `chamber_saloon` 2.43s、`cowboy_raise` 0.97s、`cowboy_fire` 0.70s、
   `cowboy_hit` 1.50s、`cowboy_idle` 循环——包括只有对手举枪时才会走到的那两段

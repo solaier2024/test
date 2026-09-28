@@ -79,7 +79,15 @@ const only = process.argv[4]?.split(',').map((s) => s.trim().toUpperCase())
 
 for (const table of TABLES.filter((t) => !only || only.includes(t.mode))) {
   await page.goto(BASE)
-  await page.waitForTimeout(1400)
+  // The githack mirror puts its own notice in front of anything it serves as
+  // HTML, so an audit pointed at the published preview has to get past that
+  // before it can get to a table.
+  const notice = page.getByRole('button', { name: 'Open the page' })
+  if (await notice.count()) {
+    await notice.click()
+    await page.waitForLoadState('networkidle')
+  }
+  await page.waitForTimeout(1800)
   await page.getByRole('button', { name: 'TAKE A SEAT' }).click()
   await page.waitForTimeout(600)
   await page.getByRole('button', { name: table.mode }).first().click()
