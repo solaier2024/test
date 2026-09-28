@@ -293,13 +293,17 @@ function buildOpening() {
     { tag: 'street', frames: pushIn('intro_street', 2.4, { from: 1.0, to: 1.12, panX: 0.03 }) },
     // Through the room, past the faro layout and the birdcage.
     { tag: 'hall', frames: pushIn('intro_hall', 2.2, { from: 1.12, to: 1.02, panX: 0.05 }) },
-    // She looks up. This is the first time the player is seen.
+    /*
+     * She looks up and finds you. The target is the warm plate rather than the
+     * resting one on purpose: the resting plate looks down and away, so meeting
+     * the lens is an event that happens to you rather than her default state.
+     */
     {
       tag: 'look',
       frames: timeline([
-        { hold: 'intro_down', frames: 14 },
-        { from: 'intro_down', to: 'dealer_cool', frames: 40, ease: 'easeOut' },
-        { hold: 'dealer_cool', frames: 18 },
+        { hold: 'intro_down', frames: 12 },
+        { from: 'intro_down', to: 'dealer_warm', frames: 42, ease: 'easeOut' },
+        { hold: 'dealer_warm', frames: 18 },
       ]),
     },
     /*
