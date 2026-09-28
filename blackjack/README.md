@@ -336,6 +336,10 @@ FORCE=1 node scripts/build-clips.mjs  # 忽略缓存
 - **破绽时序**有测试:真破绽必然早于牌落桌,诱饵必然晚于牌落桌(各 300 次)
 - **配乐不泄露真相**有测试:三度颜色随 `shown` 变,换 `truth` 不动
 - **五种窗口尺寸 × 三个阶段**的边缘体检(`scripts/verify-edges.mjs`),没有元素掉出画面
+- **画面在动**有专门的测量(`scripts/verify-motion.mjs`):关掉颗粒层后
+  画面区域的变化是静态控制条的 18 倍。
+  **一开始这个脚本是错的**——它量整帧,而颗粒层每帧重绘整个屏幕,
+  于是"99% 的帧在变化"既是真的又什么都没说明
 - 浏览器**长时段实测**(`scripts/playthrough.mjs`):桌面 30 手、iPhone 14 视口 14 手、
   单副牌桌 16 手(其中洗牌 2 次),**每一手都核对台面报的净额与筹码实际变动一致**,
   逐步做布局体检(按钮有没有掉出视口、有没有矮于 40px、有没有横向滚动),零 console 错误
@@ -348,7 +352,10 @@ FORCE=1 node scripts/build-clips.mjs  # 忽略缓存
 - 片段是光流合成的,不是真拍或真渲染的。大动作(转身、起立)超出两张关键帧能插出来的范围
 - **没有做过听感评审。** 配乐全部结论来自代码与数值,**没有人真的听过**——
   而"暧昧"比"不祥"难验得多:能测出三度翻了,测不出它是不是对的
-- **待机的动态偏轻。** 逐帧量下来 99% 的帧在动,但那是"测得到"而不是"看得出"。
+- **待机的动态偏轻。** `verify-motion.mjs` 量出画面的变化是静态控制条基准的 **18 倍**
+  (关掉颗粒层之后,她的脸与背后的酒柜各 8.4 / 8.3 mean luma,控制条 0.46),
+  所以动态确实在那儿——但那是"测得到"而不是"看得出":
+  **两次独立的视频复核都把同一个构建报告成"她完全静止"。**
   已经把共享的镜头呼吸从 3px / 1% 提到约 6px / 1.6%,因为整幅画面的移动比胸口起伏好读得多;
   真要更明显还是得上更大的动作,而那超出两张关键帧能插出来的范围
 - 她只有一位,人格是参数化的(`bluffRate` / `tellRate` / `nerve` / `attention`),不是学习型
@@ -394,6 +401,7 @@ npm run build
 node scripts/build-clips.mjs              # 关键帧 → 光流 → 缓动重采样 → VP9 / H.264
 node scripts/playthrough.mjs [url] [n]    # 长时段实测:账目、布局、报错
 node scripts/verify-edges.mjs [url]       # 五种窗口尺寸 × 三个阶段,有没有东西掉出画面
+node scripts/verify-motion.mjs [url]      # 画面到底有没有在动(关掉颗粒层,拿静态控制条当基准)
 node scripts/verify-deploy.mjs <url>      # 把部署好的站当无缓存新访客走一遍
 node scripts/shots.mjs [outdir] [url]     # 各视口各语言截图
 node scripts/record-demo.mjs [url] [dir]  # 录页面本身(不是录屏)
