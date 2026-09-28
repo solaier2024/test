@@ -345,6 +345,7 @@ FORCE=1 node scripts/build-clips.mjs  # 忽略缓存
   断言出千后牌靴 + 桌面的牌 id 集合与开局完全一致,而且记牌数对得上
 - **破绽时序**有测试:真破绽必然早于牌落桌,诱饵必然晚于牌落桌(各 300 次)
 - **配乐不泄露真相**有测试:三度颜色随 `shown` 变,换 `truth` 不动
+- **片头与牌桌是同一版人物**有测量(`scripts/verify-identity.mjs`),线上取帧打分
 - **五种窗口尺寸 × 三个阶段**的边缘体检(`scripts/verify-edges.mjs`),没有元素掉出画面
 - **画面在动**有专门的测量(`scripts/verify-motion.mjs`):关掉颗粒层后
   画面区域的变化是静态控制条的 18 倍。
@@ -412,6 +413,7 @@ node scripts/build-clips.mjs              # 关键帧 → 光流 → 缓动重�
 node scripts/playthrough.mjs [url] [n]    # 长时段实测:账目、布局、报错
 node scripts/verify-edges.mjs [url]       # 五种窗口尺寸 × 三个阶段,有没有东西掉出画面
 node scripts/verify-motion.mjs [url]      # 画面到底有没有在动(关掉颗粒层,拿静态控制条当基准)
+node scripts/verify-identity.mjs <url> <ref.jpg> [old.jpg]   # 片头里的人和桌上的人是不是同一版
 node scripts/verify-deploy.mjs <url>      # 把部署好的站当无缓存新访客走一遍
 node scripts/shots.mjs [outdir] [url]     # 各视口各语言截图
 node scripts/record-demo.mjs [url] [dir]  # 录页面本身(不是录屏)
@@ -422,6 +424,18 @@ node scripts/record-demo.mjs [url] [dir]  # 录页面本身(不是录屏)
 **本项目实测过这个坑**——外部视频复核两次报告"她完全是静止的",
 而同一段录像逐帧量出来是 **99% 的帧在变化**(均值 0.83 luma、峰值 12.5 那一下是眨眼)。
 次秒级的东西一律以 ffmpeg 逐帧数据为准,不以观感为准。
+
+`verify-identity.mjs` 是 [`VIDEO.md`](../VIDEO.md) 第六节要求的那道防线:
+视频基座有一类别的脚本都看不见的失败——素材都加载了、片段都在播、布局也干净,
+但**人变了**,或者半个构建还在用旧素材。换造型、重出成片正是这种事最容易发生的时候。
+它从线上片头和线上牌桌各取一帧,分别和新旧参考成片打分,断言**离新的明显更近**。
+换造型那次实测:
+
+```
+intro_look   vs current   1.07   vs previous  21.95
+intro_title  vs current   7.58   vs previous  22.27
+table        vs current   8.42   vs previous  22.21
+```
 
 `verify-edges.mjs` 的存在也是因为一次具体的失败:控制条写死了高度,内容长过了它,
 于是在 1280×720 上键位提示和离桌链接被底边切掉一半——而在 1440×900 上完全看不出来,
