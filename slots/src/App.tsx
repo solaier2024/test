@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import './App.css'
 import { Atmosphere } from './fx/Atmosphere'
 import { Intro } from './components/Intro'
@@ -29,7 +29,8 @@ import {
   setStake,
   settle,
 } from './game/engine'
-import { STOPS, type Face, type Machine, type Outcome, type Reaction, type Session } from './game/types'
+import { createTable, type Table } from './game/table'
+import { STOPS, type Face, type Machine, type Outcome, type Reaction } from './game/types'
 import { STRINGS, type Lang, type TextKey } from './i18n/strings'
 
 /*
@@ -144,7 +145,14 @@ export default function App() {
 
   const [screen, setScreen] = useState<Screen>('intro')
   const [machine, setMachine] = useState<Machine>(MACHINES[0])
-  const [session, setSession] = useState<Session>(() => opening(MACHINES[0]))
+  /*
+   * The session is NOT React state. The loop below writes it twice in one frame
+   * from two unrelated places, and a React copy read between them is a frame
+   * out of date - which silently threw whole pulls away. table.ts has the
+   * story; useState here holds the store itself, which never changes.
+   */
+  const [bar] = useState<Table>(() => createTable(opening(MACHINES[0])))
+  const session = useSyncExternalStore(bar.subscribe, bar.snapshot)
   const [room, setRoom] = useState<Room>('back')
   const [clip, setClip] = useState<ClipRequest | null>(null)
   const [said, setSaid] = useState<string | null>(null)
@@ -156,13 +164,11 @@ export default function App() {
   const [heard, setHeard] = useState('')
 
   /*
-   * Authority lives in refs and React state is a mirror of it. Driving the
-   * round from effects is how the sibling project deadlocked: a lock released
-   * without a state change and nothing woke up again.
-   */
-  const sessionRef = useRef(session)
-  sessionRef.current = session
-  /* Which plate the room is on right now, so a reaction can pick the clip that
+   * Authority lives outside React and React state is a mirror of it. Driving
+   * the round from effects is how the sibling project deadlocked: a lock
+   * released without a state change and nothing woke up again.
+   *
+   * Which plate the room is on right now, so a reaction can pick the clip that
    * actually starts from there rather than the one that starts from resting. */
   const roomRef = useRef(room)
   roomRef.current = room
@@ -173,7 +179,9 @@ export default function App() {
 
   const push = (at: number, run: () => void) => queue.current.push({ at, run })
 
-  /* One loop: the scheduled beats of a pull, and the room forgetting. */
+  /* One loop, two writers: the scheduled beats of a pull, and the room
+   * forgetting. They share a frame often enough that the second one has to see
+   * what the first one wrote, which is the whole reason for the table store. */
   useEffect(() => {
     let raf = 0
     let last = now()
@@ -185,15 +193,14 @@ export default function App() {
         for (const b of due) b.run()
       }
       if (t0 - last > 0.25) {
-        const cooled = cool(sessionRef.current, t0 - last)
-        if (cooled !== sessionRef.current) setSession(cooled)
+        bar.commit((s) => cool(s, t0 - last))
         last = t0
       }
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [bar])
 
   useEffect(() => {
     prefetchClips(small)
@@ -213,7 +220,7 @@ export default function App() {
       startRoom()
       startMusic()
       setMachine(m)
-      setSession(opening(m))
+      bar.commit(opening(m))
       /* Re-seeded per sitting, so a named seed describes a whole night and not
        * just whichever one happened to start first. */
       random.current = rng(seeded())
@@ -230,7 +237,7 @@ export default function App() {
       setBusy(false)
       setClip({ name: 'idle', token: ++token.current, loop: true })
     },
-    [],
+    [bar],
   )
 
   /*
@@ -280,9 +287,8 @@ export default function App() {
 
   const resolve = useCallback(
     (out: Outcome) => {
-      const before = sessionRef.current
-      const after = settle(before, out)
-      setSession(after)
+      const after = settle(bar.current, out)
+      bar.commit(after)
       notch()
       if (out.coins > 0) payoutCoins(out.coins)
       if (out.coins >= 20) libertyBell(3)
@@ -298,11 +304,11 @@ export default function App() {
         push(now() + 1.4, () => setScreen('table'))
       }
     },
-    [lang, roomSays],
+    [bar, lang, roomSays],
   )
 
   const doPull = useCallback(() => {
-    const s = sessionRef.current
+    const s = bar.current
     if (busyRef.current || s.phase === 'over' || s.bank < s.stake) return
     void unlock()
     busyRef.current = true
@@ -358,7 +364,7 @@ export default function App() {
   }, [machine, reduced, rest, resolve, attention])
 
   const doCall = useCallback(() => {
-    const s = sessionRef.current
+    const s = bar.current
     if (busyRef.current || called || s.phase === 'over') return
     void unlock()
     busyRef.current = true
@@ -376,7 +382,7 @@ export default function App() {
 
     push(now() + 1.5, () => {
       const r = callHouse(s)
-      setSession(r.session)
+      bar.commit(r.session)
       if (r.won) {
         shutDown()
         roomSays('roar', 1, 4)
@@ -388,7 +394,7 @@ export default function App() {
       setBusy(false)
       setCalled(false)
     })
-  }, [called, lang, roomSays])
+  }, [bar, called, lang, roomSays])
 
   useEffect(() => {
     if (screen !== 'table') return
@@ -406,12 +412,12 @@ export default function App() {
        * key for, and the coin count is its own obvious shortcut. */
       if (STAKES.some((n) => String(n) === e.key)) {
         e.preventDefault()
-        setSession((s) => setStake(s, Number(e.key)))
+        bar.commit((s) => setStake(s, Number(e.key)))
       }
     }
     window.addEventListener('keydown', keys)
     return () => window.removeEventListener('keydown', keys)
-  }, [screen, doPull, doCall])
+  }, [bar, screen, doPull, doCall])
 
   const over = session.phase === 'over'
   const ending = useMemo(() => {
@@ -517,7 +523,7 @@ export default function App() {
             stake={session.stake}
             bank={session.bank}
             disabled={busy || over}
-            onStake={(n) => setSession((s) => setStake(s, n))}
+            onStake={(n) => bar.commit((s) => setStake(s, n))}
             title={t.stake}
             note={t.stakeNote}
             label={(n) => t.stakeLabel(n)}

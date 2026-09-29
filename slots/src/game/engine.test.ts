@@ -21,6 +21,7 @@ import {
   shortChanged,
   windowAt,
 } from './engine'
+import { createTable, type Table } from './table'
 import { FACES, STOPS, type Face, type Machine, type Outcome, type Reaction } from './types'
 
 const honest = machineById('honest')
@@ -562,5 +563,64 @@ describe('the night', () => {
     const one = run(bandido, 500, 99)
     const two = run(bandido, 500, 99)
     expect(one).toEqual(two)
+  })
+})
+
+/*
+ * These are tests about one frame of the table's loop, not about the engine.
+ *
+ * The loop does two things in a pass - runs the beats of a pull that have come
+ * due, then cools the room off - and both of them write the session. That is
+ * fine as long as the second one sees what the first one wrote. It did not,
+ * for a while, because the session lived in React state and the loop read it
+ * through a ref that only refreshes on render. See table.ts.
+ */
+describe('one frame of the table', () => {
+  /** A frame: whatever beats came due, and then the cooling tick. */
+  const frame = (table: Table, beats: Array<(t: Table) => void>, seconds = 0.3) => {
+    for (const beat of beats) beat(table)
+    table.commit((s) => cool(s, seconds))
+  }
+
+  /* Real spins off the bandido, with the money forced, so these stay honest
+   * outcomes if the shape of one ever changes. */
+  const lose: Outcome = { ...pull(bandido, rng(11)), coins: 0, bellOnThird: false }
+  const win: Outcome = { ...lose, coins: 20, bellOnThird: true }
+
+  it('keeps a pull that resolves in the same frame as a cooling tick', () => {
+    const start = { ...opening(bandido), heat: 0.5 }
+    const table = createTable(start)
+    frame(table, [(t) => t.commit((s) => settle(s, win))])
+    expect(table.current.pulls).toBe(1)
+    expect(table.current.bank).toBe(START_BANK - 1 + 20)
+    expect(table.current.bells).toBe(1)
+    /* The fix is not to drop the other writer: a frame is the two of them
+     * composed, in order, and neither one is allowed to go missing. */
+    expect(table.current).toEqual(cool(settle(start, win), 0.3))
+  })
+
+  it('keeps a raised stake that a cooling tick lands on top of', () => {
+    const table = createTable({ ...opening(bandido), heat: 0.5 })
+    frame(table, [(t) => t.commit((s) => setStake(s, 3))])
+    expect(table.current.stake).toBe(3)
+  })
+
+  it('charges once for a pull however many writers ran that frame', () => {
+    const table = createTable({ ...opening(bandido), heat: 0.5 })
+    for (let i = 0; i < 10; i++) frame(table, [(t) => t.commit((s) => settle(s, lose))])
+    expect(table.current.pulls).toBe(10)
+    expect(table.current.bank).toBe(START_BANK - 10)
+  })
+
+  it('does not wake React when the engine says nothing happened', () => {
+    const table = createTable(opening(bandido))
+    let renders = 0
+    table.subscribe(() => renders++)
+    /* cool() of a cold room returns the identical object, and the loop calls it
+     * four times a second for the whole night. */
+    for (let i = 0; i < 100; i++) table.commit((s) => cool(s, 0.3))
+    expect(renders).toBe(0)
+    table.commit((s) => settle(s, lose))
+    expect(renders).toBe(1)
   })
 })
