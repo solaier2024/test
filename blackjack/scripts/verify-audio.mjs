@@ -219,7 +219,7 @@ await page.addInitScript(() => {
   const real = window.speechSynthesis?.speak?.bind(window.speechSynthesis)
   if (window.speechSynthesis) {
     window.speechSynthesis.speak = (u) => {
-      said.push({ text: u.text, pitch: u.pitch, rate: u.rate, volume: u.volume, lang: u.lang })
+      said.push({ at: performance.now(), text: u.text, pitch: u.pitch, rate: u.rate, volume: u.volume, lang: u.lang })
       try {
         real?.(u)
       } catch {
@@ -237,6 +237,7 @@ await page.locator('.table-card').nth(1).getByRole('button').click()
 await page.waitForSelector('.table-page')
 await page.waitForTimeout(1600)
 
+const dealtAt = await page.evaluate(() => performance.now())
 await page.locator('[data-act="deal"]').click()
 await page.waitForTimeout(2600)
 for (let i = 0; i < 8; i++) {
@@ -253,14 +254,27 @@ await browser.close()
 
 console.log(`voices installed: ${voices ? 'yes' : 'no (headless; the coo still plays)'}`)
 for (const s of said) {
-  console.log(`  "${s.text}"  pitch ${s.pitch}  rate ${s.rate}  volume ${s.volume}  ${s.lang}`)
+  const when = `${((s.at - dealtAt) / 1000).toFixed(1)}s`.padStart(6)
+  console.log(`  ${when}  "${s.text}"  pitch ${s.pitch}  rate ${s.rate}  volume ${s.volume}  ${s.lang}`)
 }
 
 const NUMBERS = /zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieci|veinte/i
 
+/*
+ * The deal line is asserted by WHEN it was said, not by its wording. This used to
+ * be a copy of the phrase list: 'Let\u2019s see, then.' was added to the table in
+ * src/audio/voice.ts without being added here, and 'm\u00edrame' stayed behind from
+ * the removed call-out lines, so the gate failed on one deal in four at random and
+ * the failure said nothing was spoken when the transcript printed right above it
+ * showed that she had spoken. A window around the click cannot drift when someone
+ * rewrites the copy, and it is the thing actually worth holding: she talks to you
+ * as the cards land. The card beats run to 700ms, so 2.5s is generous but still
+ * excludes anything said later in the hand.
+ */
+const SPEAKS_WITHIN = 2500
 if (said.length < 3) fail.push(`she only spoke ${said.length} time(s) in a whole hand`)
-if (!said.some((s) => /cards|here you are|for you|watch closely|cartas|para ti|aqu\u00ed tienes|m\u00edrame/i.test(s.text))) {
-  fail.push('nothing was said when the cards came out')
+if (!said.some((s) => s.at >= dealtAt && s.at <= dealtAt + SPEAKS_WITHIN)) {
+  fail.push(`nothing was said in the ${SPEAKS_WITHIN}ms after the cards came out`)
 }
 if (!said.some((s) => NUMBERS.test(s.text))) fail.push('no total was ever called')
 // High and unhurried is the whole character of the voice; flat defaults are not it.
