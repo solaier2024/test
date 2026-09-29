@@ -303,6 +303,14 @@ export default function App() {
       const shown = readRef.current.shown
       showFace(shown, shown === 'cool' ? undefined : shown)
     } else {
+      /*
+       * A natural settles the hand before she ever gets a turn, so neither the
+       * total above nor the house's fires, and the one hand most worth naming was
+       * the only one she went quiet on. The deal line is already 700ms behind us,
+       * so this clears the gap that keeps her from talking over herself.
+       */
+      const mine = gref.current.hands[0]
+      if (mine) sayTotal(total(mine.cards), 'you')
       await finish()
     }
   }, [busy, finish, play, showFace, sync, t])
