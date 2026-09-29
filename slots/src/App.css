@@ -1,0 +1,801 @@
+/*
+ * The table.
+ *
+ * Everything is laid out against the picture rather than against the viewport:
+ * the plate is a fixed 16:9 block, the reel window is positioned inside it by
+ * the fractions in src/machine.ts, and the interface hangs off the edges of
+ * that block. Sizing the bands off the viewport instead would mean they drift
+ * out of the glass on any aspect ratio but one.
+ */
+
+.table,
+.pick,
+.intro {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #05070a;
+}
+
+/* ------------------------------------------------------------- the picture */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/*
+ * The plate, the clip and the bands all share this box, which is the only way
+ * the window fractions mean anything. A slow push driven by how hard the room
+ * is looking at you - it is real-time because attention is a continuous value
+ * and you cannot bake twenty of those.
+ */
+.frame {
+  position: relative;
+  width: min(100%, calc(100dvh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  transform: scale(calc(1 + var(--attention) * 0.035));
+  transition: transform 1.2s ease-out;
+  will-change: transform;
+}
+
+.plate,
+.clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.plate.arriving {
+  animation: arrive 0.42s ease-out both;
+}
+
+/* Asymmetric: the outgoing plate holds and leaves slowly, the incoming one is
+   quick, because a room reacting is a fast thing and a room settling is not. */
+.plate.leaving {
+  animation: leave 0.9s ease-in both;
+  z-index: 1;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes leave {
+  0%,
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.clip {
+  z-index: 2;
+}
+
+.clip.gone {
+  display: none;
+}
+
+/* ------------------------------------------------------------- the bands */
+
+.window {
+  position: absolute;
+  left: 34.77%;
+  top: 31.39%;
+  width: 17.81%;
+  height: 20.28%;
+  z-index: 3;
+}
+
+.reels {
+  position: absolute;
+  inset: 3.5%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5%;
+  overflow: hidden;
+  /* The paper the symbols are printed on, lit by the lamp above and left. */
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255, 226, 170, 0.16), transparent 70%),
+    linear-gradient(#1a1610, #0d0b08);
+}
+
+.reel {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(#efe2c4 0%, #d9c9a4 50%, #c4b28b 100%);
+  box-shadow:
+    inset 0 0.5em 0.9em rgba(0, 0, 0, 0.55),
+    inset 0 -0.5em 0.9em rgba(0, 0, 0, 0.55);
+}
+
+.strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: grid;
+  grid-auto-rows: 33.3333%;
+  will-change: transform;
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  /* The bands are printed strips: a hairline between stops, not a card edge. */
+  border-bottom: 1px solid rgba(90, 70, 40, 0.28);
+}
+
+.face {
+  width: 62%;
+  height: 62%;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.25));
+}
+
+/* A symbol on the third band that would have completed the line. It really is
+   there and it really did not land, so it is allowed to glow. */
+.face.teasing {
+  filter: drop-shadow(0 0 0.35em rgba(230, 170, 60, 0.85));
+}
+
+/* The centre line is the only one that pays, so it is the only one marked. */
+.payline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0;
+  border-top: 1px solid rgba(200, 162, 74, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+  pointer-events: none;
+}
+
+/* The pane itself: a curved reflection and the shadow of the bevel. */
+.glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(103deg, transparent 38%, rgba(255, 233, 190, 0.09) 47%, transparent 56%),
+    radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* --------------------------------------------------------------- the count */
+
+.tally {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  max-width: 11rem;
+}
+
+.tally-label,
+.paycard-title,
+.hud em {
+  font-family: var(--display);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+/*
+ * Notches cut into the bar rail rather than a percentage. A number that says
+ * 71% after nine pulls looks like knowledge and is not one, and the whole table
+ * is about that difference.
+ */
+.rail {
+  position: relative;
+  display: grid;
+  grid-auto-flow: row;
+  gap: 2px;
+  padding: 0.45rem 0.5rem;
+  background: linear-gradient(90deg, rgba(28, 20, 12, 0.85), rgba(18, 13, 8, 0.6));
+  border-left: 2px solid rgba(200, 162, 74, 0.3);
+}
+
+.notch {
+  width: 1.5rem;
+  height: 2px;
+  background: rgba(240, 228, 204, 0.12);
+  transition: background 0.5s ease-out, width 0.5s ease-out;
+}
+
+.notch.cut {
+  width: 2.5rem;
+  background: rgba(200, 162, 74, 0.8);
+}
+
+/* Where the count becomes something you could say out loud in a bar. */
+.bar-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.45rem;
+  border-top: 1px dashed rgba(168, 35, 43, 0.75);
+}
+
+.tally.proven .notch.cut {
+  background: #e0a13a;
+  box-shadow: 0 0 0.4rem rgba(224, 161, 58, 0.6);
+}
+
+.tally-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.tally-hint,
+.paycard-note,
+.pick-note {
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+/* ----------------------------------------------------------- the pay card */
+
+.paycard {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  max-width: 12rem;
+  background: linear-gradient(160deg, rgba(58, 44, 24, 0.9), rgba(26, 19, 11, 0.85));
+  border: 1px solid rgba(200, 162, 74, 0.35);
+  box-shadow: 0 0.4rem 1.4rem rgba(0, 0, 0, 0.6);
+}
+
+.paycard ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.paycard li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.paycard-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+
+.paycard .face {
+  width: 0.95rem;
+  height: 0.95rem;
+  filter: none;
+}
+
+.paycard-coins {
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- the HUD */
+
+.hud {
+  position: absolute;
+  top: max(0.8rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  gap: 1.4rem;
+  padding: 0.5rem 1rem;
+  background: rgba(8, 10, 12, 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.hud span {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+
+.heat-bar {
+  width: 3.5rem;
+  height: 3px;
+  background: rgba(240, 228, 204, 0.15);
+}
+
+.heat-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--red));
+  transform-origin: left;
+  transition: transform 0.6s ease-out;
+}
+
+/* ------------------------------------------------------------- the crowd */
+
+/*
+ * What the room just did, in words. This is not decoration: the crowd is the
+ * opponent on this table, so a muted player, a deaf player and anyone who has
+ * not unlocked audio yet has to be able to read every reaction. Every sound the
+ * room makes has a line here and a plate behind it.
+ */
+.said {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  max-width: min(80%, 28rem);
+  text-align: center;
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink);
+  text-shadow: 0 0.15rem 0.6rem rgba(0, 0, 0, 0.95);
+  animation: said-in 0.25s ease-out both;
+}
+
+@keyframes said-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Read out by a screen reader, never shown: the same information the crowd
+   line carries, phrased as the measurement rather than as the room. */
+.heard {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ the controls */
+
+.controls {
+  position: absolute;
+  left: 50%;
+  bottom: max(1.2rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.controls button {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  /* 50px floor: every control on every table in this series is thumb-sized. */
+  min-width: 9rem;
+  min-height: 50px;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid rgba(200, 162, 74, 0.5);
+  background: linear-gradient(#2a1f12, #16100a);
+  font-family: var(--display);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  transition: background 0.2s, border-color 0.2s, transform 0.08s;
+}
+
+.controls button em {
+  font-family: var(--serif);
+  font-style: normal;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+}
+
+@media (hover: hover) {
+  .controls button:hover:not(:disabled) {
+    background: linear-gradient(#3b2c18, #221809);
+    border-color: var(--gold);
+  }
+}
+
+.controls button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The count has cleared the bar. The button says so; it does not say you are
+   right, because that is a different question and the room settles it. */
+.callout.ready {
+  border-color: #e0a13a;
+  box-shadow: 0 0 1.2rem rgba(224, 161, 58, 0.35);
+}
+
+/* --------------------------------------------------------------- the rest */
+
+.chrome-row {
+  position: absolute;
+  top: max(0.8rem, env(safe-area-inset-top));
+  right: max(0.8rem, env(safe-area-inset-right));
+  z-index: 8;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chrome {
+  min-height: 50px;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(200, 162, 74, 0.35);
+  background: rgba(8, 10, 12, 0.7);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chrome.waiting {
+  border-color: var(--gold);
+  animation: waiting 2.4s ease-in-out infinite;
+}
+
+@keyframes waiting {
+  50% {
+    background: rgba(200, 162, 74, 0.2);
+  }
+}
+
+.skip {
+  position: absolute;
+  right: max(0.8rem, env(safe-area-inset-right));
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  z-index: 8;
+}
+
+.ending {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.9rem;
+  padding: 2rem;
+  text-align: center;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(5, 7, 10, 0.82), rgba(5, 7, 10, 0.97));
+  animation: arrive 0.8s ease-out both;
+}
+
+.ending h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.ending p {
+  margin: 0;
+  max-width: 34rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.ending-row {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.disclaimer.floating {
+  position: absolute;
+  left: 50%;
+  bottom: 0.35rem;
+  transform: translateX(-50%);
+  z-index: 8;
+  text-align: center;
+}
+
+.hidden-stops {
+  display: none;
+}
+
+/* ------------------------------------------------------------ the openings */
+
+.intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.intro-line {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+  max-width: min(84%, 40rem);
+  text-align: center;
+  font-size: clamp(0.95rem, 2.4vw, 1.3rem);
+  line-height: 1.5;
+  text-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.95);
+  animation: arrive 0.6s ease-out both;
+}
+
+.intro-line.tap {
+  bottom: 10%;
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+.intro-title {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.3rem;
+  animation: arrive 1s ease-out both;
+}
+
+.intro-title h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 7vw, 4.2rem);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: 0 0.3rem 1.2rem rgba(0, 0, 0, 0.9);
+}
+
+.intro-title p {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.35em;
+  color: var(--gold);
+}
+
+.intro-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  z-index: 5;
+  background: var(--gold);
+  transform-origin: left;
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------- the choice */
+
+.pick {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem 1rem 3rem;
+  background:
+    radial-gradient(70% 60% at 50% 40%, rgba(46, 32, 16, 0.55), transparent 70%),
+    #05070a;
+  overflow-y: auto;
+}
+
+.pick h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 6vw, 3.4rem);
+  letter-spacing: 0.04em;
+}
+
+.pick h2 {
+  margin: 0.6rem 0 0;
+  font-family: var(--display);
+  font-size: 0.8rem;
+  letter-spacing: 0.24em;
+  color: var(--gold);
+}
+
+.tagline {
+  margin: 0;
+  max-width: 34rem;
+  text-align: center;
+  font-style: italic;
+  color: var(--ink-dim);
+}
+
+.machines {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+  width: min(100%, 56rem);
+}
+
+.machine-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.1rem 1rem;
+  min-height: 50px;
+  text-align: left;
+  border: 1px solid rgba(200, 162, 74, 0.3);
+  background: linear-gradient(160deg, rgba(38, 28, 16, 0.85), rgba(14, 11, 8, 0.85));
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+}
+
+@media (hover: hover) {
+  .machine-card:hover {
+    border-color: var(--gold);
+    background: linear-gradient(160deg, rgba(56, 41, 22, 0.9), rgba(20, 15, 10, 0.9));
+  }
+}
+
+.machine-card:active {
+  transform: translateY(1px);
+}
+
+.machine-name {
+  font-family: var(--display);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.machine-blurb {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+/* ------------------------------------------------------------ small screens */
+
+@media (max-width: 860px) {
+  .tally,
+  .paycard {
+    top: auto;
+    bottom: 7.5rem;
+    transform: none;
+    max-width: 8.5rem;
+  }
+
+  .rail {
+    grid-auto-flow: column;
+    grid-auto-columns: 2px;
+    gap: 2px;
+    padding: 0.4rem;
+    border-left: none;
+    border-bottom: 2px solid rgba(200, 162, 74, 0.3);
+  }
+
+  .notch {
+    width: 2px;
+    height: 0.9rem;
+  }
+
+  .notch.cut {
+    width: 2px;
+    height: 1.5rem;
+  }
+
+  .bar-mark {
+    inset: 0.4rem 0.4rem auto auto;
+    border-top: none;
+    border-right: 1px dashed rgba(168, 35, 43, 0.75);
+    width: 0;
+    height: 1.6rem;
+  }
+
+  .paycard {
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .paycard-note,
+  .tally-hint {
+    display: none;
+  }
+
+  .hud {
+    gap: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .said {
+    bottom: 12.5rem;
+    font-size: 0.9rem;
+  }
+
+  .controls {
+    flex-direction: column;
+    width: min(92%, 22rem);
+  }
+
+  .controls button {
+    width: 100%;
+  }
+}
+
+/* Anything that moves for its own sake stops. The reels still turn, because
+   they are the game, but the push, the plate dissolves and the notch animation
+   are all decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+    transform: none;
+  }
+
+  .plate.arriving,
+  .plate.leaving,
+  .said,
+  .ending {
+    animation: none;
+  }
+
+  .plate.leaving {
+    display: none;
+  }
+
+  .notch,
+  .heat-bar span {
+    transition: none;
+  }
+}
