@@ -71,7 +71,30 @@ const context = await browser.newContext({
 })
 const page = await context.newPage()
 page.on('pageerror', (e) => problems.push(String(e)))
-page.on('console', (m) => m.type() === 'error' && problems.push(m.text()))
+
+/*
+ * Ours, and only ours.
+ *
+ * Run against a deployed copy, the host's own furniture shows up in the
+ * console: githack wraps the preview in an interstitial that fetches an ad
+ * from a third party, and a cross-origin policy blocks it. That is a true
+ * console error about something that is not this game, and failing on it
+ * would make the strongest check in this file - playing the real deployment -
+ * permanently red for a reason nobody can fix.
+ *
+ * So the request failures are filtered by origin, which is more precise than
+ * reading console text, and the generic "Failed to load resource" line is
+ * left to that handler rather than counted twice.
+ */
+const host = new URL(BASE).host
+page.on('requestfailed', (r) => {
+  if (new URL(r.url()).host === host) problems.push(`${r.failure()?.errorText} for ${r.url()}`)
+})
+page.on('console', (m) => {
+  if (m.type() !== 'error') return
+  if (/Failed to load resource/.test(m.text())) return
+  problems.push(m.text())
+})
 
 /** The heads-up display, read the way a player reads it. */
 const hud = () =>
@@ -258,8 +281,13 @@ async function night(stake, yankTo) {
     const s = last.stake
     await page.locator('button.lever').click()
     await idle()
-    staked += s
-    last = await hud()
+    const now = await hud()
+    /* Counted off the pull counter rather than off the loop. Against a remote
+     * deployment a press occasionally lands between renders and does nothing,
+     * and a night that silently books one more coin than it spent reports an
+     * average stake of 1.05 for a night played entirely at one. */
+    staked += s * (now.pulls - last.pulls)
+    last = now
   }
   if (yankTo) {
     await page.locator('.stake-coin', { hasText: String(yankTo) }).click()
