@@ -23,7 +23,6 @@ export interface Strings {
   soft17Stands: string
   naturalPays: (n: number, d: number) => string
   splitsTo: (n: number) => string
-  houseMayRule: string
   minimum: (n: number) => string
   sit: string
 
@@ -41,12 +40,10 @@ export interface Strings {
   split: string
   lean: string
   leaning: string
-  call: string
   next: string
   leave: string
 
   shoeLeft: string
-  heat: string
   yourHand: string
   herHand: string
 
@@ -61,22 +58,14 @@ export interface Strings {
   natural: string
   bust: string
   dealerBust: string
-  caughtHer: (kind: string) => string
-  calledWrong: string
-  voidTag: string
-  voidWhy: string
-  cheatName: Record<'second' | 'peek' | 'cold', string>
-  houseCallName: Record<'no_double' | 'flat_natural' | 'no_split', string>
-  houseCallSaid: (rule: string, fee: number) => string
 
-  watchHands: string
-  tellHint: string
-  callsMade: (calls: number, caught: number) => string
+  /** The standing line under the felt when she has nothing to say. */
+  hint: string
+  /** Replaces it while you are leaning over the table. */
+  watching: string
 
   brokeTitle: string
   brokeBody: string
-  thrownTitle: string
-  thrownBody: string
   again: string
 
   soundTapFor: string
@@ -91,7 +80,7 @@ export interface Strings {
 const en: Strings = {
   title: "DEALER'S CHOICE",
   subtitle: 'BITTER CREEK, 1884',
-  tagline: 'The cards are clean. Nobody ever said she was.',
+  tagline: 'One lamp, one deck, and all night to lose it.',
   play: 'FIND A TABLE',
   watchOpening: 'WATCH THE OPENING',
   disclaimer: 'Entertainment only · No real money, no wagering, no payouts',
@@ -103,7 +92,6 @@ const en: Strings = {
   soft17Stands: 'Dealer stands on all 17s',
   naturalPays: (n, d) => `Blackjack pays ${n}:${d}`,
   splitsTo: (n) => (n === 1 ? 'Split once' : `Split up to ${n} times`),
-  houseMayRule: 'The house may rewrite a rule, and pays you for it',
   minimum: (n) => `Minimum ${n}`,
   sit: 'SIT DOWN',
 
@@ -114,7 +102,7 @@ const en: Strings = {
   },
   tableNote: {
     single: 'The shortest shoe in the house. Counting bites from the first hand, and she knows it.',
-    casa: 'She may change one rule whenever she likes, as long as she pays the table for it.',
+    casa: 'Six decks and she draws on soft seventeen. The count moves slowly and the night moves slower.',
     sixfive: 'The sign is on the felt and it is still the worst table in the room.',
   },
 
@@ -128,13 +116,11 @@ const en: Strings = {
   double: 'DOUBLE',
   split: 'SPLIT',
   lean: 'LEAN IN',
-  leaning: 'WATCHING HER HANDS',
-  call: 'CALL HER',
+  leaning: 'LEANING IN',
   next: 'NEXT HAND',
   leave: 'LEAVE THE TABLE',
 
   shoeLeft: 'SHOE',
-  heat: 'THE ROOM',
   yourHand: 'YOU',
   herHand: 'THE HOUSE',
 
@@ -149,51 +135,33 @@ const en: Strings = {
   natural: 'BLACKJACK',
   bust: 'BUST',
   dealerBust: 'SHE BREAKS',
-  caughtHer: (kind) => `CAUGHT HER — ${kind}`,
-  calledWrong: 'NOTHING THERE',
-  voidTag: 'void',
-  voidWhy: 'You called it. The hand dies where it stands and the stake is hers.',
-  cheatName: {
-    second: 'she dealt the second card',
-    peek: 'she read her hole card',
-    cold: 'she rang in a cold deck',
-  },
-  houseCallName: {
-    no_double: 'no doubling this hand',
-    flat_natural: 'blackjack pays even this hand',
-    no_split: 'no splitting this hand',
-  },
-  houseCallSaid: (rule, fee) => `The house says: ${rule}. She pays you ${fee} for it.`,
 
-  watchHands: 'Watch her hands, not her face.',
-  tellHint: 'A real tell happens while the card is still in her hand. After it lands, it means nothing.',
-  callsMade: (calls, caught) => `Called ${calls} · right ${caught}`,
+  hint: 'The shoe is the only thing at this table that will tell you anything.',
+  watching: 'Close enough to hear the cards come off the deck.',
 
   brokeTitle: 'CLEANED OUT',
   brokeBody: 'The stack is gone. She racks the shoe and looks past you at the next one.',
-  thrownTitle: 'ASKED TO LEAVE',
-  thrownBody: 'You watched her hands a little too hard for a little too long. A man in a good coat shows you the door.',
   again: 'ANOTHER NIGHT',
 
   soundTapFor: 'TAP FOR SOUND',
   soundOn: 'SOUND ON',
   soundOff: 'SOUND OFF',
   skip: 'SKIP',
-  keys: 'H hit · S stand · D double · P split · L lean · C call · Space continue',
+  keys: 'H hit · S stand · D double · P split · L lean in · Space continue',
 
   introLines: [
     'In this town the last lamp burning is always over a card table.',
     'Faro. Monte. Dice. Pick how you want to lose.',
     'Everyone ends up at the same table anyway.',
     'She has cut this deck ten thousand times.',
-    'The cards are clean. Nobody ever said she was.',
+    'Sit down. The deck does not care who you are.',
   ],
 }
 
 const es: Strings = {
   title: 'LA CASA MANDA',
   subtitle: 'BITTER CREEK, 1884',
-  tagline: 'Las cartas están limpias. Nadie dijo que ella lo estuviera.',
+  tagline: 'Una lámpara, una baraja y toda la noche para perderla.',
   play: 'BUSCAR MESA',
   watchOpening: 'VER LA APERTURA',
   disclaimer: 'Solo entretenimiento · Sin dinero real, sin apuestas, sin premios',
@@ -205,7 +173,6 @@ const es: Strings = {
   soft17Stands: 'La casa se planta con todo 17',
   naturalPays: (n, d) => `El blackjack paga ${n}:${d}`,
   splitsTo: (n) => (n === 1 ? 'Se abre una vez' : `Se abre hasta ${n} veces`),
-  houseMayRule: 'La casa puede cambiar una regla, y te la paga',
   minimum: (n) => `Mínimo ${n}`,
   sit: 'SENTARSE',
 
@@ -216,7 +183,7 @@ const es: Strings = {
   },
   tableNote: {
     single: 'La baraja más corta del salón. Contar sirve desde la primera mano, y ella lo sabe.',
-    casa: 'Cambia una regla cuando le da la gana, siempre que le pague a la mesa.',
+    casa: 'Seis barajas, y pide con 17 suave. La cuenta va lenta y la noche más.',
     sixfive: 'El letrero está en el paño y sigue siendo la peor mesa del salón.',
   },
 
@@ -230,13 +197,11 @@ const es: Strings = {
   double: 'DOBLO',
   split: 'ABRO',
   lean: 'ACERCARSE',
-  leaning: 'MIRÁNDOLE LAS MANOS',
-  call: 'CANTARLE',
+  leaning: 'ACERCÁNDOSE',
   next: 'OTRA MANO',
   leave: 'DEJAR LA MESA',
 
   shoeLeft: 'BARAJA',
-  heat: 'EL SALÓN',
   yourHand: 'TÚ',
   herHand: 'LA CASA',
 
@@ -251,44 +216,26 @@ const es: Strings = {
   natural: 'BLACKJACK',
   bust: 'TE PASASTE',
   dealerBust: 'SE PASA',
-  caughtHer: (kind) => `LA CACHASTE — ${kind}`,
-  calledWrong: 'AHÍ NO HABÍA NADA',
-  voidTag: 'anulada',
-  voidWhy: 'Cantaste. La mano muere donde está y la apuesta es suya.',
-  cheatName: {
-    second: 'repartió la segunda',
-    peek: 'le echó ojo a su tapada',
-    cold: 'metió baraja preparada',
-  },
-  houseCallName: {
-    no_double: 'esta mano no se dobla',
-    flat_natural: 'esta mano el blackjack paga parejo',
-    no_split: 'esta mano no se abre',
-  },
-  houseCallSaid: (rule, fee) => `Dice la casa: ${rule}. Te paga ${fee} por ello.`,
 
-  watchHands: 'Mírale las manos, no la cara.',
-  tellHint: 'El descuido de verdad pasa mientras la carta sigue en su mano. Después de caer, no significa nada.',
-  callsMade: (calls, caught) => `Cantadas ${calls} · buenas ${caught}`,
+  hint: 'La baraja es lo único en esta mesa que te dice algo.',
+  watching: 'Tan cerca que oyes salir las cartas.',
 
   brokeTitle: 'SIN UN PESO',
   brokeBody: 'Se acabaron las fichas. Ella acomoda la baraja y mira por encima de ti al que sigue.',
-  thrownTitle: 'TE INVITAN A SALIR',
-  thrownBody: 'Le miraste las manos con demasiadas ganas y por demasiado rato. Un señor de buen saco te señala la puerta.',
   again: 'OTRA NOCHE',
 
   soundTapFor: 'TOCA PARA SONIDO',
   soundOn: 'CON SONIDO',
   soundOff: 'SIN SONIDO',
   skip: 'SALTAR',
-  keys: 'H pido · S me planto · D doblo · P abro · L acercarse · C cantar · Espacio seguir',
+  keys: 'H pido · S me planto · D doblo · P abro · L acercarse · Espacio seguir',
 
   introLines: [
     'En este pueblo la última luz encendida siempre alumbra una mesa.',
     'Faro. Monte. Dados. Escoge cómo quieres perder.',
     'Al final todos acaban en la misma mesa.',
     'Ella ha cortado esta baraja diez mil veces.',
-    'Las cartas están limpias. Nadie dijo que ella lo estuviera.',
+    'Siéntate. A la baraja le da igual quién eres.',
   ],
 }
 

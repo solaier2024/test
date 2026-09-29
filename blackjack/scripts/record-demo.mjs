@@ -64,7 +64,7 @@ await page.getByRole('button', { name: /FIND A TABLE|BUSCAR MESA/ }).click()
 await page.waitForSelector('.tables-page')
 await beat(2200)
 
-// The middle table is the one where she can rewrite a rule.
+// Six decks, so the shoe lasts and the hands keep coming.
 await page.locator('.table-card').nth(1).getByRole('button').click()
 await page.waitForSelector('.table-page')
 
@@ -73,7 +73,7 @@ await page.waitForSelector('.table-page')
 console.log('  idle: holding on her')
 await beat(5000)
 
-async function playHand({ lean = false, call = false } = {}) {
+async function playHand({ lean = false } = {}) {
   await page.locator('.chip').nth(1).click()
   await beat(500)
   await page.locator('[data-act="deal"]').click()
@@ -87,14 +87,6 @@ async function playHand({ lean = false, call = false } = {}) {
     await beat(400)
   } else {
     await beat(1500)
-  }
-
-  if (call) {
-    const btn = page.locator('[data-act="call"]')
-    if ((await btn.count()) && !(await btn.isDisabled())) {
-      await btn.click()
-      await beat(2600)
-    }
   }
 
   for (let i = 0; i < 10; i++) {
@@ -118,7 +110,7 @@ async function playHand({ lean = false, call = false } = {}) {
 }
 
 await playHand()
-await playHand({ lean: true, call: true })
+await playHand({ lean: true })
 await playHand()
 await playHand()
 

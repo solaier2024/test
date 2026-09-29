@@ -1,20 +1,16 @@
 import {
   CARD_LANDS_AT,
   DEAL_MS,
-  HEAT_OUT,
   RULES,
   STARTING_CHIPS,
   type Card,
-  type CheatKind,
   type GameState,
   type Hand,
   type HandResult,
-  type HouseCall,
   type Rank,
   type RuleId,
   type RuleSet,
   type Suit,
-  type Tell,
 } from './types'
 
 const SUITS: Suit[] = ['S', 'H', 'D', 'C']
@@ -96,6 +92,19 @@ export function edge(state: GameState): number {
   return Math.max(0, Math.min(1, (t + 1) / 6))
 }
 
+/**
+ * How much of the night is riding on the felt right now, counting the stake
+ * against everything you brought to the table. This is what the arrangement
+ * and the vignette tighten on: a ten-chip bet off five hundred is a shrug, the
+ * same bet with thirty left is the whole evening.
+ */
+export function pressure(state: GameState): number {
+  const staked = state.hands.reduce((s, h) => s + h.bet, 0) || state.bet
+  const stack = staked + state.chips
+  if (stack <= 0) return 1
+  return Math.max(0, Math.min(1, (staked / stack) * 2.2))
+}
+
 export function penetrationHit(state: GameState): boolean {
   return state.dealt >= state.shoeSize * state.rules.penetration
 }
@@ -125,14 +134,8 @@ export function createGame(ruleId: RuleId = 'single', rnd: () => number = Math.r
     holeDown: true,
     chips: STARTING_CHIPS,
     bet: rules.minBet,
-    heat: 0,
-    houseCall: null,
-    houseFee: 0,
-    tell: null,
-    called: false,
     settlement: null,
     round: 1,
-    seen: { calls: 0, caught: 0, missed: 0 },
   }
 }
 
@@ -145,51 +148,8 @@ function draw(state: GameState): Card {
   return card
 }
 
-/**
- * Her move on the shoe: instead of the top card the next one out is chosen from
- * a little deeper, so she can hand you something worse or keep something better.
- * The card still leaves the shoe, so the count a player keeps stays honest -
- * cheating changes the order, never the contents.
- */
-function drawCrooked(state: GameState, want: 'low' | 'high'): Card {
-  const reach = Math.min(4, state.shoe.length)
-  let pick = 0
-  let best = -Infinity
-  for (let i = 0; i < reach; i++) {
-    const v = cardValue(state.shoe[i].rank)
-    const s = want === 'low' ? -v : v
-    if (s > best) {
-      best = s
-      pick = i
-    }
-  }
-  const card = state.shoe[pick]
-  state.shoe = [...state.shoe.slice(0, pick), ...state.shoe.slice(pick + 1)]
-  state.dealt += 1
-  state.running += countValue(card.rank)
-  return card
-}
-
-/**
- * Where the flicker sits in the deal. A real tell lands while the card is still
- * in her hand; a decoy only ever happens after it has touched the felt. That
- * gap is the whole skill, so it is generated here rather than in the view.
- */
-export function makeTell(cheat: CheatKind | null, leaning: boolean, rnd: () => number = Math.random): Tell {
-  const hold = leaning ? 190 : 110
-  if (cheat) return { at: 300 + Math.floor(rnd() * 150), hold, cheat }
-  return { at: CARD_LANDS_AT + 80 + Math.floor(rnd() * 160), hold, cheat: null }
-}
-
-export interface DealPlan {
-  /** Set when she is working this round. */
-  cheat: CheatKind | null
-  /** Shown whether or not she is working, so the flicker itself gives nothing away. */
-  tell: Tell
-}
-
 /** Puts the stake on the felt and deals the round out. */
-export function startRound(state: GameState, plan: DealPlan, rnd: () => number = Math.random): GameState {
+export function startRound(state: GameState, rnd: () => number = Math.random): GameState {
   const next: GameState = { ...state }
   const stake = Math.max(next.rules.minBet, Math.min(next.bet, next.chips))
 
@@ -199,44 +159,31 @@ export function startRound(state: GameState, plan: DealPlan, rnd: () => number =
   next.dealerHand = hand(0)
   next.holeDown = true
   next.settlement = null
-  next.called = false
-  next.tell = plan.tell
   next.bet = stake
 
-  // Two to you, two to her, hers second one face down. When she is dealing
-  // seconds she keeps the better card and hands the worse one across.
-  next.hands[0].cards.push(plan.cheat === 'second' ? drawCrooked(next, 'low') : draw(next))
+  // Two to you, two to her, her second one face down.
+  next.hands[0].cards.push(draw(next))
   next.dealerHand.cards.push(draw(next))
   next.hands[0].cards.push(draw(next))
-  next.dealerHand.cards.push(plan.cheat === 'second' ? drawCrooked(next, 'high') : draw(next))
+  next.dealerHand.cards.push(draw(next))
 
   next.phase = 'player'
   if (isNatural(next.hands[0]) || total(next.dealerHand.cards) === 21) {
-    return settle(next, null, rnd)
+    return settle(next, rnd)
   }
-  return next
-}
-
-/** Buys a rule for the round and pays the table for it. */
-export function callHouseRule(state: GameState, which: HouseCall, fee: number): GameState {
-  const next: GameState = { ...state }
-  next.houseCall = which
-  next.houseFee = fee
-  next.chips += fee
   return next
 }
 
 export function canDouble(state: GameState): boolean {
   const h = state.hands[state.active]
   if (!h || h.done) return false
-  if (!state.rules.doubleAllowed || state.houseCall === 'no_double') return false
+  if (!state.rules.doubleAllowed) return false
   return h.cards.length === 2 && state.chips >= h.bet
 }
 
 export function canSplit(state: GameState): boolean {
   const h = state.hands[state.active]
   if (!h || h.done) return false
-  if (state.houseCall === 'no_split') return false
   if (state.hands.length > state.rules.resplits) return false
   if (h.cards.length !== 2) return false
   if (cardValue(h.cards[0].rank) !== cardValue(h.cards[1].rank)) return false
@@ -301,13 +248,13 @@ function advance(state: GameState, rnd: () => number): GameState {
     return state
   }
   const live = state.hands.some((h) => !busted(h.cards) && !h.surrendered)
-  if (!live) return settle(state, null, rnd)
+  if (!live) return settle(state, rnd)
   state.phase = 'dealer'
   return state
 }
 
 /** She turns her hole card and draws to the house rule. */
-export function playDealer(state: GameState, plan: { cheat: CheatKind | null }, rnd: () => number = Math.random): GameState {
+export function playDealer(state: GameState, rnd: () => number = Math.random): GameState {
   const next: GameState = { ...state }
   next.holeDown = false
   next.dealerHand = { ...next.dealerHand, cards: [...next.dealerHand.cards] }
@@ -317,16 +264,15 @@ export function playDealer(state: GameState, plan: { cheat: CheatKind | null }, 
     if (t > 21) break
     if (t > 17) break
     if (t === 17 && !(soft && next.rules.hitsSoft17)) break
-    // Having peeked, she knows what she needs and reaches for it.
-    next.dealerHand.cards.push(plan.cheat === 'peek' ? drawCrooked(next, 'high') : draw(next))
+    next.dealerHand.cards.push(draw(next))
   }
-  return settle(next, null, rnd)
+  return settle(next, rnd)
 }
 
-function payout(h: Hand, result: HandResult, rules: RuleSet, houseCall: HouseCall | null): number {
+function payout(h: Hand, result: HandResult, rules: RuleSet): number {
   switch (result) {
     case 'natural': {
-      const [n, d] = houseCall === 'flat_natural' ? [1, 1] : rules.naturalPays
+      const [n, d] = rules.naturalPays
       return h.bet + Math.round((h.bet * n) / d)
     }
     case 'win':
@@ -354,12 +300,8 @@ function judge(player: Hand, dealer: Hand): HandResult {
   return 'push'
 }
 
-/**
- * Closes the round out. A caught cheat hands you every hand on the felt
- * regardless of the cards, because the round is void and she is the one who
- * voided it.
- */
-export function settle(state: GameState, caught: CheatKind | null, _rnd: () => number = Math.random): GameState {
+/** Closes the round out and moves the chips. */
+export function settle(state: GameState, _rnd: () => number = Math.random): GameState {
   const next: GameState = { ...state }
   next.holeDown = false
 
@@ -367,73 +309,16 @@ export function settle(state: GameState, caught: CheatKind | null, _rnd: () => n
   let returned = 0
   const staked = next.hands.reduce((s, h) => s + h.bet, 0)
 
-  if (caught) {
-    for (const h of next.hands) {
-      perHand.push('win')
-      returned += h.bet * 2
-    }
-  } else {
-    for (const h of next.hands) {
-      const r = judge(h, next.dealerHand)
-      perHand.push(r)
-      returned += payout(h, r, next.rules, next.houseCall)
-    }
+  for (const h of next.hands) {
+    const r = judge(h, next.dealerHand)
+    perHand.push(r)
+    returned += payout(h, r, next.rules)
   }
 
   next.chips += returned
-  next.settlement = { perHand, net: returned - staked, caught, falseCall: false }
+  next.settlement = { perHand, net: returned - staked }
   next.phase = 'settled'
   return next
-}
-
-/**
- * You say it out loud. Right, and the round is yours and the room cools off a
- * little; wrong, and it costs you the stake and she has your measure.
- */
-export function callCheat(state: GameState, sinceDeal: number): GameState {
-  if (state.called) return state
-  const next: GameState = { ...state }
-  next.called = true
-  next.seen = { ...next.seen, calls: next.seen.calls + 1 }
-
-  const live = next.tell?.cheat ?? null
-  const inTime = sinceDeal <= DEAL_MS + 420
-
-  if (live && inTime) {
-    next.seen = { ...next.seen, caught: next.seen.caught + 1 }
-    next.heat = Math.max(0, next.heat - 0.2)
-    const settled = settle(next, live)
-    settled.settlement = { ...settled.settlement!, caught: live }
-    return settled
-  }
-
-  // Nothing there. The stake goes, the room notices, and the cards are dead.
-  //
-  // Her hole card still turns over. The hand is void either way, and leaving it
-  // face down reads as a bug rather than as a penalty - you paid for those cards,
-  // so you get to see what you accused her over.
-  next.seen = { ...next.seen, missed: next.seen.missed + 1 }
-  next.heat = Math.min(1, next.heat + 0.17)
-  next.holeDown = false
-  const staked = next.hands.reduce((s, h) => s + h.bet, 0)
-  next.settlement = { perHand: next.hands.map(() => 'lose' as HandResult), net: -staked, caught: null, falseCall: true }
-  next.phase = 'settled'
-  return next
-}
-
-/** Leaning in to watch her hands is not free; she can tell. */
-export function addHeat(state: GameState, amount: number): GameState {
-  return { ...state, heat: Math.max(0, Math.min(1, state.heat + amount)) }
-}
-
-/**
- * The room forgets. Sitting quietly cools the table back down, which is what
- * makes leaning a decision with a price rather than a budget you spend once and
- * then have to leave. Without this a handful of wrong calls ends the night.
- */
-export function coolOff(state: GameState, seconds: number): GameState {
-  if (state.heat <= 0) return state
-  return { ...state, heat: Math.max(0, state.heat - seconds * 0.022) }
 }
 
 /** Starts the next round, shuffling first if the cut card came up. */
@@ -443,37 +328,18 @@ export function nextRound(state: GameState, _rnd: () => number = Math.random): G
     next.phase = 'over'
     return next
   }
-  if (next.heat >= HEAT_OUT) {
-    next.phase = 'over'
-    return next
-  }
   next.round += 1
   next.hands = []
   next.dealerHand = hand(0)
   next.settlement = null
-  next.tell = null
-  next.called = false
-  next.houseCall = null
-  next.houseFee = 0
   next.phase = penetrationHit(next) ? 'shuffling' : 'betting'
   return next
 }
 
-/**
- * A fresh shoe. When she rings in a cold deck the top of it is stacked in her
- * favour, which is why a shuffle is worth watching as closely as a deal.
- */
-export function reshuffle(state: GameState, cold: boolean, rnd: () => number = Math.random): GameState {
+/** A fresh shoe, riffled out where you can see it. */
+export function reshuffle(state: GameState, rnd: () => number = Math.random): GameState {
   const next: GameState = { ...state }
-  const fresh = buildShoe(next.rules.decks, rnd)
-  if (cold) {
-    // Low cards to the front: your doubles miss and her stiffs get made.
-    const low = fresh.filter((c) => cardValue(c.rank) <= 6)
-    const rest = fresh.filter((c) => cardValue(c.rank) > 6)
-    next.shoe = [...low.slice(0, 8), ...shuffle([...low.slice(8), ...rest], rnd)]
-  } else {
-    next.shoe = fresh
-  }
+  next.shoe = buildShoe(next.rules.decks, rnd)
   next.shoeSize = next.shoe.length
   next.dealt = 0
   next.running = 0

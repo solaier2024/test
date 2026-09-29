@@ -3,18 +3,17 @@ import { plateUrl } from '../art'
 import { Clip, type ClipRequest } from './Clip'
 import type { Mood } from '../game/ai'
 
-export type SceneState = Mood | 'caught' | 'shuffling'
+export type SceneState = Mood | 'shuffling'
 
 /** Which plate backs each state. The clips start and end on these. */
 const PLATE: Record<SceneState, string> = {
   cool: 'dealer_cool',
   warm: 'dealer_warm',
   sharp: 'dealer_sharp',
-  caught: 'dealer_caught',
   shuffling: 'dealer_shuffle',
 }
 
-/** States with an eyes-closed twin. She does not blink when she has been caught. */
+/** States with an eyes-closed twin. */
 const BLINKS: SceneState[] = ['cool', 'warm']
 
 interface SceneProps {
@@ -22,14 +21,12 @@ interface SceneProps {
   clip: ClipRequest | null
   small: boolean
   reduced: boolean
-  /** 0 to 1, how far the player is leaning over her hands. */
+  /** 0 to 1, how far the player is leaning over the table. */
   lean: number
-  /** Set while the flicker is showing. */
-  flicker: boolean
   onClipEnded?: (name: string) => void
 }
 
-export function Scene({ state, clip, small, reduced, lean, flicker, onClipEnded }: SceneProps) {
+export function Scene({ state, clip, small, reduced, lean, onClipEnded }: SceneProps) {
   const [blink, setBlink] = useState(false)
   const [shown, setShown] = useState<SceneState>(state)
   const [fading, setFading] = useState<SceneState | null>(null)
@@ -84,13 +81,6 @@ export function Scene({ state, clip, small, reduced, lean, flicker, onClipEnded 
           <img className="plate blink" src={plateUrl(`${PLATE[shown]}_blink`)} alt="" aria-hidden="true" />
         )}
         <Clip request={clip} small={small} onEnded={onClipEnded} />
-
-        {/*
-         * The tell. A short glint over her hands, drawn here rather than baked
-         * into the footage so its strength can follow how hard you are looking -
-         * you cannot bake twenty intensities of the same movement.
-         */}
-        <div className={`tell${flicker ? ' on' : ''}`} aria-hidden="true" />
       </div>
     </div>
   )

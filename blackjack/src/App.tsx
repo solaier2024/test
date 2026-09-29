@@ -12,30 +12,18 @@ import * as sfx from './audio/sfx'
 import { grito, setCue, setMood, shuffleSeam, startIntroScore, stopIntroScore } from './audio/score'
 import { isMuted, onAudioState, stopThePiano, unlock } from './audio/engine'
 import { purr, say, sayTotal, setVoiceEnabled, setVoiceLang, stopVoice } from './audio/voice'
+import { ROSA, readDealer, reactionTo, scoreParams, type DealerRead } from './game/ai'
 import {
-  ROSA,
-  chooseCheat,
-  chooseCold,
-  chooseHouseRule,
-  heatFromLean,
-  readDealer,
-  reactionTo,
-  scoreParams,
-  type DealerRead,
-} from './game/ai'
-import {
-  callCheat,
-  callHouseRule,
+  busted,
   canDouble,
   canSplit,
-  coolOff,
   createGame,
   double,
   edge,
   hit,
-  makeTell,
   nextRound,
   playDealer,
+  pressure,
   reshuffle,
   score,
   setBet,
@@ -44,7 +32,7 @@ import {
   startRound,
   total,
 } from './game/engine'
-import { CARD_LANDS_AT, RULES, RULE_ORDER, type CheatKind, type GameState, type RuleId } from './game/types'
+import { CARD_LANDS_AT, RULES, RULE_ORDER, type GameState, type RuleId } from './game/types'
 import type { ClipRequest } from './components/Clip'
 
 type Screen = 'intro' | 'title' | 'tables' | 'table'
@@ -96,7 +84,6 @@ export default function App() {
 
   const [face, setFace] = useState<SceneState>('cool')
   const [clip, setClip] = useState<ClipRequest | null>(null)
-  const [flicker, setFlicker] = useState(false)
   const [lean, setLean] = useState(0)
   const [note, setNote] = useState<string>('')
   const [banner, setBanner] = useState<{ head: string; body?: string; good: boolean } | null>(null)
@@ -105,8 +92,6 @@ export default function App() {
   const [busy, setBusy] = useState(false)
 
   const readRef = useRef<DealerRead>({ truth: 'cool', shown: 'cool', bluffing: false })
-  const cheatRef = useRef<CheatKind | null>(null)
-  const dealAtRef = useRef(0)
   const leaningRef = useRef(false)
   const tokenRef = useRef(0)
 
@@ -129,42 +114,18 @@ export default function App() {
 
   /* --------------------------------------------------------------- leaning */
 
-  const setLeaning = useCallback(
-    (on: boolean) => {
-      if (leaningRef.current === on) return
-      leaningRef.current = on
-      setLean(on ? 1 : 0)
-      sfx.leanIn(on)
-    },
-    [],
-  )
-
-  // Watching her hands is not free: she notices, and the room notices her
-  // noticing. This is the only thing that raises heat on its own.
-  useEffect(() => {
-    if (screen !== 'table') return
-    let drawn = -1
-    const id = window.setInterval(() => {
-      const g = gref.current
-      if (g.phase === 'over') return
-      let next = g
-      if (leaningRef.current) next = { ...g, heat: Math.min(1, g.heat + heatFromLean(ROSA, 0.25)) }
-      else if (g.heat > 0) next = coolOff(g, 0.25)
-      else return
-      gref.current = next
-      /*
-       * The model moves every tick; the screen only follows when it would look
-       * different. This used to re-render the whole table four times a second for
-       * as long as the heat was above zero, which is main-thread time the video
-       * decoder wants and a change too small for the gauge to show anyway.
-       */
-      const step = Math.round(next.heat * 200)
-      if (step === drawn) return
-      drawn = step
-      sync()
-    }, 250)
-    return () => window.clearInterval(id)
-  }, [screen, sync])
+  /*
+   * Leaning in is free. It costs nothing and changes nothing about the cards:
+   * it pushes the camera a few degrees closer, tightens the vignette and lets
+   * the shoe and the chips come up in the mix. The point of the table is being
+   * at it, so the one gesture that is purely about being there has no price.
+   */
+  const setLeaning = useCallback((on: boolean) => {
+    if (leaningRef.current === on) return
+    leaningRef.current = on
+    setLean(on ? 1 : 0)
+    sfx.leanIn(on)
+  }, [])
 
   /* ------------------------------------------------------------ the rounds */
 
@@ -197,7 +158,7 @@ export default function App() {
     let g = gref.current
     if (g.phase === 'dealer') {
       setNote(t.herMove)
-      g = playDealer(g, { cheat: cheatRef.current }, Math.random)
+      g = playDealer(g, Math.random)
       gref.current = g
       setRevealed(BEATS.length + g.dealerHand.cards.length)
       sfx.cardFlip()
@@ -209,30 +170,29 @@ export default function App() {
     const s = g.settlement
     if (!s) return
 
-    const head = s.caught
-      ? t.caughtHer(t.cheatName[s.caught])
-      : s.falseCall
-        ? t.calledWrong
-        : s.perHand.includes('natural')
-          ? t.natural
-          : s.perHand.every((r) => r === 'bust')
-            ? t.bust
-            : s.net > 0
-              ? t.youWin
-              : s.net < 0
-                ? t.youLose
-                : t.push
+    const head = s.perHand.includes('natural')
+      ? t.natural
+      : s.perHand.every((r) => r === 'bust')
+        ? t.bust
+        : busted(g.dealerHand.cards)
+          ? t.dealerBust
+          : s.net > 0
+            ? t.youWin
+            : s.net < 0
+              ? t.youLose
+              : t.push
 
     setBanner({ head, body: s.net !== 0 ? `${s.net > 0 ? '+' : ''}${s.net}` : undefined, good: s.net > 0 })
-    setNote(s.falseCall ? t.voidWhy : '')
+    setNote('')
     sfx.sting(s.net > 0)
     // Somebody in the corner lets one out when the band lands a turnaround, and
     // when you take a pot off the house.
     if (s.net > 0) grito()
+    // The upright in the corner falters when a natural turns over. It is the
+    // rarest hand at the table, so the room is allowed to notice it.
+    if (s.perHand.includes('natural')) stopThePiano(4)
     window.setTimeout(() => {
-      if (s.caught) say('caught', { gap: 0, base: 340 })
-      else if (s.falseCall) say('missed', { gap: 0, base: 344 })
-      else if (s.perHand.includes('natural')) say('blackjack', { gap: 0 })
+      if (s.perHand.includes('natural')) say('blackjack', { gap: 0 })
       else if (s.perHand.every((r) => r === 'bust')) say('bust', { gap: 0 })
       else if (s.net > 0) say('win', { gap: 0 })
       else if (s.net < 0) say('lose', { gap: 0 })
@@ -245,13 +205,12 @@ export default function App() {
      * her into a smile on the first frame and then eased out of it - a pose jump at
      * the end of every hand she was not reacting to.
      */
-    const mood = reactionTo(s.net, Boolean(s.caught), s.falseCall)
-    if (mood === 'caught') showFace('caught', 'caught')
+    const mood = reactionTo(s.net, s.perHand)
+    if (mood === 'natural') showFace('warm', 'natural')
     else showFace(mood, mood === 'cool' ? undefined : mood)
     sync()
   }, [reduced, showFace, sync, t])
 
-  /** Deals the round out, running the tell against the engine's own clock. */
   const deal = useCallback(async () => {
     const g0 = gref.current
     if (g0.phase !== 'betting' || busy) return
@@ -260,28 +219,13 @@ export default function App() {
     setRevealed(0)
     void unlock()
 
-    let g = g0
-    const rule = chooseHouseRule(g, Math.random)
-    if (rule) {
-      g = callHouseRule(g, rule.which, rule.fee)
-      setNote(t.houseCallSaid(t.houseCallName[rule.which], rule.fee))
-      sfx.chips(2)
-    } else {
-      setNote(t.dealing)
-    }
+    setNote(t.dealing)
 
-    const cheat = chooseCheat(g, ROSA, Math.random)
-    cheatRef.current = cheat
-    const tell = makeTell(cheat, leaningRef.current, Math.random)
-
-    g = startRound(g, { cheat, tell }, Math.random)
+    const g = startRound(g0, Math.random)
     gref.current = g
     readRef.current = readDealer(g, ROSA, Math.random)
     sync()
 
-    // The video is never the clock. Judgement runs off performance.now(), so a
-    // stalled or dropped clip cannot move the window a player is aiming at.
-    dealAtRef.current = performance.now()
     play('deal', { rate: 1 })
     sfx.shoeClick()
     say('deal')
@@ -314,23 +258,6 @@ export default function App() {
       await finish()
     }
   }, [busy, finish, play, showFace, sync, t])
-
-  /** The flicker itself, fired on the engine clock and cancelled if the round ends. */
-  useEffect(() => {
-    if (game.phase !== 'player' && game.phase !== 'dealing') return
-    const tell = game.tell
-    if (!tell) return
-    const elapsed = performance.now() - dealAtRef.current
-    const wait = tell.at - elapsed
-    if (wait < -tell.hold) return
-
-    const on = window.setTimeout(() => {
-      setFlicker(true)
-      sfx.tellWhisper()
-      window.setTimeout(() => setFlicker(false), tell.hold)
-    }, Math.max(0, wait))
-    return () => window.clearTimeout(on)
-  }, [game.tell, game.phase])
 
   const act = useCallback(
     async (what: 'hit' | 'stand' | 'double' | 'split') => {
@@ -368,26 +295,6 @@ export default function App() {
     [busy, finish, play, reduced, sync, t],
   )
 
-  /** You say it out loud, and the room goes quiet. */
-  const callHer = useCallback(async () => {
-    const g = gref.current
-    if (g.called || busy) return
-    if (g.phase !== 'player' && g.phase !== 'dealing') return
-
-    const since = performance.now() - dealAtRef.current
-    setBusy(true)
-    sfx.callOut()
-    // The oldest gesture in the genre, and free: the upright has its own bus.
-    stopThePiano(6)
-
-    const next = callCheat(g, since)
-    gref.current = next
-    sync()
-    await sleep(reduced ? 120 : 420)
-    setBusy(false)
-    await finish()
-  }, [busy, finish, reduced, sync])
-
   const again = useCallback(async () => {
     let g = nextRound(gref.current, Math.random)
     gref.current = g
@@ -409,7 +316,7 @@ export default function App() {
       // longer than what is written and every reset has a reason on screen.
       shuffleSeam()
       await sleep(reduced ? 200 : 1180)
-      g = reshuffle(gref.current, chooseCold(gref.current, ROSA, Math.random), Math.random)
+      g = reshuffle(gref.current, Math.random)
       gref.current = g
       showFace('cool')
       idle()
@@ -433,7 +340,6 @@ export default function App() {
       const k = e.key.toLowerCase()
       if (k === 'l') return setLeaning(true)
       const g = gref.current
-      if (k === 'c') return void callHer()
       if (g.phase === 'settled') {
         if (k === ' ' || k === 'enter') {
           e.preventDefault()
@@ -459,7 +365,7 @@ export default function App() {
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }
-  }, [act, again, callHer, deal, screen, setLeaning])
+  }, [act, again, deal, screen, setLeaning])
 
   /* ---------------------------------------------------------------- screens */
 
@@ -552,7 +458,6 @@ export default function App() {
                   <li>{r.hitsSoft17 ? t.soft17Hits : t.soft17Stands}</li>
                   <li>{t.naturalPays(r.naturalPays[0], r.naturalPays[1])}</li>
                   <li>{t.splitsTo(r.resplits)}</li>
-                  {r.houseMayRule && <li className="hot">{t.houseMayRule}</li>}
                   <li>{t.minimum(r.minBet)}</li>
                 </ul>
                 <button type="button" className="big" onClick={() => sit(id)}>
@@ -576,7 +481,6 @@ export default function App() {
       game={game}
       face={face}
       clip={clip}
-      flicker={flicker}
       lean={lean}
       note={note}
       banner={banner}
@@ -586,7 +490,6 @@ export default function App() {
       reduced={reduced}
       onDeal={deal}
       onAct={act}
-      onCall={callHer}
       onAgain={again}
       onLean={setLeaning}
       onBet={(n) => {
@@ -624,7 +527,6 @@ interface TableProps {
   game: GameState
   face: SceneState
   clip: ClipRequest | null
-  flicker: boolean
   lean: number
   note: string
   banner: { head: string; body?: string; good: boolean } | null
@@ -634,7 +536,6 @@ interface TableProps {
   reduced: boolean
   onDeal: () => void
   onAct: (what: 'hit' | 'stand' | 'double' | 'split') => void
-  onCall: () => void
   onAgain: () => void
   onLean: (on: boolean) => void
   onBet: (n: number) => void
@@ -654,7 +555,6 @@ function Table(p: TableProps) {
   const shownDealerTotal = total(shownDealer)
   const e = edge(g)
 
-  const canCall = !g.called && (g.phase === 'player' || g.phase === 'dealing')
   const over = g.phase === 'over'
 
   const chipSteps = useMemo(() => [g.rules.minBet, g.rules.minBet * 2, g.rules.minBet * 5, g.rules.minBet * 10], [g.rules.minBet])
@@ -667,7 +567,6 @@ function Table(p: TableProps) {
         small={p.narrow}
         reduced={p.reduced}
         lean={p.lean}
-        flicker={p.flicker}
         onClipEnded={p.onClipEnded}
       />
 
@@ -703,11 +602,7 @@ function Table(p: TableProps) {
                   <em>{t.yourHand}</em>
                   <b className={s.total > 21 ? 'bust' : ''}>{s.total}</b>
                   {h.doubled && <i className="tag">×2</i>}
-                  {result && (
-                    <i className={`tag ${g.settlement?.falseCall ? 'voided' : result}`}>
-                      {g.settlement?.falseCall ? t.voidTag : result}
-                    </i>
-                  )}
+                  {result && <i className={`tag ${result}`}>{result}</i>}
                   <span className="stake">{h.bet}</span>
                 </span>
                 <div className="cards">
@@ -723,13 +618,6 @@ function Table(p: TableProps) {
 
       <aside className="readouts">
         <Shoe left={g.shoe.length} size={g.shoeSize} edge={e} label={t.shoeLeft} />
-        <div className="gauge">
-          <span className="gauge-label">{t.heat}</span>
-          <div className="gauge-body">
-            <div className="gauge-fill" style={{ width: `${g.heat * 100}%` }} />
-          </div>
-          <span className="tally">{t.callsMade(g.seen.calls, g.seen.caught)}</span>
-        </div>
       </aside>
 
       {/* The result goes on the bare baize to the left of the cards, beside the
@@ -753,23 +641,18 @@ function Table(p: TableProps) {
             {t.bet}
             <b>{g.bet}</b>
           </span>
-          {g.houseCall && (
-            <em className="house-call">
-              {t.houseCallName[g.houseCall]} <b data-fee={g.houseFee}>+{g.houseFee}</b>
-            </em>
-          )}
         </div>
 
         {/* Narration, or the standing hint when there is nothing to narrate.
-            Leaning wins over both, because that is the moment the hint is for. */}
+            Leaning wins over both, because that is the moment it is for. */}
         <p className={`note-line${p.lean ? ' watching' : ''}`}>
-          {p.lean ? t.tellHint : p.note || t.watchHands}
+          {p.lean ? t.watching : p.note || t.hint}
         </p>
 
         {over ? (
           <div className="over">
-            <h2>{g.heat >= 1 ? t.thrownTitle : t.brokeTitle}</h2>
-            <p>{g.heat >= 1 ? t.thrownBody : t.brokeBody}</p>
+            <h2>{t.brokeTitle}</h2>
+            <p>{t.brokeBody}</p>
             <button type="button" className="big" onClick={p.onLeave}>
               {t.again}
             </button>
@@ -839,9 +722,6 @@ function Table(p: TableProps) {
               >
                 {p.lean ? t.leaning : t.lean}
               </button>
-              <button type="button" data-act="call" className={`act call${canCall ? ' live' : ''}`} onClick={p.onCall} disabled={!canCall || p.busy}>
-                {t.call}
-              </button>
             </div>
 
             <p className="keys">{t.keys}</p>
@@ -854,7 +734,7 @@ function Table(p: TableProps) {
       </button>
 
       <p className="disclaimer floating">{t.disclaimer}</p>
-      <Atmosphere reduced={p.reduced} heat={g.heat} lean={p.lean} />
+      <Atmosphere reduced={p.reduced} heat={pressure(g)} lean={p.lean} />
     </main>
   )
 }

@@ -94,8 +94,6 @@ async function run(name, device, handCount, tableIndex = 1, wantShuffle = false)
   await auditLayout(page, `${name} table`)
 
   let played = 0
-  let calls = 0
-  let caught = 0
   let ledgerChecks = 0
   let shuffles = 0
 
@@ -119,14 +117,10 @@ async function run(name, device, handCount, tableIndex = 1, wantShuffle = false)
 
     await page.waitForTimeout(1000)
 
-    // Occasionally lean on her and call, to exercise both outcomes.
+    // Lean in now and then, which moves the camera and nothing else.
     if (i % 5 === 2) {
       await clickIfVisible(page, '[data-act="lean"]')
       await page.waitForTimeout(220)
-    }
-    if (i % 7 === 3) {
-      if (await clickIfVisible(page, '[data-act="call"]')) calls++
-      await page.waitForTimeout(700)
     }
 
     // Phase: player. Hit while low, then stand.
@@ -149,20 +143,12 @@ async function run(name, device, handCount, tableIndex = 1, wantShuffle = false)
       break
     }
 
-    const head = await page.locator('.banner strong').innerText()
-    if (/CAUGHT HER|LA CACHASTE/.test(head)) caught++
-
     const after = await chips(page)
     const bannerNet = (await page.locator('.banner span').count())
       ? Number((await page.locator('.banner span').innerText()).replace(/[^0-9-]/g, ''))
       : 0
-    // She sometimes buys a rule and pays the table for it; that fee is income on
-    // top of the hand, and the chip on the felt says how much it was.
-    const fee = (await page.locator('.house-call b').count())
-      ? Number(await page.locator('.house-call b').first().getAttribute('data-fee'))
-      : 0
-    if (after - before !== bannerNet + fee) {
-      fail.push(`[${name}] hand ${i + 1}: stack moved ${after - before} but the table said ${bannerNet} (+${fee} rule fee)`)
+    if (after - before !== bannerNet) {
+      fail.push(`[${name}] hand ${i + 1}: stack moved ${after - before} but the table said ${bannerNet}`)
     } else {
       ledgerChecks++
     }
@@ -178,7 +164,6 @@ async function run(name, device, handCount, tableIndex = 1, wantShuffle = false)
 
   note(`hands played: ${played}`)
   note(`ledger checks passed: ${ledgerChecks}`)
-  note(`calls made: ${calls}, of which right: ${caught}`)
   note(`shuffles seen: ${shuffles}`)
   note(`console errors: ${errors.length}`)
   for (const e of errors.slice(0, 5)) fail.push(`[${name}] console: ${e}`)
@@ -191,7 +176,7 @@ async function run(name, device, handCount, tableIndex = 1, wantShuffle = false)
   await browser.close()
 }
 
-// The middle table sells rules, so it exercises the most machinery.
+// Six decks and a soft-seventeen draw: the longest shoe, so the most machinery.
 await run('desktop', { viewport: { width: 1440, height: 900 } }, hands, 1)
 await run('iphone', devices['iPhone 14'], Math.min(14, hands), 1)
 // One deck reaches the cut card inside a dozen hands, which is the only way to

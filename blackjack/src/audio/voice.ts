@@ -47,7 +47,7 @@ const word = (lang: Lang, n: number) =>
  */
 const LINES: Record<Lang, Record<string, string[]>> = {
   en: {
-    deal: ['Cards, sugar.', 'Here you are, sweetheart.', 'For you, darling.', 'Watch closely now.'],
+    deal: ['Cards, sugar.', 'Here you are, sweetheart.', 'For you, darling.', 'Let\u2019s see, then.'],
     hit: ['One more?', 'There you go.', 'Mm, another.'],
     shuffle: ['A fresh deck, just for you.', 'New cards, darling.'],
     blackjack: ['Blackjack. Aren\u2019t you lucky.'],
@@ -55,12 +55,10 @@ const LINES: Record<Lang, Record<string, string[]>> = {
     win: ['You take it. This time.', 'Lucky you, darling.'],
     lose: ['The house takes it, sugar.', 'Mine, I\u2019m afraid.'],
     push: ['A push. How polite.'],
-    caught: ['Mm. How did you see that?'],
-    missed: ['Nothing there, sweetheart.'],
     sit: ['Sit down, darling. Place your bet.'],
   },
   es: {
-    deal: ['Cartas, mi vida.', 'Para ti, corazón.', 'Aquí tienes, guapo.', 'Mírame bien las manos.'],
+    deal: ['Cartas, mi vida.', 'Para ti, corazón.', 'Aquí tienes, guapo.', 'A ver, pues.'],
     hit: ['¿Otra más?', 'Ahí va.', 'Mm, otra.'],
     shuffle: ['Baraja nueva, sólo para ti.', 'Cartas nuevas, corazón.'],
     blackjack: ['Blackjack. Qué suerte tienes.'],
@@ -68,8 +66,6 @@ const LINES: Record<Lang, Record<string, string[]>> = {
     win: ['Te la llevas. Por esta vez.', 'Qué suerte, mi vida.'],
     lose: ['Se la lleva la casa, guapo.', 'Mía, lo siento.'],
     push: ['Empate. Qué educado.'],
-    caught: ['Mm. ¿Cómo lo viste?'],
-    missed: ['Ahí no había nada, corazón.'],
     sit: ['Siéntate, mi vida. Pon tu apuesta.'],
   },
 }

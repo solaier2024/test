@@ -1,4 +1,4 @@
-import { ac, duck, noiseBuffer, reverbIn, sfxBus, softClip } from './engine'
+import { ac, duck, noiseBuffer, reverbIn, sfxBus } from './engine'
 
 /*
  * Table sounds, synthesised. Every one of them is sent through the same room
@@ -106,35 +106,7 @@ export function riffle(seconds = 1.2): void {
   }
 }
 
-/**
- * Her hands giving something away. Deliberately faint and short - it is a
- * corroborating signal, never the readout, because the visual flicker has to
- * stand on its own for a muted or deaf player.
- */
-export function tellWhisper(): void {
-  burst({ freq: 5200, q: 3.4, gain: 0.055, attack: 0.008, decay: 0.09, send: 0.15 })
-}
-
-/** You say it out loud, and the room goes quiet. */
-export function callOut(): void {
-  const c = ac()
-  const shaped = softClip(c, 2.6)
-  shaped.connect(bus(0.55))
-  const o = c.createOscillator()
-  o.type = 'triangle'
-  o.frequency.setValueAtTime(180, c.currentTime)
-  o.frequency.exponentialRampToValueAtTime(60, c.currentTime + 0.5)
-  const g = c.createGain()
-  g.gain.setValueAtTime(0.0001, c.currentTime)
-  g.gain.linearRampToValueAtTime(0.16, c.currentTime + 0.01)
-  g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.6)
-  o.connect(g).connect(shaped)
-  o.start()
-  o.stop(c.currentTime + 0.65)
-  burst({ freq: 1400, q: 0.6, gain: 0.1, decay: 0.25, send: 0.6 })
-}
-
-/** Leaning over her hands: the room narrows. */
+/** Leaning over the table: the room narrows. */
 export function leanIn(on: boolean): void {
   burst({ freq: on ? 320 : 520, q: 0.7, gain: 0.05, attack: 0.05, decay: on ? 0.4 : 0.22, send: 0.4 })
 }

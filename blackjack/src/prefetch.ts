@@ -1,7 +1,7 @@
 import { clipKind, clipUrl, plateUrl } from './art'
 
 /** Only one encoding is ever fetched: the one this browser actually supports. */
-const CLIPS = ['idle', 'deal', 'warm', 'sharp', 'shuffle', 'caught']
+const CLIPS = ['idle', 'deal', 'warm', 'sharp', 'shuffle', 'natural']
 const PLATES = ['dealer_cool', 'dealer_cool_blink', 'dealer_warm', 'dealer_sharp']
 
 let done = false

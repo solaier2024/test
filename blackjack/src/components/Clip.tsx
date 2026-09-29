@@ -40,7 +40,7 @@ const BED = 'idle'
  * six start fetching at once they starve each other on a slow connection.
  */
 const FIRST = [BED, 'deal']
-const REST = ['warm', 'sharp', 'shuffle', 'caught']
+const REST = ['warm', 'sharp', 'shuffle', 'natural']
 
 /** Crossfade. Both ends of every clip are the resting pose, so this is short. */
 const FADE_MS = 150

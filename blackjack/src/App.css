@@ -124,29 +124,6 @@
   opacity: 1;
 }
 
-/*
- * The tell: a short glint over her hands. Drawn here rather than baked into the
- * footage so its strength can follow how hard the player is looking, which is a
- * continuous function of input and therefore impossible to pre-render.
- */
-.tell {
-  position: absolute;
-  left: 34%;
-  top: 52%;
-  width: 26%;
-  height: 16%;
-  border-radius: 50%;
-  opacity: 0;
-  background: radial-gradient(ellipse at 50% 50%, rgba(255, 244, 214, 0.5), rgba(255, 226, 160, 0.12) 55%, transparent 72%);
-  mix-blend-mode: screen;
-  transition: opacity 60ms linear;
-  pointer-events: none;
-}
-
-.tell.on {
-  opacity: calc(0.4 + var(--lean, 0) * 0.55);
-}
-
 /* ---------------------------------------------------------------- the felt */
 
 /*
@@ -285,7 +262,6 @@
 .tag.win, .tag.natural { color: #8fd3a4; }
 .tag.lose, .tag.bust { color: #e4666a; }
 .tag.push { color: var(--gold); }
-.tag.voided { color: #9c8fb4; }
 
 .hand.active .hand-label b {
   color: var(--gold);
@@ -331,8 +307,7 @@
   gap: 4px;
 }
 
-.shoe-label,
-.gauge-label {
+.shoe-label {
   font-size: 9.5px;
   letter-spacing: 0.22em;
   color: #d8c8a6;
@@ -368,36 +343,6 @@
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 100%, rgba(200, 162, 74, 0.8), transparent 70%);
   transition: opacity 600ms ease;
-}
-
-.gauge {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.gauge-body {
-  width: 74px;
-  height: 5px;
-  background: rgba(6, 10, 12, 0.7);
-  border: 1px solid rgba(200, 162, 74, 0.35);
-}
-
-.gauge-fill {
-  height: 100%;
-  background: linear-gradient(90deg, rgba(200, 162, 74, 0.7), #c2453c);
-  transition: width 320ms ease;
-}
-
-.tally {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: #c3b394;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
-}
-
-.gauge {
-  gap: 5px;
 }
 
 /* ------------------------------------------------------------------ the hud */
@@ -437,156 +382,6 @@
   margin-left: 0.5em;
 }
 
-.house-call b {
-  font-family: var(--serif);
-  font-size: 1em;
-  color: #8fd3a4;
-  margin: 0;
-  letter-spacing: 0.04em;
-}
-
-.house-call {
-  font-style: normal;
-  font-size: 9px;
-  color: #e0a03c;
-  letter-spacing: 0.08em;
-  border: 1px solid currentColor;
-  padding: 0.25em 0.6em;
-  border-radius: 2px;
-}
-
-.note-line {
-  margin: 0;
-  min-height: 1.3em;
-  max-width: 62ch;
-  font-size: clamp(10.5px, 1.1vw, 13px);
-  letter-spacing: 0.02em;
-  color: rgba(240, 228, 204, 0.72);
-  font-style: italic;
-  text-align: center;
-  transition: color 200ms ease;
-}
-
-.note-line.watching {
-  color: rgba(205, 234, 255, 0.92);
-}
-
-/*
- * The result sits on the bare baize to the left of the cards, beside the chips.
- * Centred over the picture there is no height that clears both the dealer and the
- * hand labels at every window size; sharing the narration's line cost the control
- * bar 29px it did not have and printed the chip count across the cards. That
- * corner of the felt is genuinely empty.
- */
-.banner {
-  position: absolute;
-  left: 3.5%;
-  top: 68%;
-  z-index: 35;
-  margin: 0;
-  max-width: 26vw;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1em;
-  font-family: var(--display);
-  font-size: clamp(12px, 1.5vw, 20px);
-  line-height: 1.15;
-  color: #e97b7f;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.98), 0 0 40px rgba(0, 0, 0, 0.8);
-  animation: arrive 260ms ease-out both;
-  pointer-events: none;
-}
-
-.banner.good {
-  color: #9ad9ad;
-}
-
-.banner span {
-  font-family: var(--serif);
-  font-size: 0.55em;
-  color: var(--gold);
-}
-
-.controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.7vh;
-  width: 100%;
-}
-
-.acts {
-  display: flex;
-  gap: clamp(5px, 0.8vw, 11px);
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Watching her is a different kind of action from playing the hand, so it sits
-   apart from the four that touch the cards. */
-.acts-gap {
-  width: clamp(8px, 2.4vw, 34px);
-}
-
-.act.wide {
-  min-width: 180px;
-}
-
-/*
- * Buttons are not buttons: they are gold letterpress on the felt. Every one is
- * at least 50px tall so it works under a thumb, per the sibling project's
- * portrait audit.
- */
-.act,
-.chip,
-.big {
-  min-height: 50px;
-  padding: 0 clamp(12px, 2vw, 26px);
-  background: linear-gradient(to bottom, rgba(24, 30, 26, 0.88), rgba(10, 14, 12, 0.94));
-  border: 1px solid rgba(200, 162, 74, 0.5);
-  border-radius: 3px;
-  color: var(--gold);
-  font-family: var(--display);
-  font-size: clamp(10.5px, 1.2vw, 14px);
-  letter-spacing: 0.1em;
-  transition: border-color 160ms ease, color 160ms ease, transform 90ms ease, box-shadow 200ms ease;
-}
-
-.act.primary {
-  border-color: var(--gold);
-  box-shadow: inset 0 0 22px rgba(200, 162, 74, 0.16), 0 0 18px rgba(0, 0, 0, 0.5);
-  color: #f0dca8;
-}
-
-/* hover is quarantined: on a touchscreen it sticks, so :active does the work. */
-@media (hover: hover) {
-  .act:hover:not(:disabled),
-  .chip:hover:not(:disabled),
-  .big:hover {
-    border-color: #ecd49a;
-    color: #fff1cf;
-  }
-}
-
-.act:active:not(:disabled),
-.chip:active:not(:disabled),
-.big:active {
-  transform: translateY(1px) scale(0.985);
-}
-
-.act:disabled,
-.chip:disabled {
-  opacity: 0.32;
-  cursor: not-allowed;
-}
-
-.chip {
-  min-width: 54px;
-  border-radius: 50px;
-}
-
 .chip.on {
   border-color: var(--gold);
   color: #fff1cf;
@@ -597,11 +392,6 @@
   border-color: #8fd3ff;
   color: #cdeaff;
   box-shadow: inset 0 0 22px rgba(90, 170, 220, 0.22);
-}
-
-.act.call.live {
-  border-color: var(--red);
-  color: #ef9a9a;
 }
 
 .keys {
@@ -1020,20 +810,6 @@
     width: auto;
     height: 100%;
     background: repeating-linear-gradient(to right, #e7dcc4 0 2px, #b9ab8c 2px 3px);
-  }
-
-  .gauge {
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .gauge-body {
-    width: 46px;
-  }
-
-  .tally {
-    display: none;
   }
 
   .hud {

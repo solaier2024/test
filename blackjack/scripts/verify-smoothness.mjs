@@ -97,8 +97,8 @@ await page.evaluate(() => {
   }
 })
 
-// A whole hand, the way it is actually played: bet, deal, hit, stand, next - and
-// the lean and the call, which are the two states that switch clips out of turn.
+// A whole hand, the way it is actually played: bet, deal, hit, stand, next, with
+// a lean in the middle of it, because that is the one input that moves the camera.
 const click = async (act, waitMs = 900) => {
   const b = page.locator(`[data-act="${act}"]`)
   if (await b.count() && await b.first().isEnabled()) {

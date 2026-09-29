@@ -291,9 +291,10 @@ function intermediate(frames, tag) {
 const DISSOLVE = [0.4, 0.4, 0, 0, 0.4]
 
 /*
- * Six shots, twelve seconds. Shot four is her hands cutting the deck and it is
- * the reason the opening exists: with the last caption it teaches the player to
- * watch her hands, which is the whole game, without a tutorial saying so.
+ * Six shots, twelve seconds, and none of them explain anything. The opening sells
+ * the room: a lamp in a doorway, the floor, her finding you, her hands working
+ * the deck, an empty chair, and a smile. The last two lines land on the chair and
+ * on her face, so the thing it asks for is that you sit down.
  *
  * The captions are positioned by fraction of the clip in Intro.tsx rather than
  * in seconds, so recutting this cannot push a line onto the wrong shot.
@@ -318,10 +319,9 @@ function buildOpening() {
       ]),
     },
     /*
-     * Her hands, cutting - and keeping one card back. The teaching shot, and the
-     * longest one in the cut: it is the only thing in the opening the player has
-     * to carry into the game, and the bokeh behind the gloves is her own bodice
-     * and choker so there is no doubt whose hands these are.
+     * Her hands, cutting. Lace gloves, two packets and a lamp: the craft shot,
+     * and the bokeh behind the gloves is her own bodice and choker so there is
+     * no doubt whose hands these are.
      */
     {
       tag: 'hands',

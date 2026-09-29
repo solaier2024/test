@@ -11,10 +11,9 @@ import type { Lang, Strings } from '../i18n/strings'
  * matching the six shots assembled in scripts/build-clips.mjs. Fractions mean
  * recutting the opening cannot silently push a line onto the wrong shot.
  *
- * Shot four is her hands cutting the deck and line five is "the cards are
- * clean, nobody ever said she was" - between them they are the reason this
- * opening exists, because they teach the player to watch her hands without a
- * tutorial ever saying so.
+ * Shot four is her hands cutting the deck, and the last line lands on her face.
+ * Between them they are the reason this opening exists: it is not a tutorial,
+ * it is the room, and by the end of it you want to sit down in it.
  */
 const CUES: [number, number][] = [
   [0.02, 0.15],

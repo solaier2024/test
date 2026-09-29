@@ -134,7 +134,6 @@ export const LOOK = {
   dealer_warm: 'head',
   dealer_sharp: 'head',
   dealer_cool_blink: 'head',
-  dealer_caught: 'head',
   dealer_deal: 'reach',
   dealer_shuffle: 'reach',
 }
@@ -187,7 +186,6 @@ export const PLATES = {
   dealer_sharp: 'torso',
   dealer_cool_blink: 'torso',
   dealer_breath: 'torso',
-  dealer_caught: 'torso',
   dealer_deal: 'bodice',
   dealer_shuffle: 'bodice',
 }

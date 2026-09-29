@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildShoe,
-  callCheat,
-  callHouseRule,
   canDouble,
   canSplit,
-  coolOff,
   cardValue,
   countValue,
   createGame,
@@ -13,10 +10,10 @@ import {
   edge,
   hit,
   isNatural,
-  makeTell,
   nextRound,
   penetrationHit,
   playDealer,
+  pressure,
   reshuffle,
   score,
   setBet,
@@ -26,9 +23,8 @@ import {
   total,
   trueCount,
 } from './engine'
-import { ROSA, chooseCheat, chooseCold, chooseHouseRule, readDealer, scoreParams } from './ai'
+import { ROSA, reactionTo, readDealer, scoreParams } from './ai'
 import {
-  CARD_LANDS_AT,
   RULES,
   RULE_ORDER,
   STARTING_CHIPS,
@@ -110,27 +106,23 @@ describe('the shoe', () => {
     const rnd = seeded(7)
     let g = createGame('single', rnd)
     const before = g.shoe.slice()
-    g = startRound(g, { cheat: null, tell: makeTell(null, false, rnd) }, rnd)
+    g = startRound(g, rnd)
     const seen = before.slice(0, g.dealt)
     expect(g.running).toBe(seen.reduce((s, c) => s + countValue(c.rank), 0))
   })
 
   /**
-   * The fairness property the whole catch mechanic rests on: when she works the
-   * shoe she changes the *order*, never the contents, so a player who counts is
-   * never lied to by the arithmetic - only by her hands.
+   * Nothing is held back and nothing is added: every card that leaves the shoe
+   * is on the felt, which is what makes counting worth doing at all.
    */
-  it('cheating reorders the shoe without changing what is in it', () => {
+  it('deals off the front of the shoe and accounts for every card', () => {
     for (let seed = 1; seed <= 40; seed++) {
-      const ids = createGame('single', seeded(seed * 31)).shoe.map((c) => c.id).sort((a, b) => a - b)
-
-      const rnd = seeded(seed * 31)
-      let g = createGame('single', seeded(seed * 31))
-      g = startRound(g, { cheat: 'second', tell: makeTell('second', false, rnd) }, rnd)
-
+      const before = createGame('single', seeded(seed * 31)).shoe
+      const g = startRound(createGame('single', seeded(seed * 31)), seeded(seed * 31))
       const onFelt = [...g.hands.flatMap((h) => h.cards), ...g.dealerHand.cards]
-      const after = [...g.shoe.map((c) => c.id), ...onFelt.map((c) => c.id)].sort((a, b) => a - b)
-      expect(after).toEqual(ids)
+      // One to you, one to her, twice over, straight off the front.
+      expect(g.hands[0].cards.map((c) => c.id)).toEqual([before[0].id, before[2].id])
+      expect(g.dealerHand.cards.map((c) => c.id)).toEqual([before[1].id, before[3].id])
       expect(g.running).toBe(onFelt.reduce((s, c) => s + countValue(c.rank), 0))
     }
   })
@@ -141,9 +133,8 @@ describe('the shoe', () => {
     expect(penetrationHit({ ...g, dealt: Math.ceil(g.shoeSize * g.rules.penetration) })).toBe(true)
   })
 
-  it('stacks the front of a cold deck with low cards', () => {
-    const g = reshuffle(createGame('casa', seeded(9)), true, seeded(11))
-    expect(g.shoe.slice(0, 8).every((c) => cardValue(c.rank) <= 6)).toBe(true)
+  it('comes back full and uncounted after a shuffle', () => {
+    const g = reshuffle({ ...createGame('casa', seeded(9)), running: 9, dealt: 200 }, seeded(11))
     expect(g.shoe).toHaveLength(52 * RULES.casa.decks)
     expect(g.running).toBe(0)
     expect(g.dealt).toBe(0)
@@ -158,26 +149,11 @@ describe('the shoe', () => {
   })
 })
 
-describe('the tell', () => {
-  it('puts a real tell before the card lands and a decoy after it', () => {
-    const rnd = seeded(13)
-    for (let i = 0; i < 300; i++) {
-      expect(makeTell('second', false, rnd).at).toBeLessThan(CARD_LANDS_AT)
-      expect(makeTell(null, false, rnd).at).toBeGreaterThan(CARD_LANDS_AT)
-    }
-  })
-
-  it('holds longer when you are leaning in', () => {
-    const rnd = seeded(17)
-    expect(makeTell('peek', true, rnd).hold).toBeGreaterThan(makeTell('peek', false, rnd).hold)
-  })
-})
-
 describe('the round', () => {
   it('takes the stake off you and puts four cards out', () => {
     const rnd = seeded(21)
     let g = setBet(createGame('single', rnd), 40)
-    g = startRound(g, { cheat: null, tell: makeTell(null, false, rnd) }, rnd)
+    g = startRound(g, rnd)
     expect(g.chips).toBe(STARTING_CHIPS - 40)
     expect(g.hands[0].cards).toHaveLength(2)
     expect(g.dealerHand.cards).toHaveLength(2)
@@ -190,19 +166,17 @@ describe('the round', () => {
     expect(setBet(g, 99999).bet).toBe(g.chips)
   })
 
-  it('pays a natural at the posted rate, and flat when she has bought the rule', () => {
+  it('pays a natural at the rate posted on the felt', () => {
     const stake = 100
-    const mk = (id: RuleId, houseCall: GameState['houseCall']): GameState => ({
+    const mk = (id: RuleId): GameState => ({
       ...createGame(id, seeded(29)),
-      houseCall,
       // Eighteen, so she stands and the natural is judged against a live hand.
       dealerHand: held([card('9', 2), card('9', 3)], 0, { done: true }),
       hands: [held([card('A'), card('K', 1)], stake, { done: true })],
       chips: 0,
     })
-    expect(playDealer(mk('single', null), { cheat: null }, seeded(1)).chips).toBe(stake + 150)
-    expect(playDealer(mk('sixfive', null), { cheat: null }, seeded(1)).chips).toBe(stake + 120)
-    expect(playDealer(mk('casa', 'flat_natural'), { cheat: null }, seeded(1)).chips).toBe(stake + 100)
+    expect(playDealer(mk('single'), seeded(1)).chips).toBe(stake + 150)
+    expect(playDealer(mk('sixfive'), seeded(1)).chips).toBe(stake + 120)
   })
 
   it('stands or draws on soft seventeen according to the table', () => {
@@ -211,8 +185,8 @@ describe('the round', () => {
       dealerHand: held([card('A'), card('6', 1)], 0),
       hands: [held([card('10', 9), card('8', 8)], 10, { done: true })],
     })
-    expect(playDealer(spot('single'), { cheat: null }, seeded(2)).dealerHand.cards).toHaveLength(2)
-    expect(playDealer(spot('casa'), { cheat: null }, seeded(2)).dealerHand.cards.length).toBeGreaterThan(2)
+    expect(playDealer(spot('single'), seeded(2)).dealerHand.cards).toHaveLength(2)
+    expect(playDealer(spot('casa'), seeded(2)).dealerHand.cards.length).toBeGreaterThan(2)
   })
 
   it('only offers a double or a split when the rules and the cards allow it', () => {
@@ -223,8 +197,6 @@ describe('the round', () => {
     }
     expect(canSplit(pair)).toBe(true)
     expect(canDouble(pair)).toBe(true)
-    expect(canSplit({ ...pair, houseCall: 'no_split' })).toBe(false)
-    expect(canDouble({ ...pair, houseCall: 'no_double' })).toBe(false)
     expect(canDouble({ ...pair, chips: 0 })).toBe(false)
 
     const three = { ...pair, hands: [held([card('8'), card('8', 1), card('2', 2)], 20)] }
@@ -274,57 +246,13 @@ describe('the round', () => {
     expect(after.holeDown).toBe(false)
   })
 
-  it('pays a rule fee straight onto your stack', () => {
-    const g = createGame('casa', seeded(101))
-    const after = callHouseRule(g, 'no_double', 25)
-    expect(after.chips).toBe(g.chips + 25)
-    expect(after.houseCall).toBe('no_double')
-    expect(canDouble({ ...after, phase: 'player', hands: [held([card('6'), card('5', 1)], 20)] })).toBe(false)
-  })
-})
-
-describe('calling her out', () => {
-  const dealt = (cheat: 'second' | null, seed: number) => {
-    const rnd = seeded(seed)
-    let g = setBet(createGame('single', rnd), 50)
-    g = startRound(g, { cheat, tell: makeTell(cheat, false, rnd) }, rnd)
-    return g
-  }
-
-  it('hands you the round when there really was a move', () => {
-    const g = dealt('second', 47)
-    if (g.phase === 'settled') return
-    const after = callCheat(g, 400)
-    expect(after.settlement!.caught).toBe('second')
-    expect(after.chips).toBe(g.chips + 100)
-    expect(after.seen.caught).toBe(1)
-    expect(after.heat).toBeLessThanOrEqual(g.heat)
-  })
-
-  it('costs you the stake when there was nothing there', () => {
-    const g = dealt(null, 53)
-    if (g.phase === 'settled') return
-    const after = callCheat(g, 400)
-    expect(after.settlement!.falseCall).toBe(true)
-    expect(after.chips).toBe(g.chips)
-    expect(after.settlement!.net).toBe(-50)
-    expect(after.heat).toBeGreaterThan(g.heat)
-    expect(after.seen.missed).toBe(1)
-  })
-
-  it('will not count a call that arrives long after the deal', () => {
-    const g = dealt('second', 59)
-    if (g.phase === 'settled') return
-    const late = callCheat(g, 9000)
-    expect(late.settlement!.caught).toBeNull()
-    expect(late.settlement!.falseCall).toBe(true)
-  })
-
-  it('only takes one call per round', () => {
-    const g = dealt(null, 61)
-    if (g.phase === 'settled') return
-    const once = callCheat(g, 300)
-    expect(callCheat(once, 300)).toBe(once)
+  it('measures the pressure on a hand against the whole stack, not the chip', () => {
+    const g = createGame('single', seeded(151))
+    const thin = pressure({ ...g, chips: 490, hands: [held([], 10)] })
+    const everything = pressure({ ...g, chips: 0, hands: [held([], 30)] })
+    expect(thin).toBeLessThan(0.1)
+    expect(everything).toBe(1)
+    expect(pressure({ ...g, chips: 0, hands: [] })).toBe(1)
   })
 })
 
@@ -356,33 +284,11 @@ describe('the dealer', () => {
     expect(scoreParams(g, { truth: 'cool', shown: 'warm', bluffing: true }).warmth).toBe(warm.warmth)
   })
 
-  it('reaches for the shoe more when the count has gone against the house', () => {
-    const run = (running: number, heat: number) => {
-      const r = seeded(Math.round(running * 97 + heat * 131 + 1))
-      let hits = 0
-      for (let i = 0; i < 600; i++) {
-        if (chooseCheat({ ...createGame('casa', seeded(2)), running, heat }, ROSA, r)) hits++
-      }
-      return hits / 600
-    }
-    expect(run(30, 0)).toBeGreaterThan(run(-30, 0))
-    expect(run(30, 0.9)).toBeLessThan(run(30, 0))
-  })
-
-  it('only buys a rule at a table that sells them', () => {
-    const rnd = seeded(79)
-    for (let i = 0; i < 200; i++) expect(chooseHouseRule(createGame('single', rnd), rnd)).toBeNull()
-    let bought = 0
-    for (let i = 0; i < 400; i++) if (chooseHouseRule(createGame('casa', rnd), rnd)) bought++
-    expect(bought).toBeGreaterThan(0)
-  })
-
-  it('never rings in a cold deck at a table whose base rate is zero', () => {
-    const rnd = seeded(83)
-    const g = { ...createGame('single', rnd), rules: { ...RULES.single, cheatBase: 0 }, running: 0, heat: 0 }
-    let cold = 0
-    for (let i = 0; i < 300; i++) if (chooseCold(g, ROSA, rnd)) cold++
-    expect(cold).toBe(0)
+  it('names the hand she has to name and takes the rest with two faces', () => {
+    expect(reactionTo(150, ['natural'])).toBe('natural')
+    expect(reactionTo(20, ['win'])).toBe('warm')
+    expect(reactionTo(-20, ['lose'])).toBe('sharp')
+    expect(reactionTo(0, ['push'])).toBe('cool')
   })
 })
 
@@ -401,23 +307,18 @@ describe.each(RULE_ORDER)('a hundred and twenty rounds at %s', (id) => {
     let g = createGame(id, rnd)
     let rounds = 0
     let shuffles = 0
-    let caughtMoves = 0
 
     for (let i = 0; i < 120 && g.phase !== 'over'; i++) {
       if (g.phase === 'shuffling') {
-        g = reshuffle(g, chooseCold(g, ROSA, rnd), rnd)
+        g = reshuffle(g, rnd)
         shuffles++
       }
       expect(g.phase).toBe('betting')
 
       g = setBet(g, g.rules.minBet * (1 + Math.floor(rnd() * 4)))
-      const rule = chooseHouseRule(g, rnd)
-      if (rule) g = callHouseRule(g, rule.which, rule.fee)
 
       const bank = g.chips
-      const cheat = chooseCheat(g, ROSA, rnd)
-      g = startRound(g, { cheat, tell: makeTell(cheat, false, rnd) }, rnd)
-      if (cheat) caughtMoves++
+      g = startRound(g, rnd)
 
       let guard = 0
       while (g.phase === 'player') {
@@ -430,7 +331,7 @@ describe.each(RULE_ORDER)('a hundred and twenty rounds at %s', (id) => {
         else g = stand(g, rnd)
       }
 
-      if (g.phase === 'dealer') g = playDealer(g, { cheat }, rnd)
+      if (g.phase === 'dealer') g = playDealer(g, rnd)
 
       expect(g.phase).toBe('settled')
       expect(g.settlement).not.toBeNull()
@@ -439,6 +340,8 @@ describe.each(RULE_ORDER)('a hundred and twenty rounds at %s', (id) => {
       expect(g.chips).toBeGreaterThanOrEqual(0)
       expect(Number.isInteger(g.chips)).toBe(true)
       expect(g.shoe.length + g.dealt).toBe(g.shoeSize)
+      expect(pressure(g)).toBeGreaterThanOrEqual(0)
+      expect(pressure(g)).toBeLessThanOrEqual(1)
 
       rounds++
       g = nextRound(g, rnd)
@@ -447,56 +350,14 @@ describe.each(RULE_ORDER)('a hundred and twenty rounds at %s', (id) => {
     expect(rounds).toBeGreaterThan(20)
     // A single deck has to come round more often than six of them.
     if (id === 'single') expect(shuffles).toBeGreaterThan(3)
-    expect(caughtMoves).toBeGreaterThan(0)
   })
 })
 
-describe('the room cooling off', () => {
-  it('forgets, so a long session is possible', () => {
-    const hot = { ...createGame('casa', seeded(107)), heat: 0.8 }
-    expect(coolOff(hot, 4).heat).toBeLessThan(hot.heat)
-    expect(coolOff(hot, 1000).heat).toBe(0)
-    expect(coolOff({ ...hot, heat: 0 }, 10).heat).toBe(0)
-  })
-
-  it('throws you out only once the room is fully on to you', () => {
-    const rnd = seeded(109)
-    const warm = nextRound({ ...createGame('casa', rnd), phase: 'settled', heat: 0.97 }, rnd)
-    expect(warm.phase).toBe('betting')
-    const done = nextRound({ ...createGame('casa', rnd), phase: 'settled', heat: 1 }, rnd)
-    expect(done.phase).toBe('over')
-  })
-
+describe('the end of the night', () => {
   it('ends the night when the stack cannot cover the minimum', () => {
     const rnd = seeded(113)
     const broke = nextRound({ ...createGame('casa', rnd), phase: 'settled', chips: 5 }, rnd)
     expect(broke.phase).toBe('over')
-  })
-})
-
-describe('what the felt shows once a round is void', () => {
-  it('turns her hole card over even when the call was wrong', () => {
-    const rnd = seeded(127)
-    let g = setBet(createGame('single', rnd), 20)
-    g = startRound(g, { cheat: null, tell: makeTell(null, false, rnd) }, rnd)
-    if (g.phase === 'settled') return
-    expect(g.holeDown).toBe(true)
-    const wrong = callCheat(g, 400)
-    expect(wrong.settlement!.falseCall).toBe(true)
-    // You paid for those cards, so you get to see what you accused her over.
-    expect(wrong.holeDown).toBe(false)
-    expect(wrong.hands[0].cards).toHaveLength(2)
-    expect(wrong.dealerHand.cards).toHaveLength(2)
-  })
-
-  it('turns it over when the call was right, too', () => {
-    const rnd = seeded(131)
-    let g = setBet(createGame('single', rnd), 20)
-    g = startRound(g, { cheat: 'second', tell: makeTell('second', false, rnd) }, rnd)
-    if (g.phase === 'settled') return
-    const right = callCheat(g, 380)
-    expect(right.settlement!.caught).toBe('second')
-    expect(right.holeDown).toBe(false)
   })
 })
 
@@ -526,35 +387,14 @@ describe('what the felt is actually saying', () => {
     expect(total(g.dealerHand.cards)).toBe(21)
   })
 
-  /*
-   * A wrong call kills the round on the spot. She does not then play her hand
-   * out, so her total can sit at something she would never have stood on - which
-   * is the penalty, not the dealer breaking her own rule.
-   */
-  it('does not make her play on after a wrong call, however low she is sitting', () => {
-    const rnd = seeded(139)
-    const g: GameState = {
-      ...createGame('casa', rnd),
-      phase: 'player',
-      hands: [held([card('7'), card('5', 1)], 20)],
-      dealerHand: held([card('9', 2), card('5', 3)], 0),
-      tell: makeTell(null, false, rnd),
-    }
-    const wrong = callCheat(g, 400)
-    expect(wrong.settlement!.falseCall).toBe(true)
-    // Fourteen, untouched: she never drew, because there was no hand left to play.
-    expect(total(wrong.dealerHand.cards)).toBe(14)
-    expect(wrong.dealerHand.cards).toHaveLength(2)
-  })
-
-  it('but does make her draw to seventeen when the hand is played properly', () => {
+  it('makes her draw to seventeen', () => {
     const rnd = seeded(149)
     const g: GameState = {
       ...createGame('casa', rnd),
       dealerHand: held([card('9'), card('5', 1)], 0),
       hands: [held([card('K', 2), card('8', 3)], 20, { done: true })],
     }
-    const played = playDealer(g, { cheat: null }, rnd)
+    const played = playDealer(g, rnd)
     expect(total(played.dealerHand.cards)).toBeGreaterThanOrEqual(17)
   })
 })

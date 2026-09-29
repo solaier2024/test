@@ -34,7 +34,7 @@ const WORK = '/tmp/dc-clip-costume'
 const BUDGET = {
   warm: 10,
   sharp: 10,
-  caught: 14,
+  natural: 10,
   /*
    * Idle's budget went up from 16 to 26 when the breathing stopped being a morph
    * towards a second generated plate and became warps of the master. That is not

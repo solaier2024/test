@@ -484,7 +484,7 @@ function scheduleStep(v: Voice, s: number, at: number, bpm: number): void {
     if (L > 0.68) accordion(v, at, f * 2 * 2 ** (-(isMajor() ? 4 : 3) / 12), spb * 2.2, 0.03 + L * 0.03, 1.6)
   }
 
-  // The room noticing you is a slow beating under the band.
+  // What is riding on the hand, as a slow beating under the band.
   if (heatP > 0.25 && inBar === 0) bajo(v, at, chord.root * 2 ** (-14 / 1200), heatP * 0.14, spb * 13)
 
   // Her voice, only when she is being warm about it, and only at the top.
