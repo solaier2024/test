@@ -107,6 +107,60 @@
       "historyId": "wibmyAUjKabpjiinBJLl",
       "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/a145d22f470bdbd420a1f2eaeaa47c5a-42d3cd86-cd45-4f92-9db5-8d07e51f1b05_1790670207476_27aab981.mp4",
       "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night, the quiet moment between pulls. Nothing dramatic happens and nothing is ever completely still. The hanging oil lamp at far left gutters: its flame leans, dips low enough to brown the light across the whole bar, then climbs back, so the warm pool of light on the mahogany slowly breathes darker and brighter. Smoke drifts through the beam. The men standing in the dark behind the bar shift their weight, one turns his head slowly, another lifts a glass, a shoulder moves; they stay in shadow and nobody reacts to anything. The player's right hand rests on the nickel lever ball, the forearm rising and falling very slightly with his breathing. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The shot ends exactly as it began. Warm amber lamplight, deep shadow, 35mm film grain."
+    },
+
+    "intro_street": {
+      "_": [
+        "The four shots below are the opening, and they are the one place in this",
+        "project where the camera is allowed to move. Everything at the table is",
+        "locked off because the DOM has to stay registered to the picture; the",
+        "opening has nothing laid over it, so it can be a camera instead of a",
+        "plate. That is also why these four are the only clips with no `to`: a",
+        "shot that is going somewhere cannot be asked to end where it started.",
+        "",
+        "They exist to replace pushIn(), a Ken Burns crop that stood in for a",
+        "dolly. A crop of a still cannot produce parallax, so the fake move read",
+        "as a zoom on a photograph, and it was also the thing blowing the first",
+        "screen budget: the synthetic motion had no real structure to predict",
+        "from, so intro.sm.webm encoded at 726 KB against a 400 KB ceiling."
+      ],
+      "from": "intro_street",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "Qprx2IsSmHoAcEFonBux",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/8af1fc4688c2302f933526a5cd9c96dc-143d743f-62c5-4c82-9b89-f3ace325c73f_1790671223337_9dcefcf6.mp4",
+      "prompt": "A slow, steady dolly push straight in toward a lit saloon doorway on a dark frontier street, 1899. The camera advances at a walking pace, as if this is the shot from the eyes of someone who has decided to go in. Warm yellow lamplight spills out of the doorway across the mud and boardwalk and gets wider and brighter as we close. Dust and fine rain drift through the light. The gas lamp above the door swings slightly. Silhouettes move behind the glass. Deep blue-black night everywhere else, hard falloff, anamorphic 35mm film grain, shallow depth of field. No cuts. No people walking into frame. No text or signage changes."
+    },
+    "intro_room": {
+      "from": "intro_room",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "cVHSNvxBUzaDAD5RsPuY",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/fbcdb65ecfd0f92b5bccc8971171b9f2-5e719d75-93e6-4041-9b73-d05f9105e65e_1790671232450_4a60f143.mp4",
+      "prompt": "A slow dolly travelling forward down the length of a dim 1899 gambling hall interior at night, past abandoned card tables and an empty faro layout, toward the far end of the room. Steady, unhurried, no handheld shake. Oil lamps hang overhead and gutter as we pass under them; smoke hangs in the beams; a few men sit in shadow at the edges and do not look up. Dust turns in the light. The end of the room stays dark and the eye is drawn to the one thing still lit down there. Deep shadow, warm amber pools of light, 35mm film grain, shallow depth of field. No cuts. No camera shake."
+    },
+    "intro_band": {
+      "from": "intro_band",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "20ERFw1DVQBY3ai99yhx",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/60fca71e2fb57b39b843e83f103c7992-a07d00ab-7506-43ca-8972-440615d5e48d_1790671233925_ef6bd204.mp4",
+      "prompt": "Extreme macro, a slow lateral tracking move along a printed paper slot-machine reel band lying flat on a worn workbench in a dark back room, 1899. The camera slides slowly sideways along the strip, revealing symbol after symbol - and one place where a symbol has been carefully cut out of the paper with a blade and replaced, the edges of the patch just visible. A single work lamp rakes across the surface from one side so the paper fibres and the knife edge catch the light. Faint smoke in the air. Tiny depth of field, only the strip in focus, everything beyond it falling into blackness. Nothing else in the room moves; no hands enter the frame. 35mm film grain, warm low light. No cuts."
+    },
+    "intro_machine": {
+      "_": [
+        "The last shot of the opening is the only one that has to join up with",
+        "anything: it lands on the table, so it is conditioned on machine_rest at",
+        "BOTH ends and asked for a move of only a few percent. The opening then",
+        "hands over to the same plate the table opens on, and the cut is invisible."
+      ],
+      "from": "machine_rest",
+      "to": "machine_rest",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "7phFCVRNhljhcC9Au6tJ",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/07c0285709b5ba0aefc90be4e33e7168-1b60ea2e-c955-4db8-9c51-c505a6732649_1790671146215_086973c8.mp4",
+      "prompt": "A very slow, very slight dolly push toward a heavy cast-iron three-reel slot machine standing on a saloon bar top in 1899, with a man's hand already closed around the nickel-plated ball of its lever. Almost imperceptible movement - the frame tightens by only a few percent and comes to rest exactly where it started, as if the camera leaned in to look and then settled. The hanging oil lamp at the left gutters. Smoke drifts. The men behind the bar stay in deep shadow and barely stir. The hand does not pull the lever; it only holds it. The dark rectangular reel window in the face of the machine stays absolutely black and empty. Warm amber lamplight falling off hard into blackness, 35mm film grain, shallow depth of field. No cuts, no shake."
     }
   }
 }

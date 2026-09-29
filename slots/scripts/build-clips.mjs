@@ -63,6 +63,22 @@ const OUT = join(ROOT, 'public', 'clips')
 const CACHE = join(ROOT, 'node_modules', '.clipcache')
 
 const FPS = 30
+/*
+ * The opening runs at 24 and the table runs at 30, which is not an
+ * inconsistency but the only way to avoid one.
+ *
+ * Table clips are interpolated or resampled to whatever cadence is asked for,
+ * so 30 is free there and worth having: a lever coming down is fast motion in
+ * a small part of the frame. The opening is four generated shots delivered at
+ * 24, and every frame of them is a real rendered frame. Resampling those to 30
+ * cannot add information - it duplicates two frames in every twelve, and on a
+ * slow steady dolly that pattern is exactly where judder is most visible.
+ *
+ * At 24 each source frame is used once, the move is smooth, and the encode has
+ * a fifth fewer frames to pay for. Film cadence is also the right grammar for
+ * the only part of this that is a film.
+ */
+const INTRO_FPS = 24
 const W = 1280
 const H = 720
 const SMALL_W = 768
@@ -306,9 +322,48 @@ function stageFrames(frames) {
   return stage
 }
 
-function encode(name, frames) {
+/*
+ * VP9 settings shared by both ways of asking for an encode. The only thing
+ * that ever differs between them is what is being held constant.
+ */
+const VP9 = ['-c:v', 'libvpx-vp9', '-row-mt', '1', '-cpu-used', '2',
+  '-auto-alt-ref', '1', '-lag-in-frames', '25', '-g', '240', '-an']
+
+/**
+ * As good as it can be inside a stated number of kilobytes, rather than a
+ * stated quality at whatever size that costs.
+ *
+ * This is for one clip - the opening - and the measurements are why. Table
+ * clips are short and mostly still, so CRF lands them far under budget and
+ * quality-targeting is simply the better question to ask. The opening is
+ * eleven seconds of moving camera over real parallax, where every frame is
+ * new information, and CRF 35 put it at 1410 KB against a 400 KB ceiling.
+ *
+ * Winding the CRF up until it fits is the obvious fix and it is the worse one,
+ * because a constant quality target spends its bits evenly across shots that
+ * do not deserve them evenly. Two passes at the budget spends them where the
+ * picture is actually moving. SSIM against the source, phone tier:
+ *
+ *   CRF 45           576 KB   0.8479
+ *   CRF 50           372 KB   0.8443
+ *   2-pass 260k      356 KB   0.8482   <- this
+ *
+ * The same quality as CRF 45 in 62% of the bytes, and it is the row that fits.
+ */
+function vp9ToBudget(input, vf, out, kb, seconds) {
+  // 8 bits a byte, and a little back for container overhead the encoder is
+  // not accounting for.
+  const kbps = Math.floor(((kb * 8) / seconds) * 0.92)
+  const log = join(CACHE, `pass-${digest(out)}`)
+  const common = [...input, '-vf', vf, ...VP9, '-b:v', `${kbps}k`, '-passlogfile', log]
+  ff([...common, '-pass', '1', '-f', 'null', '-'])
+  ff([...common, '-pass', '2', out])
+}
+
+function encode(name, frames, { fps = FPS, budget = null } = {}) {
   const stage = stageFrames(frames)
-  const input = ['-framerate', String(FPS), '-i', join(stage, '%05d.png')]
+  const input = ['-framerate', String(fps), '-i', join(stage, '%05d.png')]
+  const seconds = frames.length / fps
 
   /*
    * CRF 30 rather than the sibling's 34. This picture is nearly all shadow with
@@ -316,14 +371,19 @@ function encode(name, frames) {
    * across the bar behind the machine came out in visible steps, which reads as
    * the lamp flickering when it is not.
    */
-  for (const [suffix, w, h, crf] of [
-    ['', W, H, 30],
-    ['.sm', SMALL_W, SMALL_H, 35],
+  for (const [suffix, w, h, crf, kb] of [
+    ['', W, H, 30, budget?.[0]],
+    ['.sm', SMALL_W, SMALL_H, 35, budget?.[1]],
   ]) {
-    ff([...input, '-vf', `scale=${w}:${h}`, '-c:v', 'libvpx-vp9', '-crf', String(crf), '-b:v', '0',
-      '-row-mt', '1', '-cpu-used', '2', '-auto-alt-ref', '1', '-lag-in-frames', '25', '-g', '240',
-      '-an', join(OUT, `${name}${suffix}.webm`)])
-    ff([...input, '-vf', `scale=${w}:${h}`, '-c:v', 'libx264', '-crf', String(crf - 6),
+    const vf = `scale=${w}:${h}`
+    const webm = join(OUT, `${name}${suffix}.webm`)
+    if (kb) vp9ToBudget(input, vf, webm, kb, seconds)
+    else ff([...input, '-vf', vf, ...VP9, '-crf', String(crf), '-b:v', '0', webm])
+    /* The mp4 is the fallback for a browser that will not decode VP9, and x264
+     * at these CRFs comes in under every budget here on its own, so it is left
+     * quality-targeted. If that ever stops being true verify-budget.mjs says so
+     * before anything ships. */
+    ff([...input, '-vf', vf, '-c:v', 'libx264', '-crf', String(crf - 6),
       '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', join(OUT, `${name}${suffix}.mp4`)])
   }
   ff(['-i', join(stage, '00000.png'), '-vf', `scale=${W}:${H}`, '-q:v', '4', join(OUT, `${name}.jpg`)])
@@ -426,9 +486,9 @@ const CLIPS = {
 
 /* ----------------------------------------------------------- the opening */
 
-function pushIn(name, seconds, { from = 1.0, to = 1.09, panX = 0, panY = 0 } = {}) {
-  const n = Math.round(seconds * FPS)
-  const dir = join(CACHE, `push-${digest(plate(name), seconds, from, to, panX, panY)}`)
+function pushIn(name, seconds, { from = 1.0, to = 1.09, panX = 0, panY = 0 } = {}, fps = INTRO_FPS) {
+  const n = Math.round(seconds * fps)
+  const dir = join(CACHE, `push-${digest(plate(name), seconds, from, to, panX, panY, fps)}`)
   if (!force && existsSync(dir) && readdirSync(dir).length === n) {
     return readdirSync(dir).sort().map((f) => join(dir, f))
   }
@@ -439,8 +499,8 @@ function pushIn(name, seconds, { from = 1.0, to = 1.09, panX = 0, panY = 0 } = {
   const x = `iw/2-(iw/zoom/2)+(${panX.toFixed(4)})*iw*on/${n}`
   const y = `ih/2-(ih/zoom/2)+(${panY.toFixed(4)})*ih*on/${n}`
   ff([
-    '-loop', '1', '-framerate', String(FPS), '-t', String(seconds), '-i', normalised(plate(name)),
-    '-vf', `scale=${W * 2}:${H * 2},zoompan=z='${z}':x='${x}':y='${y}':d=1:s=${W}x${H}:fps=${FPS}`,
+    '-loop', '1', '-framerate', String(fps), '-t', String(seconds), '-i', normalised(plate(name)),
+    '-vf', `scale=${W * 2}:${H * 2},zoompan=z='${z}':x='${x}':y='${y}':d=1:s=${W}x${H}:fps=${fps}`,
     '-frames:v', String(n),
     join(dir, '%04d.png'),
   ])
@@ -449,12 +509,12 @@ function pushIn(name, seconds, { from = 1.0, to = 1.09, panX = 0, panY = 0 } = {
   return frames
 }
 
-function intermediate(frames, tag) {
+function intermediate(frames, tag, fps) {
   const stage = stageFrames(frames)
   const out = join(CACHE, `seg-${tag}.mkv`)
-  ff(['-framerate', String(FPS), '-i', join(stage, '%05d.png'), '-c:v', 'ffv1', '-level', '3', out])
+  ff(['-framerate', String(fps), '-i', join(stage, '%05d.png'), '-c:v', 'ffv1', '-level', '3', out])
   rmSync(stage, { recursive: true, force: true })
-  return { path: out, seconds: frames.length / FPS }
+  return { path: out, seconds: frames.length / fps }
 }
 
 /*
@@ -469,38 +529,43 @@ const DISSOLVE = [0.5, 0.5, 0]
  * Frames for one opening shot: the generated take if there is one, and a
  * zoompan move over the still if there is not.
  *
+ * The generated take is passed through WHOLE - every decoded frame, in order,
+ * exactly once. This is the one place in the build with no retiming, and the
+ * reason is the reason INTRO_FPS exists: the delivered cadence was chosen to
+ * match the source, so there is nothing left to retime. `seconds` therefore
+ * only describes the fallback, and a generated shot is as long as it is.
+ *
  * Nothing in here is registered or rim-pinned, unlike the table clips. The
  * opening plays full frame with no DOM over it, so there is no hole to keep
  * lined up - and these shots are supposed to have a moving camera, so holding
  * them still would remove the only thing they are for.
  *
- * That is also why the opening was the worst thing in the build before this.
- * zoompan resampling a still every frame produces a shimmer that is not in the
- * picture and cannot be predicted from it, and VP9 pays for that shimmer in
- * bits: the ten-second opening alone was 726 KB on the phone tier against a
- * 400 KB budget for a whole clip. Real camera movement over real parallax
- * compresses like a photograph of the world, because that is what it is.
+ * What these shots are NOT is cheaper. The zoompan opening was 726 KB on the
+ * phone tier against a 400 KB budget, and the reasonable-sounding guess was
+ * that real camera movement would compress better than a synthetic crop,
+ * because a fake move resamples a still every frame and produces a shimmer
+ * that is not in the picture and cannot be predicted from it.
+ *
+ * Measured, it went the other way: 1410 KB. The guess had the mechanism right
+ * and the magnitude backwards. A dolly through a room generates parallax, and
+ * parallax is genuinely new information every frame - occluded things coming
+ * into view - which is the expensive kind. A crop of a still is, whatever else
+ * is wrong with it, a crop of something the encoder has already seen.
+ *
+ * So the opening earns its place on how it looks and not on what it costs, and
+ * what it costs is handled by encoding it to the budget. See vp9ToBudget.
  */
 function shotFrames(tag, source, seconds, fallback) {
   const mp4 = join(ROOT, 'clipsrc', 'generated', `intro_${tag}.mp4`)
-  const want = Math.round(seconds * FPS)
   if (!existsSync(mp4)) return pushIn(source, seconds, fallback)
 
-  const dir = join(CACHE, `shot-${digest(mp4, seconds)}`)
-  if (!force && existsSync(dir) && readdirSync(dir).length === want) {
+  const dir = join(CACHE, `shot-${digest(mp4)}`)
+  if (!force && existsSync(dir) && readdirSync(dir).length) {
     return readdirSync(dir).sort().map((f) => join(dir, f))
   }
-  const stage = mkdtempSync(join(tmpdir(), 'shot-'))
-  ff(['-i', mp4, '-vf', `scale=${W}:${H}`, join(stage, '%05d.png')])
-  const dense = readdirSync(stage).sort().map((f) => join(stage, f))
-
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
-  for (let i = 0; i < want; i++) {
-    const at = Math.round((i / (want - 1)) * (dense.length - 1))
-    cpSync(dense[at], join(dir, `${String(i).padStart(5, '0')}.png`))
-  }
-  rmSync(stage, { recursive: true, force: true })
+  ff(['-i', mp4, '-vf', `scale=${W}:${H}`, join(dir, '%05d.png')])
   return readdirSync(dir).sort().map((f) => join(dir, f))
 }
 
@@ -522,7 +587,7 @@ function buildOpening() {
     { tag: 'band', frames: shotFrames('band', 'intro_band', 3.0, { from: 1.0, to: 1.12, panX: -0.03 }) },
   ]
 
-  const segs = shots.map((s) => intermediate(s.frames, s.tag))
+  const segs = shots.map((s) => intermediate(s.frames, s.tag, INTRO_FPS))
   const inputs = segs.flatMap((s) => ['-i', s.path])
 
   let acc = segs[0].seconds
@@ -532,14 +597,14 @@ function buildOpening() {
     const out = `x${i}`
     const want = DISSOLVE[i - 1] ?? 0.5
     // xfade needs a duration, so a "cut" is the shortest one it will take.
-    const d = want === 0 ? 2 / FPS : want
+    const d = want === 0 ? 2 / INTRO_FPS : want
     chain.push(`[${label}][${i}:v]xfade=transition=fade:duration=${d.toFixed(3)}:offset=${(acc - d).toFixed(3)}[${out}]`)
     acc = acc + segs[i].seconds - d
     label = out
   }
   chain.push(`[${label}]fade=t=in:st=0:d=0.7,fade=t=out:st=${(acc - 0.6).toFixed(3)}:d=0.6[v]`)
 
-  const total = Math.round(acc * FPS)
+  const total = Math.round(acc * INTRO_FPS)
   const combined = join(CACHE, 'opening.mkv')
   ff([...inputs, '-filter_complex', chain.join(';'), '-map', '[v]', '-c:v', 'ffv1', '-level', '3', combined])
 
@@ -595,8 +660,14 @@ if (!only.length || only.includes('plates')) buildPlates()
 
 if (!only.length || only.includes('intro')) {
   const frames = buildOpening()
-  const n = encode('intro', frames)
-  console.log(`${'intro'.padEnd(10)} ${String(n).padStart(3)} frames  ${(n / FPS).toFixed(2)}s`)
+  /*
+   * 1500 KB and 380 KB. The phone figure is the VIDEO.md per-clip ceiling with
+   * a little headroom; the desktop one is a judgement, and the judgement is
+   * that a cinematic nobody watches twice had been taking 5.1 MB, more than a
+   * quarter of the entire table, which no amount of it being pretty justifies.
+   */
+  const n = encode('intro', frames, { fps: INTRO_FPS, budget: [1500, 380] })
+  console.log(`${'intro'.padEnd(10)} ${String(n).padStart(3)} frames  ${(n / INTRO_FPS).toFixed(2)}s @${INTRO_FPS}`)
   if (only.length === 1) process.exit(0)
 }
 
