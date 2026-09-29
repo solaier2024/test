@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { clipKind, clipPoster, clipUrl } from '../art'
+import { thinConnection } from '../platform'
 
 /*
  * The video layer: one element per clip, and the idle loop never stops.
@@ -65,8 +66,13 @@ export function Clip({ request, small, onEnded }: ClipProps) {
    * Frozen at mount. Resizing across the narrow breakpoint mid-hand would
    * otherwise re-point all six elements at a different file and reload the lot,
    * which is the exact stall this component exists to remove.
+   *
+   * A thin connection takes the small tier too, on a wide screen as much as a
+   * narrow one: the six clips together are about a megabyte at full size and a
+   * third of that small, and a picture that arrives beats a picture that is
+   * sharper in principle.
    */
-  const size = useRef(small)
+  const size = useRef(small || thinConnection())
   const els = useRef(new Map<string, HTMLVideoElement>())
   const broken = useRef(new Set<string>())
 

@@ -3,6 +3,7 @@ import { clipKind, clipPoster, clipUrl } from '../art'
 import { startIntroScore, stopIntroScore } from '../audio/score'
 import { unlock } from '../audio/engine'
 import { useSoundState } from '../audio/useSound'
+import { thinConnection } from '../platform'
 import { LangToggle, SoundToggle } from './SoundToggle'
 import type { Lang, Strings } from '../i18n/strings'
 
@@ -45,6 +46,12 @@ export function Intro({ t, lang, onLang, small, reduced, onDone }: IntroProps) {
   const [progress, setProgress] = useState(0)
   const [needsTap, setNeedsTap] = useState(false)
   const kind = useRef(clipKind())
+  /*
+   * The opening is the one asset a visitor waits on with nothing else to look at,
+   * so a thin connection takes the small tier even on a wide screen. Frozen at
+   * mount: swapping the source of a playing film is worse than either choice.
+   */
+  const tier = useRef(small || thinConnection())
   const { unlocked } = useSoundState()
   const scored = useRef(false)
 
@@ -104,7 +111,7 @@ export function Intro({ t, lang, onLang, small, reduced, onDone }: IntroProps) {
       <video
         ref={ref}
         className="intro-video"
-        src={clipUrl('intro', kind.current, small)}
+        src={clipUrl('intro', kind.current, tier.current)}
         poster={clipPoster('intro')}
         muted
         playsInline
