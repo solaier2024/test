@@ -25,7 +25,8 @@
     "verify:identity": "node scripts/verify-identity.mjs",
     "verify:budget": "node scripts/verify-budget.mjs",
 
-    "//verify:live": "These two need something serving the game, so they are not in the chain above. verify:audio wants a dev server (npm run dev); verify:deploy wants the published URL.",
+    "//verify:live": "These need something serving the game, so they are not in the chain above. verify:play and verify:audio want a dev server (npm run dev); verify:deploy wants the published URL.",
+    "verify:play": "node scripts/verify-play.mjs",
     "verify:audio": "node scripts/verify-audio.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",
 
