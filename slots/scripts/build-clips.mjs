@@ -37,17 +37,23 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
+  closeSync,
   cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   rmSync,
+  statSync,
+  writeSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { RIM, bestShiftRGB, pinRim, readRGB, shiftRGB, toLuma, writeSequence } from './lib/lock.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -61,6 +67,9 @@ const W = 1280
 const H = 720
 const SMALL_W = 768
 const SMALL_H = 432
+
+/** The plate every generated frame is registered against. */
+const LOCK_TO = 'machine_rest'
 
 const force = process.env.FORCE === '1'
 const only = process.argv.slice(2)
@@ -130,16 +139,57 @@ function normalised(path) {
   return out
 }
 
-/** Synthesises `steps` frames of motion from a to b and returns their paths. */
-function morph(a, b, steps) {
-  const dir = join(CACHE, `morph-${digest(a, b, steps)}`)
+/* ------------------------------------------------------------ the seam
+ *
+ * morph(a, b, steps) is where this pipeline meets whatever is generating the
+ * motion. Its contract has not changed since the optical-flow version: give it
+ * two plate names and a step count, get back exactly steps+1 frame paths,
+ * cached by content digest. Everything downstream - timeline()'s easing
+ * resample, the dual encode, the poster, the frame-count assertion - is
+ * indifferent to how the frames in the middle were arrived at.
+ *
+ * There are two backends:
+ *
+ *   GENERATED. A clip listed in clipsrc/generated.json, produced by an
+ *     image-to-video model conditioned on plate a as its first frame and plate
+ *     b as its last. This is the real thing: a hand that actually grips and
+ *     hauls, a crowd that actually surges. It is preferred whenever the
+ *     footage is present.
+ *
+ *   OPTICAL FLOW. ffmpeg minterpolate between the two plates. Dense flow
+ *     between two stills cannot invent a crowd throwing its hats up; what it
+ *     can do is get the lever down the arc convincingly, and it costs nothing
+ *     and needs no network. It stays as the fallback, and it is the reason a
+ *     checkout with no generated footage still builds a playable table.
+ *
+ * Both go through the same resample, so a clip's timing is a property of this
+ * repository and not of whatever the model happened to return.
+ */
+
+/** Resample a dense sequence of any length down to exactly steps+1 frames. */
+function resampleInto(dense, dir, steps) {
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  for (let i = 0; i <= steps; i++) {
+    const at = Math.round((i / steps) * (dense.length - 1))
+    cpSync(dense[at], join(dir, `${String(i).padStart(4, '0')}.png`))
+  }
+  return readdirSync(dir).sort().map((f) => join(dir, f))
+}
+
+function flowFrames(a, b, steps) {
+  const dir = join(CACHE, `flow-${digest(a, b, steps)}`)
   if (!force && existsSync(dir) && readdirSync(dir).length === steps + 1) {
     return readdirSync(dir).sort().map((f) => join(dir, f))
   }
-
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
   const stage = mkdtempSync(join(tmpdir(), 'morph-'))
+  /*
+   * minterpolate discards the first and last input interval, so the input is
+   * padded to [a, b, b]: that leaves exactly one interval to render and yields
+   * steps+1 frames. Anything else silently changes the frame count.
+   */
   cpSync(normalised(a), join(stage, 'in0.png'))
   cpSync(normalised(b), join(stage, 'in1.png'))
   cpSync(normalised(b), join(stage, 'in2.png'))
@@ -155,7 +205,73 @@ function morph(a, b, steps) {
 
   const frames = readdirSync(dir).sort().map((f) => join(dir, f))
   if (frames.length !== steps + 1) {
-    throw new Error(`morph ${a} -> ${b} produced ${frames.length} frames, wanted ${steps + 1}`)
+    throw new Error(`flow ${a} -> ${b} produced ${frames.length} frames, wanted ${steps + 1}`)
+  }
+  return frames
+}
+
+/**
+ * Decode a generated clip, register every frame to the reference casting and
+ * pin the window rim. See scripts/lib/lock.mjs for why both passes exist.
+ */
+function generatedFrames(use) {
+  const mp4 = join(ROOT, 'clipsrc', 'generated', `${use}.mp4`)
+  if (!existsSync(mp4)) return null
+
+  const dir = join(CACHE, `gen-${digest(mp4, RIM.x0, RIM.y1)}`)
+  if (!force && existsSync(dir) && readdirSync(dir).length) {
+    return readdirSync(dir).sort().map((f) => join(dir, f))
+  }
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+
+  /*
+   * Decoded to one concatenated raw file and processed frame by frame out of
+   * it, rather than to a directory of PNGs. Two ffmpeg calls for a whole clip
+   * instead of two hundred; see writeSequence in lib/lock.mjs.
+   */
+  const stage = mkdtempSync(join(tmpdir(), 'gen-'))
+  const inRaw = join(stage, 'in.raw')
+  const outRaw = join(stage, 'out.raw')
+  ff(['-i', mp4, '-vf', `scale=${W}:${H}`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', inRaw])
+
+  const bytes = W * H * 3
+  const count = statSync(inRaw).size / bytes
+  if (!Number.isInteger(count)) throw new Error(`${use}: decoded ${statSync(inRaw).size} bytes, not a whole number of frames`)
+
+  const reference = readRGB(join(SRC, `${LOCK_TO}.png`))
+  const refLuma = toLuma(reference)
+  const src = openSync(inRaw, 'r')
+  const dst = openSync(outRaw, 'w')
+  const frame = Buffer.allocUnsafe(bytes)
+  let worst = 0
+  for (let i = 0; i < count; i++) {
+    readSync(src, frame, 0, bytes, i * bytes)
+    const { dx, dy } = bestShiftRGB(refLuma, toLuma(frame), 16)
+    worst = Math.max(worst, Math.abs(dx), Math.abs(dy))
+    writeSync(dst, pinRim(shiftRGB(frame, -dx, -dy), reference))
+  }
+  closeSync(src)
+  closeSync(dst)
+  writeSequence(outRaw, dir)
+  rmSync(stage, { recursive: true, force: true })
+  console.log(`  ${use}: ${count} generated frames, worst drift taken out ${worst}px`)
+
+  return readdirSync(dir).sort().map((f) => join(dir, f))
+}
+
+/** Synthesises `steps` frames of motion from a to b and returns their paths. */
+function morph({ use, from, to }, steps) {
+  const a = plate(from)
+  const b = plate(to)
+  const dir = join(CACHE, `morph-${digest(a, b, use ?? '', steps)}`)
+  if (!force && existsSync(dir) && readdirSync(dir).length === steps + 1) {
+    return readdirSync(dir).sort().map((f) => join(dir, f))
+  }
+  const dense = (use && generatedFrames(use)) || flowFrames(a, b, steps)
+  const frames = resampleInto(dense, dir, steps)
+  if (frames.length !== steps + 1) {
+    throw new Error(`morph ${from} -> ${to} produced ${frames.length} frames, wanted ${steps + 1}`)
   }
   return frames
 }
@@ -174,7 +290,7 @@ function timeline(steps) {
       for (let i = 0; i < step.frames; i++) frames.push(at)
       continue
     }
-    const dense = morph(plate(step.from), plate(step.to), 48)
+    const dense = morph(step, 48)
     const ease = EASES[step.ease ?? 'easeInOut']
     for (let i = 0; i < step.frames; i++) {
       const t = step.frames === 1 ? 1 : i / (step.frames - 1)
@@ -236,12 +352,12 @@ function encode(name, frames) {
 const CLIPS = {
   /* Down fast under the weight of the arm, and hold at the bottom. */
   pull: [
-    { from: 'machine_rest', to: 'machine_pull', frames: 9, ease: 'easeIn' },
+    { use: 'pull', from: 'machine_rest', to: 'machine_pull', frames: 9, ease: 'easeIn' },
     { hold: 'machine_pull', frames: 3 },
   ],
   /* Back up under its spring: slower than it went down, and it settles. */
   release: [
-    { from: 'machine_pull', to: 'machine_rest', frames: 13, ease: 'easeOut' },
+    { use: 'release', from: 'machine_pull', to: 'machine_rest', frames: 13, ease: 'easeOut' },
     { hold: 'machine_rest', frames: 3 },
   ],
   /*
@@ -252,12 +368,38 @@ const CLIPS = {
    * on this table blinks, so the whole loop is a slow breath: the lamp gutters
    * down and comes back and the figures behind the bar shift, so something is
    * moving in every single frame.
+   *
+   * The generated version is conditioned on machine_rest at BOTH ends, so it
+   * returns to the plate it left and the loop point is not a cut. Without it
+   * the fallback goes out to machine_breath and back, which is the same idea
+   * done with two dense morphs.
    */
-  idle: [
-    { from: 'machine_rest', to: 'machine_breath', frames: 52, ease: 'easeInOut' },
-    { hold: 'machine_breath', frames: 6 },
-    { from: 'machine_breath', to: 'machine_rest', frames: 58, ease: 'easeInOut' },
-    { hold: 'machine_rest', frames: 8 },
+  idle: [{ use: 'idle', from: 'machine_rest', to: 'machine_breath', frames: 124, ease: 'linear' }],
+
+  /*
+   * The crowd. This is the half of the table the player is actually playing
+   * against, so it gets the same treatment as the lever and not a cross-fade.
+   *
+   * Each one runs from machine_rest to the reaction plate, which means it ends
+   * on a picture Scene.tsx already has: the clip plays, and the plate it
+   * settles onto is underneath it before the last frame arrives. Coming back
+   * out of a reaction is still a cross-fade to machine_rest, and that is not a
+   * saving - a room going quiet again really does happen slowly and without
+   * anybody doing anything in particular, which is exactly what a dissolve is.
+   */
+  lean: [
+    { use: 'lean', from: 'machine_rest', to: 'machine_lean', frames: 42, ease: 'easeOut' },
+    { hold: 'machine_lean', frames: 4 },
+  ],
+  /* Hats up. Fast on the way in - a room erupts, it does not ramp. */
+  roar: [
+    { use: 'roar', from: 'machine_rest', to: 'machine_roar', frames: 46, ease: 'easeOut' },
+    { hold: 'machine_roar', frames: 6 },
+  ],
+  /* And the other half of the user's brief: the room that does not cheer. */
+  sigh: [
+    { use: 'sigh', from: 'machine_rest', to: 'machine_sigh', frames: 52, ease: 'easeInOut' },
+    { hold: 'machine_sigh', frames: 6 },
   ],
 }
 

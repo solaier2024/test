@@ -1,0 +1,94 @@
+{
+  "_": [
+    "Provenance for the generated footage in clipsrc/generated/.",
+    "",
+    "Every clip is image-to-video conditioned on TWO approved plates: `from` is",
+    "its first frame and `to` is its last. That is not a stylistic choice, it is",
+    "what makes the footage safe to drop into this table. VIDEO.md section 6 asks",
+    "for the first frame to be locked to an approved plate so drift is bounded",
+    "inside one clip; locking the last frame as well means a clip also ENDS on a",
+    "picture that already exists as a still, so <Clip> can cut away to it with no",
+    "jump and a browser that cannot play the video shows the right frame anyway.",
+    "",
+    "These models are not deterministic and the seed is not exposed, so this file",
+    "records how a clip was ordered, not how to reproduce it byte for byte. The",
+    "mp4 in clipsrc/generated/ is the source asset; this is its receipt.",
+    "",
+    "Re-fetch with: node scripts/fetch-generated.mjs [name...]"
+  ],
+  "model": "kling-3-omni",
+  "mode": "image2video",
+  "project": "9kYR0xN1tmUBaWxcWiXG",
+  "chosen": [
+    "Kling 3 Omni over PixVerse V6, decided by measurement rather than taste.",
+    "Both were given the identical rest->pull pair and the identical prompt, and",
+    "scripts/measure-drift.mjs was run over every frame of each result:",
+    "",
+    "               worst translation   mean residual   source   credits",
+    "  PixVerse V6              4px            5.02      720p        50",
+    "  Kling 3 Omni             2px            4.97     1080p       175",
+    "",
+    "Translation is the column that mattered. The reel window is a hole the DOM",
+    "bands show through, so a casting that wanders is bands leaking past the",
+    "brass, and while scripts/lib/lock.mjs takes the wander out afterwards, the",
+    "less there is to take out the less the frame has to be pushed around. The",
+    "residuals are effectively tied, and both sit at about the level the approved",
+    "still plates already differ from each other by, which is the real bar."
+  ],
+  "clips": {
+    "pull": {
+      "from": "machine_rest",
+      "to": "machine_pull",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "azVue7JSGlbmfGxCmryT",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/1cdf5185397b6bee6f831935d8809c6a-de84d49f-720b-4820-8f4a-fefed71b653d_1790670133961_9ff73202.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift, no parallax. 1899 saloon at night. A heavy cast-iron three-reel slot machine stands on a mahogany bar top; the casting, its scrollwork, its brass payout plate and its coin cup do not move or rotate by a single pixel. THE ONLY MOTION IS THE ARM: the man's right hand grips the nickel-plated ball on the end of the lever and hauls it down through its arc until it strikes the hard stop at the bottom; forearm tendons tighten, the loose linen sleeve drags and settles. The dark rectangular reel window in the face of the machine stays absolutely black, empty, and perfectly still - nothing appears inside it. The hanging oil lamp at far left flickers faintly. The men in the dark behind the bar barely stir. Warm amber lamplight falling off hard into blackness, 35mm film grain."
+    },
+    "release": {
+      "from": "machine_pull",
+      "to": "machine_rest",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "wz229XOwyoyZ3mSYDMGE",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/19b9cbd81c32a23949dd62a53190e117-13c64382-2cec-4bca-9f1c-04a35d5862f6_1790670135482_461f4d06.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night. A heavy cast-iron three-reel slot machine on a mahogany bar top; the casting does not move or rotate by a single pixel. THE ONLY MOTION IS THE ARM: the lever rises back up its arc under its return spring, slower than it went down, and settles with a small dying bounce at the top; the man's hand rides it up and keeps its grip on the nickel ball, his forearm relaxing, the linen sleeve falling back. The dark rectangular reel window in the face of the machine stays absolutely black, empty, and perfectly still - nothing appears inside it. The oil lamp at far left flickers faintly. Warm amber lamplight falling off hard into blackness, 35mm film grain."
+    },
+    "lean": {
+      "from": "machine_rest",
+      "to": "machine_lean",
+      "duration": 3,
+      "resolution": "pro",
+      "historyId": "CGYTWNSdF0y1LNzu1vpb",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/8d5e42912027f8164739ba8ef7162818-c741416d-03ed-4056-ae35-464c29201d0b_1790670173843_48b462e9.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night. THE ROOM LEANS IN AND HOLDS ITS BREATH. The men standing in the dark behind the bar quietly close in around the machine to watch the reels run: they stop talking, edge forward a step, crane their necks, one of them leaning right over the bar with both hands flat on it, another going up on the balls of his feet to see past a shoulder. Nobody shouts. Every face turns toward the front of the machine and holds there, half-lit. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine on the mahogany bar top, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The player's right hand stays on the lever ball. Warm amber lamplight, deep shadow, 35mm film grain."
+    },
+    "roar": {
+      "from": "machine_rest",
+      "to": "machine_roar",
+      "duration": 4,
+      "resolution": "pro",
+      "historyId": "7L2kfuWTuoHrPF3c0oes",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/8e88dbc3fa81c0b75eb02de6ef94a781-cb64f3dc-56b7-4b13-830c-ace317b196b6_1790670152487_621b0993.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night. THE ROOM ERUPTS. The crowd of men standing in the dark behind the bar surges forward into the lamplight, roaring: mouths open wide in a shout, heads thrown back, fists punching up over their heads, two of them tearing their hats off and flinging them into the air, a bearded man at the left howling with delight, another slapping the shoulder of the man beside him. Their faces come up out of shadow into warm amber light as they press in. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine on the mahogany bar top, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The player's right hand keeps its grip on the lever ball and does not let go. The hanging oil lamp at far left swings a little from the commotion. Warm amber lamplight, deep shadow, 35mm film grain."
+    },
+    "sigh": {
+      "from": "machine_rest",
+      "to": "machine_sigh",
+      "duration": 4,
+      "resolution": "pro",
+      "historyId": "hE580Q2yT1rz40QkPgMW",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/f52aa14dc874f6088cf652895db19d89-7cfd8676-e970-4604-9d4e-8fbcfb5a92ed_1790670147171_2a5f6778.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night. THE ROOM DEFLATES. A long collective groan runs through the men standing in the dark behind the bar: shoulders drop, chests empty out, one man claps a hand over his mouth and eyes and doubles slightly forward, another closes his eyes and tips his head back in disgust, a third turns away from the machine shaking his head, a fourth pushes his hat brim down over his face. Nobody cheers. They sink back from the lamplight into shadow. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine on the mahogany bar top, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The player's right hand keeps its grip on the lever ball. The hanging oil lamp at far left gutters and dims. Warm amber lamplight, deep shadow, 35mm film grain."
+    },
+    "idle": {
+      "from": "machine_rest",
+      "to": "machine_rest",
+      "duration": 5,
+      "resolution": "pro",
+      "historyId": "wibmyAUjKabpjiinBJLl",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/a145d22f470bdbd420a1f2eaeaa47c5a-42d3cd86-cd45-4f92-9db5-8d07e51f1b05_1790670207476_27aab981.mp4",
+      "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night, the quiet moment between pulls. Nothing dramatic happens and nothing is ever completely still. The hanging oil lamp at far left gutters: its flame leans, dips low enough to brown the light across the whole bar, then climbs back, so the warm pool of light on the mahogany slowly breathes darker and brighter. Smoke drifts through the beam. The men standing in the dark behind the bar shift their weight, one turns his head slowly, another lifts a glass, a shoulder moves; they stay in shadow and nobody reacts to anything. The player's right hand rests on the nickel lever ball, the forearm rising and falling very slightly with his breathing. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The shot ends exactly as it began. Warm amber lamplight, deep shadow, 35mm film grain."
+    }
+  }
+}
