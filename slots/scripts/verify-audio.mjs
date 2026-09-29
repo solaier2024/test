@@ -531,10 +531,19 @@ expect('and mute means mute', off.db < -70, `${off.db.toFixed(1)} dBFS`)
 await page.locator('button.sound').click()
 await page.waitForTimeout(1800)
 expect('unmuting reads on again', (await label()).includes('🔊'), await label())
-const back = await page.evaluate((d) => window.__grab(d), 2000)
-/* A peak against a level again: the room is back when it is doing something
- * over its own average, not merely when the meter is off the floor. */
-expect('and brings the room back', back.db > room.level + 3, `${back.db.toFixed(1)} dBFS`)
+const back = await page.evaluate((d) => window.__grab(d), 4000)
+/*
+ * Level against level, not peak against level, because this one is about the
+ * room being THERE rather than about an event being audible in it - and a
+ * peak here would be asking whether a glass happened to land in the window.
+ * Measured on the deployed build it cleared a peak threshold by 0.4dB, which
+ * is the same rubber ruler as the room tone, caught before it could fail.
+ */
+expect(
+  'and brings the room back',
+  back.mean > room.level - 4,
+  `${back.mean.toFixed(1)} dBFS average against a room of ${room.level.toFixed(1)}`,
+)
 
 await browser.close()
 

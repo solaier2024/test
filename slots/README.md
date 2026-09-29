@@ -462,10 +462,26 @@ ok    and the upright is behind both of them        upright -43.4, saloon -36.2,
 第二条是防一种偷懒的：把底噪开大也能让"环境声最响"这一条通过，但那不是一间
 屋子，是嘶声。**峰值和均值之间拉开的那段距离，就是"屋子里有事情在发生"的数值形式。**
 
-> 加了玻璃器皿之后，**"房间底噪"本身不再是一个稳定的数**：它从一段平稳的嗡鸣
-> 变成了嗡鸣加事件，一次峰值保持读到的是"这 3 秒里恰好响了什么"，跨窗口能差
-> 6dB。而底下每一条"反应要压过房间"都是拿它当基准的。所以房间底噪也改成三次
-> 取中位数——**和低语那次是同一个教训：随机的东西要用统计量去量。**
+> 加了玻璃器皿之后，**"房间底噪"本身不再是一个稳定的数**，而底下每一条
+> "反应要压过房间"都拿它当基准。第一版按低语那次的经验改成"三次取中位数"，
+> **不够，而且是不够在原理上**：
+>
+> ```
+> 3 秒窗口，峰值   -38.1 -40.8 -35.5 -39.9 -40.9   中位数 -39.9
+> 8 秒窗口，峰值   -36.1 -36.7 -37.1 -40.2 -36.8   中位数 -36.8
+> 3 秒窗口，均值   -46.1 -45.6 -43.4 -45.6 -46.0   中位数 -45.6
+> 8 秒窗口，均值   -44.8 -44.7 -44.8 -45.1 -45.2   中位数 -44.8
+> ```
+>
+> 峰值不但窗口之间抖 5dB，**而且听得越久它越大**——因为听得越久越容易撞上更罕见
+> 的响声。它是一个极值统计量，不是一个电平，**它不收敛到任何数上**，所以取中位数
+> 也救不了：分布本身跟着窗长在走。均值 8 秒窗口重复到 0.5dB 以内。
+>
+> 所以房间底噪现在是**均值**，而门槛按它重新表述：房间一起做出来的五种反应要压过
+> 房间 **10dB**（大致是响度翻倍），低语要压过 **6dB**（一个明确可辨的台阶）。
+> 反应那一头仍然量峰值——**拿一个峰值去比一个电平，问的恰好就是"这一下能不能在
+> 持续的房间声里听见"。** 这是被部署环境上一次 0.2dB 的失败逼出来的：同一份混音，
+> 本地过 7dB，线上差 0.2dB，**变的不是混音，是尺子。**
 >
 > 另外 `hush()` 因此挪到了 duck 节点上。原先它只压住人声嗡嗡那一路，于是叫破的
 > 一瞬间**酒保还在倒酒**——测出来的"死寂"只比房间低 8dB。压在 duck 上之后是
@@ -508,7 +524,7 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 | `murmur` | — | -33.6 | 0.73 |
 | 落币 | -30.1 | -31.4 | 1.40 |
 | 铃铛 | -28.4 | -29.8 | 0.98 |
-| 房间底噪 | -36 | -36.4 | |
+| 房间底噪 | -36 | -44.8（均值，见下） | |
 
 左边那一列就是整个问题：**三段量得到的反应全都比它们正在反应的那个房间还轻，
 而机器自己的两个声音比它们全都响。** 之前每一次"听到人群反应了"，
@@ -516,19 +532,20 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 
 修法是 `THROAT = 13`、让房间声在反应期间自己让开（`bedDuck`），再重新配一遍平衡。
 检查是 `npm run verify:audio`：它在 destination 上装一个 analyser
-（改写 `AudioNode.prototype.connect`，不给产品加测试钩子），跑 25 次实测——
+（改写 `AudioNode.prototype.connect`，不给产品加测试钩子），跑 30 次实测——
 六种反应各自单独响一遍、和房间比、和落币铃铛比；然后**真玩三拉**，
 要求听到的那个声音就是字幕说的那一个；最后是 hush、静音、取消静音。
 
 ```
-ok    the room's roar is audible over it              -24.9 dBFS over a -36.4 room
-ok    a murmur is there, and is the least the room does  -33.6, between a -36.4 room and a -28.7 groan
-ok    and no reaction is too erratic to compare       widest spread over three firings 2.2dB
-ok    a loss is answered within 6dB of a win          groan -27.9 against a roar of -24.9
-ok    and the room is louder than the money           roar -24.9, coins -31.4, bell -29.8
-ok    a gasp is a brighter sound than a groan         0.79 against 0.46 above 1.2kHz
-ok    pull 1: and it is the gasp it says it is        0.57 against 0.79 measured alone
-ok    calling the house stops the room dead           -58.4 dBFS, room was -36.4
+ok    the empty table has a room tone                 -44.8 dBFS average
+ok    the room's roar is audible over it              -24.5 dBFS over a -44.8 room
+ok    a murmur is there, and is the least the room does  -34.4, between a -44.8 room and a -29.4 groan
+ok    and no reaction is too erratic to compare       widest spread over three firings 2.6dB
+ok    a loss is answered within 6dB of a win          groan -28.7 against a roar of -24.5
+ok    and the room is louder than the money           roar -24.5, coins -30.4, bell -29.2
+ok    a gasp is a brighter sound than a groan         0.86 against 0.58 above 1.2kHz
+ok    pull 1: and it is the roar it says it is        1.07 against 0.71 measured alone
+ok    calling the house stops the room dead           -78.6 dBFS, room was -44.8
 ```
 
 用**峰值保持 + 1.2kHz 上下的能量比**当元音判据，而不是用整体谱心——
