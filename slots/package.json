@@ -15,6 +15,8 @@
     "shots": "node scripts/shots.mjs",
     "shots:mobile": "node scripts/shots-mobile.mjs",
     "demo": "node scripts/record-demo.mjs",
+    "//demo:sound": "The same walkthrough with a soundtrack. Needs Xvfb, pulseaudio and ffmpeg, because a page recording cannot carry audio that the page synthesises.",
+    "demo:sound": "node scripts/record-sound.mjs",
 
     "//verify": "Everything a change has to survive that can be checked off the filesystem. Run it before pushing.",
     "verify": "npm run lint && npm run verify:types && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:budget",

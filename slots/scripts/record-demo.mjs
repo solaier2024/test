@@ -14,9 +14,15 @@
  *
  * Unlike shots.mjs this does NOT skip the opening, because the opening is
  * eleven seconds of the thing being demonstrated.
+ *
+ * This one is silent, and cannot be otherwise: the audio is synthesised in
+ * the page and a page recording carries no audio track. record-sound.mjs is
+ * the same walkthrough on a screen recorder with the sound on. Both call
+ * lib/walkthrough.mjs so there is only ever one choreography.
  */
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { SEED, walkthrough } from './lib/walkthrough.mjs'
 
 /*
  * Seed 51, the same night shots.mjs photographs, so a frame in docs/ and a
@@ -24,17 +30,19 @@ import { chromium } from 'playwright'
  * jackpot out of a held breath and a plain loss inside four pulls - see the
  * note in shots.mjs for how it was found.
  */
-const SEED = 51
 const BASE = process.env.GAME_URL ?? 'http://127.0.0.1:5180/'
 const URL = `${BASE}${BASE.includes('?') ? '&' : '?'}seed=${SEED}`
 const OUT = process.env.OUT_DIR ?? 'demo-capture'
 
 const width = 1440
 const height = 900
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-await rm(OUT, { recursive: true, force: true })
+/* Only the webm, not the directory: record-sound.mjs writes its take in here
+ * too, and an rm -rf of the whole folder quietly eats it. */
 await mkdir(OUT, { recursive: true })
+for (const f of await readdir(OUT)) {
+  if (f.endsWith('.webm')) await rm(`${OUT}/${f}`, { force: true })
+}
 
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({
@@ -54,45 +62,7 @@ if (await notice.count()) {
   await page.waitForLoadState('domcontentloaded', { timeout: 60000 })
 }
 
-// ---------- the opening ----------
-// Eleven seconds, and it runs its middle in Spanish to put both caption
-// tracks on tape. Nothing here skips it; it hands over on its own.
-await page.waitForSelector('.intro-video', { timeout: 30000 })
-await sleep(3800)
-await page.locator('button.lang').click()
-await sleep(3600)
-await page.locator('button.lang').click()
-await page.waitForSelector('.machines button', { timeout: 40000 })
-
-// ---------- the picker ----------
-// Long enough to read all three blurbs, because the choice they describe -
-// which machine to spend the night suspecting - is the whole game.
-await sleep(4200)
-await page.locator('.machines button').nth(2).click()
-await page.waitForSelector('.reels', { timeout: 30000 })
-
-// A beat on the table at rest: the lamp gutters, the room shifts, nothing
-// else happens. It is the shot that makes the reactions mean something.
-await sleep(2600)
-
-/*
- * Four pulls on the timetable from App.tsx: lever 0.3s, bands at 1.25 / 2.0 /
- * 2.85, a tease holds the third to 4.15, the room answers 0.26 later and
- * holds 2.1. So a tease is finished at 6.8s and an ordinary pull at 5.5s.
- * 8 seconds covers both and leaves the idle loop visible in between, which is
- * what stops the recording looking like a highlight reel.
- */
-for (let round = 1; round <= 4; round++) {
-  await page.locator('button.lever').click()
-  await sleep(8000)
-}
-
-// ---------- and the accusation ----------
-// Four pulls is nowhere near enough evidence and the room says so. That is
-// the honest ending to demonstrate: calling early is a bet you lose.
-await sleep(1200)
-await page.keyboard.press('c')
-await sleep(6000)
+await walkthrough(page)
 
 await context.close()
 await browser.close()
