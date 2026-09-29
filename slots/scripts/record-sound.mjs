@@ -4,6 +4,9 @@
  *
  *   npm run demo:sound
  *   GAME_URL=https://example.com/slots/ node scripts/record-sound.mjs
+ *   FFSTATS=1 npm run demo:sound     ffmpeg's own frame counter, live, which
+ *                                    is the only way to see the capture fall
+ *                                    behind while it is happening
  *
  * WHY THIS EXISTS AND WHY IT IS NOT JUST record-demo.mjs WITH A FLAG.
  *
@@ -25,6 +28,30 @@
  *
  * All three are started here and torn down at the end, so the script is the
  * whole procedure and there is no README step that gets skipped.
+ *
+ * ON THE SECOND INPUT STARVING THE FIRST, which went wrong here silently for
+ * as long as this script has existed, and which the sound checks below cannot
+ * see. The capture is real time: frames x11grab fails to deliver are filled
+ * in later by repeating the last one, so the file comes out the right length,
+ * the right size and the right frame rate whether or not the pictures in it
+ * are new. The delivered take was running at 16% fresh frames - five a second,
+ * with runs of twenty identical ones. It looked like a slideshow, and the
+ * first thing it wrecked was the hand on the lever, which then reads as a
+ * cut-out flipping between two poses rather than an arm being hauled down.
+ *
+ * The cause is not the encoder and not the machine. ffmpeg's two live inputs
+ * share a demuxer, and the pulse monitor blocks in its read; with the default
+ * eight-packet queue the x11grab side cannot buffer through that block, so it
+ * misses its slot and drops the frame. Measured on a BLACK PAGE with nothing
+ * happening: 29.6fps with the video input alone, 2.7fps the moment the pulse
+ * input is added, at speed=1.01x throughout - the process was never behind,
+ * it was waiting. -thread_queue_size on both inputs restores it. Raising it
+ * beyond 1024 changes nothing, which is the tell that this is a blocking
+ * problem and not a capacity one.
+ *
+ * checkMotion() at the end fails the run if that ever slips again, because
+ * nothing else in the project would notice: sound, duration, size and frame
+ * rate are all unaffected by it.
  *
  * ON SYNCHRONISATION, which is the thing that goes wrong. Both streams are
  * stamped off the wall clock by ffmpeg, so they stay together for the length
@@ -53,6 +80,8 @@ import { SEED, walkthrough } from './lib/walkthrough.mjs'
 const BASE = process.env.GAME_URL ?? 'http://127.0.0.1:5180/'
 const URL = `${BASE}${BASE.includes('?') ? '&' : '?'}seed=${SEED}`
 const OUT = process.env.OUT ?? 'demo-capture/walkthrough_sound.mp4'
+/** Where the take lands before it is encoded for delivery. Deleted at the end. */
+const SCRATCH = OUT.replace(/\.[^.]+$/, '') + '.capture.mkv'
 const DISPLAY = process.env.CAPTURE_DISPLAY ?? ':99'
 const SINK = 'slotsrec'
 /** The picture. What ends up in the file. */
@@ -60,8 +89,10 @@ const WIDTH = 1440
 const HEIGHT = 900
 /** Room above it for the browser's own furniture, which is cropped away. */
 const CHROME = 120
-/* A dark head and tail, so the take does not begin on a white browser and end
- * on a hard cut. */
+/* A beat at each end: black at the head while the page is still a blank
+ * document, and a held last frame at the tail rather than a hard cut. The
+ * head comes out around two seconds, because ffmpeg takes most of a second
+ * to open the pulse source before it grabs anything. */
 const PREROLL = 1200
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -167,15 +198,19 @@ const grab = { w: view.w, h: view.h, top: view.top }
 
 /* ---- rolling ----------------------------------------------------------- */
 
+/* Lossless and thrown away at the end - about 800MB a minute, on disk only
+ * for the length of this script. Matroska because a scratch file is the one
+ * most likely to be interrupted, and a truncated mkv still plays. */
 const ffmpeg = spawn('ffmpeg', [
-  '-y', '-hide_banner', '-loglevel', 'error',
+  '-y', '-hide_banner', '-loglevel', process.env.FFSTATS ? 'info' : 'error',
+  '-thread_queue_size', '1024',
   '-f', 'x11grab', '-draw_mouse', '1', '-video_size', `${grab.w}x${grab.h}`,
   '-framerate', '30', '-i', `${DISPLAY}.0+0,${grab.top}`,
+  '-thread_queue_size', '1024',
   '-f', 'pulse', '-i', `${SINK}.monitor`,
-  '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-g', '60',
-  '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
-  '-movflags', '+faststart',
-  OUT,
+  '-c:v', 'libx264', '-preset', 'ultrafast', '-qp', '0',
+  '-c:a', 'pcm_s16le', '-ac', '2',
+  SCRATCH,
 ], { stdio: ['pipe', 'inherit', 'inherit'], env: { ...process.env, ...env } })
 
 await sleep(PREROLL)
@@ -193,14 +228,47 @@ await sleep(PREROLL)
 
 /* ---- cut --------------------------------------------------------------- */
 
-// 'q' rather than a signal: ffmpeg then writes its trailer and the moov atom,
-// and a killed mp4 is an unplayable one.
+// 'q' rather than a signal: ffmpeg then writes its trailer, and a killed
+// container is an unplayable one.
 ffmpeg.stdin.write('q')
 await new Promise((done) => ffmpeg.on('close', done))
 
 await browser.close()
 if (moduleId) run('pactl', ['unload-module', moduleId], env)
 if (xvfb) process.kill(-xvfb.pid, 'SIGTERM')
+
+/* ---- and now encode it, with nothing waiting --------------------------- */
+
+/*
+ * Slowly, and at crf 18, because this table is mostly SUBTLE motion: a lamp
+ * guttering, smoke drifting, a reel easing to a stop. At the settings that
+ * fit on the real-time path those changes fall below the quantiser and the
+ * encoder emits the previous frame - measured on ten seconds of the idle
+ * table, from a capture that is 100% fresh:
+ *
+ *   veryfast crf21   3% fresh    0.6MB/10s   0.25x realtime
+ *   veryfast crf18  70%          1.2MB
+ *   slow     crf21  83%          1.0MB
+ *   slow     crf18 100%          2.3MB       0.83x realtime
+ *
+ * So the freeze the reviewer saw had two halves and they needed different
+ * repairs. The capture starving (above) was three frames a second of real
+ * loss. This is the other half: a delivery encode that throws away the room.
+ * 0.83x realtime is not a margin worth trusting next to a browser, hence the
+ * scratch file.
+ */
+const encode = run('ffmpeg', [
+  '-y', '-hide_banner', '-loglevel', 'error', '-i', SCRATCH,
+  '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-g', '60',
+  '-c:a', 'aac', '-b:a', '160k', '-ac', '2',
+  '-movflags', '+faststart',
+  OUT,
+])
+if (encode.status !== 0) {
+  console.error(encode.stderr)
+  process.exit(1)
+}
+await rm(SCRATCH, { force: true })
 
 /* ---- and read the soundtrack back off the file ------------------------- */
 
@@ -257,19 +325,61 @@ for (const l of level) {
  */
 const hush = events.length ? level.filter((l) => l.at > events[0].at && l.db < room - 15) : []
 
+/* ---- and that it is a film and not a slideshow ------------------------- */
+
+/*
+ * How many times a second the picture actually changes.
+ *
+ * Not a percentage of the frame rate, which is a number about the container:
+ * a file can be 30fps and show twenty pictures, or 30fps and show three, and
+ * the second one is a slideshow. Neither the sound checks above nor the
+ * duration nor the file size can tell them apart, because a capture that
+ * cannot keep up does not fail, it repeats the last frame.
+ *
+ * Measured small and in grey, because the question is whether the frame
+ * CHANGED, not by how much. The idle table alone settles this: the lamps
+ * gutter and the smoke drifts every rAF, so a still frame is never correct.
+ *
+ * A healthy take averages 26 a second: a flat 30 from the moment the table
+ * appears, and 15 to 18 over the opening, because the opening is an OpenArt
+ * clip being played back at its own frame rate and thirty distinct pictures
+ * a second is not available from it. Fifteen is the floor - roughly where
+ * motion stops reading as motion - and the take that prompted this check was
+ * running at three.
+ */
+const SHRUNK = `${OUT}.gray`
+const [gw, gh] = [180, 112]
+run('ffmpeg', ['-y', '-hide_banner', '-loglevel', 'error', '-i', OUT,
+  '-vf', `scale=${gw}:${gh},format=gray`, '-vsync', '0', '-f', 'rawvideo', SHRUNK])
+const gray = readFileSync(SHRUNK)
+unlinkSync(SHRUNK)
+const frames = Math.floor(gray.length / (gw * gh))
+let stale = 0
+for (let i = 1; i < frames; i++) {
+  const a = gray.subarray(i * gw * gh, (i + 1) * gw * gh)
+  const b = gray.subarray((i - 1) * gw * gh, i * gw * gh)
+  let d = 0
+  for (let p = 0; p < a.length; p++) d += Math.abs(a[p] - b[p])
+  if (d / a.length < 0.02) stale++
+}
+
 const probe = run('ffmpeg', ['-hide_banner', '-i', OUT, '-f', 'null', '-'])
 const duration = /Duration:\s*([\d:.]+)/.exec(probe.stderr)
+const seconds = level.length / 4
+const moving = (frames - 1 - stale) / seconds
 
 console.log(`recorded ${OUT}  ${grab.w}x${grab.h}  ${duration?.[1] ?? '?'}`)
 console.log(`  the room sits at ${room.toFixed(1)} dBFS`)
 for (const e of events) console.log(`  ${e.at.toFixed(1).padStart(5)}s  ${e.db.toFixed(1)} dBFS`)
 if (hush.length) console.log(`  ${hush[0].at.toFixed(1).padStart(5)}s  ${hush[0].db.toFixed(1)} dBFS  <- the room stops dead`)
+console.log(`  the picture changes ${moving.toFixed(1)} times a second, over ${frames} frames`)
 
 const wrong = []
 if (events.length < 4) wrong.push(`only ${events.length} loud moments; the walkthrough plays four pulls`)
 if (!hush.length) wrong.push('nothing goes quiet; calling the house is supposed to stop the room')
+if (moving < 15) wrong.push(`the picture only changes ${moving.toFixed(1)} times a second; this is a slideshow`)
 if (wrong.length) {
   console.error(`\nFAILED\n  ${wrong.join('\n  ')}`)
   process.exit(1)
 }
-console.log(`\nOK: ${events.length} reactions and a hush, on the file`)
+console.log(`\nOK: ${events.length} reactions and a hush, on a file that moves`)
