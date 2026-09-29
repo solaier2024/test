@@ -10,13 +10,14 @@ import {
   opening,
   payout,
   pull,
+  reactionTo,
   returnToPlayer,
   rng,
   settle,
   shortChanged,
   windowAt,
 } from './engine'
-import { FACES, STOPS, type Face, type Machine } from './types'
+import { FACES, STOPS, type Face, type Machine, type Outcome, type Reaction } from './types'
 
 const honest = machineById('honest')
 const drummer = machineById('drummer')
@@ -141,6 +142,149 @@ describe('the near-miss bias', () => {
     const a = run(honest, 20000, 5)
     const b = run(straight(honest), 20000, 5)
     expect(a).toEqual(b)
+  })
+})
+
+/*
+ * The crowd is the whole opponent on this table, so "the room reacted" is not
+ * a decoration that can be checked by eye - it is the readout. A room that
+ * cheers on a schedule rather than on an outcome is a fake room, and the
+ * failure is invisible from the outside because the noise is the same noise.
+ *
+ * This is one end of that wire; scripts/verify-audio.mjs is the other, and
+ * measures that the sound which arrives is the one the line names. Between
+ * them: the right reaction is chosen, and the chosen reaction is what you
+ * hear.
+ */
+describe('what the room does about it', () => {
+  /** How good the room's answer is. A gasp and a groan both pay nothing. */
+  const RANK: Record<Reaction, number> = { sigh: 0, gasp: 0, murmur: 1, cheer: 2, roar: 3, jeer: 0 }
+
+  const outcome = (coins: number, nearMiss = false): Outcome => ({
+    stops: [0, 0, 0],
+    windows: [
+      ['shoe', 'shoe', 'shoe'],
+      ['shoe', 'shoe', 'shoe'],
+      ['shoe', 'shoe', 'shoe'],
+    ],
+    line: ['shoe', 'shoe', 'shoe'],
+    coins,
+    tease: nearMiss,
+    nearMiss,
+    bellOnThird: false,
+  })
+
+  /* The boundaries, named, because they are the whole shape of the thing: the
+   * room only comes off the floor for the jackpot band, and a near miss is
+   * read as a loss with a story rather than as a win. */
+  it('answers the money at every boundary', () => {
+    expect(reactionTo(outcome(100))).toBe('roar')
+    expect(reactionTo(outcome(30))).toBe('roar')
+    expect(reactionTo(outcome(20))).toBe('roar')
+    expect(reactionTo(outcome(19))).toBe('cheer')
+    expect(reactionTo(outcome(10))).toBe('cheer')
+    expect(reactionTo(outcome(5))).toBe('cheer')
+    expect(reactionTo(outcome(4))).toBe('murmur')
+    expect(reactionTo(outcome(1))).toBe('murmur')
+    expect(reactionTo(outcome(0))).toBe('sigh')
+    expect(reactionTo(outcome(0, true))).toBe('gasp')
+  })
+
+  /*
+   * A near miss outranks a coin back but never a win, and that ordering is
+   * the reading of the machine rather than an accident of the if-chain. One
+   * bell pays a single coin; a pull that hands you one coin and stops one row
+   * short of a hundred is not a small win the room mutters through, it is the
+   * near miss with salt on it, and the room is watching the band.
+   */
+  it('lets a near miss outrank a coin back, but never a win', () => {
+    expect(reactionTo(outcome(1, true))).toBe('gasp')
+    expect(reactionTo(outcome(4, true))).toBe('gasp')
+    expect(reactionTo(outcome(5, true))).toBe('cheer')
+    expect(reactionTo(outcome(20, true))).toBe('roar')
+  })
+
+  /*
+   * The one that matters. Over a long night on every machine the room is
+   * never wrong about the money: it never celebrates a loss, never groans at
+   * a win, and - setting the near misses aside, which are allowed to read
+   * above their payout by the rule above - more coins never buy a smaller
+   * reaction than fewer did.
+   */
+  it('never contradicts the money, over thirty thousand pulls a machine', () => {
+    for (const m of MACHINES) {
+      const next = rng(23)
+      /** The worst and best reaction seen for each payout, near misses aside. */
+      const seen = new Map<number, { lo: number; hi: number }>()
+      for (let i = 0; i < 30000; i++) {
+        const out = pull(m, next)
+        const kind = reactionTo(out)
+        if (out.coins === 0) expect(kind === 'gasp' || kind === 'sigh').toBe(true)
+        else if (out.coins < 5) expect(kind === 'gasp' || kind === 'murmur').toBe(true)
+        else expect(kind === 'cheer' || kind === 'roar').toBe(true)
+        if (out.nearMiss) continue
+        const rank = RANK[kind]
+        const at = seen.get(out.coins) ?? { lo: rank, hi: rank }
+        seen.set(out.coins, { lo: Math.min(at.lo, rank), hi: Math.max(at.hi, rank) })
+      }
+      const byCoins = [...seen.entries()].sort((a, b) => a[0] - b[0])
+      for (let i = 1; i < byCoins.length; i++) {
+        expect(byCoins[i][1].lo).toBeGreaterThanOrEqual(byCoins[i - 1][1].hi)
+      }
+    }
+  })
+
+  /* A reaction nobody has ever heard is a reaction nobody has ever checked,
+   * which is exactly where the crowd's level went missing for as long as it
+   * did. All five that a pull can produce have to be reachable by playing. */
+  it('uses all five of the reactions a pull can cause', () => {
+    const next = rng(4)
+    const seen = new Set<Reaction>()
+    for (let i = 0; i < 20000; i++) seen.add(reactionTo(pull(bandido, next)))
+    expect([...seen].sort()).toEqual(['cheer', 'gasp', 'murmur', 'roar', 'sigh'])
+  })
+
+  /*
+   * And the gaff is audible without being profitable, which is the whole idea
+   * of the machine said in the room's voice.
+   *
+   * Stated exactly rather than by counting two runs. The walk only ever moves
+   * the third band between stops carrying the same centre symbol, so for any
+   * pull it takes, the payline and the payout are bit for bit what they would
+   * have been and the single thing it can flip is nearMiss. The question is
+   * therefore whether flipping nearMiss on its own can move a reaction across
+   * the line between a win and a loss, and the answer has to be no.
+   *
+   * Counting two runs cannot answer it: the biased machine draws from the rng
+   * one extra time on every tease, so after the first one the two runs are
+   * looking at different pulls and nothing is comparable but rates.
+   */
+  it('cannot change what the room does about a win', () => {
+    for (const coins of [0, 1, 2, 3, 4, 5, 10, 19, 20, 30, 100]) {
+      const quiet = reactionTo(outcome(coins, false))
+      const teased = reactionTo(outcome(coins, true))
+      if (coins >= 5) expect(teased).toBe(quiet)
+      else expect(teased).toBe('gasp')
+    }
+  })
+
+  /* The other half of it, which has to be counted: the crooked room really
+   * does gasp where the straight one would have groaned, often enough for a
+   * player on a stool to feel it and be wrong about why. */
+  it('makes the crooked room gasp where a straight one groans', () => {
+    const gaspShare = (m: Machine) => {
+      const next = rng(31)
+      let gasps = 0
+      let unpaid = 0
+      for (let i = 0; i < 40000; i++) {
+        const kind = reactionTo(pull(m, next))
+        if (kind === 'gasp') gasps++
+        if (kind === 'gasp' || kind === 'sigh' || kind === 'murmur') unpaid++
+      }
+      return gasps / unpaid
+    }
+    expect(gaspShare(bandido)).toBeGreaterThan(gaspShare(straight(bandido)) * 1.8)
+    expect(gaspShare(honest)).toBeLessThan(gaspShare(bandido) / 1.8)
   })
 })
 
