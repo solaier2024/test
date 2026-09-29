@@ -1,0 +1,132 @@
+name: Deploy the slots preview
+
+# Builds slots/ on this branch and publishes it to the gh-pages branch, which
+# GitHub Pages serves at https://<owner>.github.io/<repo>/slots/.
+#
+# This is a preview only: it never merges and never touches the default branch.
+#
+# THIS TABLE PUBLISHES INTO A SUBDIRECTORY, AND THAT IS DELIBERATE.
+#
+# Pages serves exactly one branch, and three tables in this series are being
+# built on three branches at once. The sibling workflows each `git init` a
+# fresh repository in their dist/ and force-push it over gh-pages, which means
+# whichever one ran last is the whole site and the other two are gone.
+#
+# So this one clones the existing gh-pages instead, replaces only slots/ and
+# slots-githack/, and commits on top. The sibling previews at the root survive
+# a run of this workflow.
+#
+# The reverse is not true: a sibling force-push still erases this directory,
+# because the erasing happens on their side and cannot be fixed from here.
+# Re-running this workflow puts it back. The permanent fix is for all three to
+# publish into subdirectories, which is a change to the other two branches.
+#
+# Enabling Pages itself is a one-time manual step, because creating or
+# repointing a Pages site needs repository administration scope and the
+# Actions token cannot hold it.
+# Settings -> Pages -> Source: "Deploy from a branch" -> gh-pages / (root).
+
+on:
+  push:
+    branches: ['cursor/western-saloon-slots-82da']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Not shared with the sibling previews' group: they replace the whole branch
+# and this one edits part of it, so two of them running at once is a race
+# whichever way it is grouped. Serialising only against itself at least keeps
+# this directory internally consistent.
+concurrency:
+  group: preview-pages-slots
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: slots/package-lock.json
+
+      - run: npm ci
+        working-directory: slots
+
+      - run: npm run lint
+        working-directory: slots
+
+      - run: npm test
+        working-directory: slots
+
+      # The delivery budget from VIDEO.md section 7. A video base is the kind
+      # of thing that erodes quietly, so it is checked before publishing and
+      # not after somebody notices the preview takes a while to open.
+      - run: npm run verify:budget
+        working-directory: slots
+
+      # A project site is served from /<repo>/, and this table from /slots/
+      # under it.
+      - name: Build for Pages
+        working-directory: slots
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/slots/
+        run: npm run build
+
+      # githack serves the branch with real content types, which is what makes
+      # the preview usable before Pages is switched on. It sits at a different
+      # depth, so it needs its own build.
+      - name: Build for the githack mirror
+        working-directory: slots
+        env:
+          VITE_BASE: /${{ github.repository }}/gh-pages/slots-githack/
+        run: npx vite build --outDir dist/githack --emptyOutDir
+
+      - name: Add the Pages shims
+        working-directory: slots
+        run: |
+          # No client-side router, but serving the app for unknown paths means
+          # a mistyped deep link still boots instead of 404ing.
+          cp dist/index.html dist/404.html
+          cp dist/githack/index.html dist/githack/404.html
+
+      - name: Publish into gh-pages/slots/
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          REMOTE="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --depth 1 --branch gh-pages "$REMOTE" pages 2>/dev/null || {
+            mkdir pages && cd pages && git init -q && git checkout -q -b gh-pages && cd ..
+          }
+          cd pages
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # Jekyll is on by default for branch sources and would swallow any
+          # path component beginning with an underscore. Harmless to re-touch.
+          touch .nojekyll
+
+          rm -rf slots slots-githack
+          cp -r ../slots/dist slots
+          mv slots/githack ../slots-githack-tmp
+          mv ../slots-githack-tmp slots-githack
+
+          git add -A
+          git diff --cached --quiet && { echo 'nothing changed'; exit 0; }
+          git commit -q -m "slots preview from ${GITHUB_SHA::7}"
+          git push "$REMOTE" HEAD:gh-pages
+
+      - name: Where it is
+        run: |
+          {
+            echo '### The slots preview'
+            echo
+            echo "githack (works now): https://raw.githack.com/${GITHUB_REPOSITORY}/gh-pages/slots-githack/index.html"
+            echo
+            echo "Pages (once enabled): https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/slots/"
+          } >> "$GITHUB_STEP_SUMMARY"
