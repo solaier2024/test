@@ -13,12 +13,22 @@
  * enough - the bands have to stay inside the glass at every width, and at
  * phone width the glass is about 60 pixels across.
  */
-import { mkdirSync } from 'node:fs'
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { chromium, devices } from 'playwright'
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:5180/'
 const OUT = process.argv[3] ?? '/tmp/slots-mobile'
 mkdirSync(OUT, { recursive: true })
+
+/* The same night shots.mjs photographs, so the portrait frame in docs/ is of
+ * the same pull as the desktop one and the two can be compared. */
+const url = `${BASE}${BASE.includes('?') ? '&' : '?'}seed=51`
+
+/** The one frame a reader needs: the room answering, at phone width. */
+const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs')
+const KEEP = { '05-reaction': 'mobile_portrait' }
 
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ ...devices['iPhone 14'], reducedMotion: 'no-preference' })
@@ -114,12 +124,14 @@ async function audit(step) {
 }
 
 const shot = async (name) => {
-  await page.screenshot({ path: `${OUT}/${name}.jpg`, quality: 88, type: 'jpeg' })
+  const file = `${OUT}/${name}.jpg`
+  await page.screenshot({ path: file, quality: 88, type: 'jpeg' })
+  if (KEEP[name]) copyFileSync(file, join(DOCS, `${KEEP[name]}.jpg`))
   await audit(name)
   console.log(name)
 }
 
-await page.goto(BASE, { waitUntil: 'networkidle', timeout: 60000 })
+await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 })
 
 const interstitial = page.getByRole('button', { name: 'Open the page' })
 if (await interstitial.count()) {
@@ -140,13 +152,24 @@ await page.waitForSelector('.reels', { timeout: 30000 })
 await page.waitForTimeout(1400)
 await shot('03-table')
 
-// The offsets are the ones from shots.mjs, for the same reasons.
+/*
+ * The offsets are the ones from shots.mjs, and for the same reason: picked
+ * from the constants in App.tsx rather than by eye. The middle one used to be
+ * at 4.0s, which on a tease is a hundred and fifty milliseconds BEFORE the
+ * third band rests - so the frame named 05-reaction was a photograph of the
+ * moment before any reaction, on every seed that dealt a tease.
+ *
+ *   1.8s  two bands rested, the third still running
+ *   5.1s  everything resolved, including a tease held to HANG, and the room
+ *         is in the middle of its 2.1s answer
+ *   8.0s  the answer has dropped and the idle loop is back
+ */
 await page.locator('button.lever').tap()
 await page.waitForTimeout(1800)
 await shot('04-spinning')
-await page.waitForTimeout(2200)
+await page.waitForTimeout(3300)
 await shot('05-reaction')
-await page.waitForTimeout(1400)
+await page.waitForTimeout(2900)
 await shot('06-settled')
 
 // The accusation panel is the one screen with a block of prose on it, which
