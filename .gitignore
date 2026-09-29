@@ -1,0 +1,5 @@
+node_modules/
+dist/
+shot-capture/
+shot-frames/
+demo-capture/
