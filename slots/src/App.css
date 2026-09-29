@@ -792,6 +792,173 @@
   .controls button {
     width: 100%;
   }
+
+  /* The title is centred in the viewport at full size and runs underneath the
+     language and sound buttons here, because at this width the three machine
+     cards make the page taller than the screen and centring a scrolling page
+     pushes its top off the top. */
+  .pick {
+    align-content: start;
+    padding-top: 4.8rem;
+  }
+}
+
+/* ---------------------------------------------------------------- portrait
+ *
+ * A 16:9 picture in a 9:19.5 hole, and the usual answer - letterbox it and
+ * float the interface on top - is the wrong one here for a reason specific to
+ * this table.
+ *
+ * Letterboxed at 390 CSS pixels the picture is 219 tall, which leaves the
+ * glass about 60 pixels wide to show three bands and nine symbols through.
+ * A bell at that size is not countable, and COUNTING IS THE GAME. Every other
+ * table in this series can shrink its picture and stay playable; this one
+ * stops being the thing it is.
+ *
+ * So portrait does two things differently. The picture is enlarged past the
+ * width of the screen and panned so the machine and the arm stay in shot,
+ * which roughly doubles the glass; what gets cropped is bar, shadow and more
+ * shadow. And the interface stops floating over the picture and takes the
+ * space underneath it instead, which is space a portrait screen has a great
+ * deal of and a landscape one does not.
+ *
+ * Everything below is positioned against --pic-top and --pic-h rather than
+ * against the viewport, so changing how big the picture is moves the whole
+ * stack and nothing has to be re-tuned by hand.
+ */
+@media (max-width: 860px) and (orientation: portrait) {
+  .table {
+    /* The picture starts under the language and sound buttons, and the HUD
+     * sits ON it. A phone viewport is 664 CSS pixels tall here, not the 844
+     * the hardware advertises, and giving the purse its own band costs fifty
+     * of them - which is a third of the room the count and the pay card have
+     * to share. The top of this picture is saloon ceiling in deep shadow and
+     * the HUD is already translucent, so it is the cheapest fifty pixels
+     * available. */
+    --pic-top: 4rem;
+    /* Sized by what it has to leave behind rather than by how it looks: the
+     * glass is 17.81% of the picture's width, and shots-mobile.mjs fails the
+     * layout below 90 CSS pixels of glass. 46dvh gives 96. */
+    --pic-h: 46dvh;
+    --pic-w: calc(var(--pic-h) * 16 / 9);
+    /* Which fraction of the plate sits at the centre of the screen. The
+     * casting spans about 0.24 to 0.56 and the arm reaches 0.8, so this is
+     * the point that keeps both and gives up the left end of the bar. */
+    --focus: 0.45;
+  }
+
+  .frame {
+    position: absolute;
+    top: var(--pic-top);
+    left: calc(50% - var(--focus) * var(--pic-w));
+    width: var(--pic-w);
+    height: var(--pic-h);
+    aspect-ratio: auto;
+  }
+
+  /* One bar across the top instead of a centred group that the language and
+     sound buttons land on top of at this width. */
+  .hud {
+    top: 4rem;
+    left: max(0.6rem, env(safe-area-inset-left));
+    right: max(0.6rem, env(safe-area-inset-right));
+    transform: none;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .chrome-row {
+    top: max(0.6rem, env(safe-area-inset-top));
+  }
+
+  /* Over the bottom of the picture, not under it. The bar top is dark and
+     empty and is where a caption belongs anyway; put below the picture it
+     runs into the pay card the moment the line wraps to two. */
+  .said {
+    top: calc(var(--pic-top) + var(--pic-h) - 3.6rem);
+    bottom: auto;
+  }
+
+  /*
+   * Both panels turn sideways and take the full width under the picture.
+   *
+   * Standing them in two narrow columns is the obvious arrangement and it
+   * does not fit: the pay card is six rows plus a note, which at half width
+   * is 260 CSS pixels tall against 233 of gap, so it climbed back up into the
+   * picture and lay across the crowd. Two columns of three rows is 130.
+   *
+   * The count goes directly under the picture and the card below it, in that
+   * order, because the count is the game and the card is reference a player
+   * reads once.
+   */
+  .tally,
+  .paycard {
+    left: max(0.6rem, env(safe-area-inset-left));
+    right: max(0.6rem, env(safe-area-inset-right));
+    max-width: none;
+    transform: none;
+  }
+
+  /* One line: label, notches, fraction. Stacked it is 62 pixels tall and the
+   * pay card needs 30 of them, and there is nothing in a row of notches that
+   * wants its own band. */
+  .tally {
+    top: calc(var(--pic-top) + var(--pic-h) + 0.6rem);
+    bottom: auto;
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .paycard {
+    top: auto;
+    /* Anchored to its bottom and left to grow upward. Anchoring the top is
+     * the obvious way round and it is how this overlapped the controls: the
+     * card's height depends on how its rows wrap, so a fixed top is a guess
+     * about where the bottom lands, and the guess was 40px short. */
+    bottom: 6.4rem;
+  }
+
+  .paycard ul {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1rem;
+  }
+
+  /* The note stays because it is a rule - one coin, centre line only - and a
+   * player who does not know it misreads every pull. The count's caption does
+   * not, because the label, the running fraction and the notches already say
+   * it, and it is the only caption here that costs more than it explains. */
+  .paycard-note {
+    display: revert;
+  }
+
+  /*
+   * Back to a row: two buttons fit across 360px, and standing them on top of
+   * each other costs 56 vertical pixels the pay card needs. They are held to
+   * one line each, because CALL THE HOUSE wrapping to three lines is what
+   * pushed the controls up into the card in the first place.
+   */
+  .controls {
+    flex-direction: row;
+    width: auto;
+    bottom: 2.6rem;
+  }
+
+  .controls button {
+    width: auto;
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .disclaimer.floating {
+    bottom: max(0.4rem, env(safe-area-inset-bottom));
+    font-size: 0.55rem;
+    max-width: 92%;
+  }
 }
 
 /* Anything that moves for its own sake stops. The reels still turn, because
