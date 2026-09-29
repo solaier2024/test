@@ -118,6 +118,20 @@ const CROWD_CLIP: Record<Reaction, { back?: string; in?: string }> = {
 /** How long the plates take to cross-fade, from App.css. */
 const FADE = 0.95
 
+/*
+ * ?seed=N fixes the night. A real player never passes it and gets the clock,
+ * but without it a capture script cannot photograph a win: it would have to
+ * pull until one turned up, and "pull until it happens" is how a harness ends
+ * up reporting that something never happens. The scripts name a seed and get
+ * the same four pulls every run, which is what makes a saved frame evidence
+ * rather than an anecdote.
+ */
+const seeded = () => {
+  const asked = new URLSearchParams(window.location.search).get('seed')
+  const n = asked === null ? NaN : Number(asked)
+  return Number.isFinite(n) ? n >>> 0 : (Date.now() ^ 0x9e3779b9) >>> 0
+}
+
 export default function App() {
   const [lang, setLang] = useState<Lang>('en')
   const t = STRINGS[lang]
@@ -150,7 +164,7 @@ export default function App() {
   const roomRef = useRef(room)
   roomRef.current = room
   const queue = useRef<Beat[]>([])
-  const random = useRef(rng((Date.now() ^ 0x9e3779b9) >>> 0))
+  const random = useRef(rng(seeded()))
   const token = useRef(0)
   const busyRef = useRef(false)
 
@@ -197,6 +211,9 @@ export default function App() {
       startMusic()
       setMachine(m)
       setSession(opening(m))
+      /* Re-seeded per sitting, so a named seed describes a whole night and not
+       * just whichever one happened to start first. */
+      random.current = rng(seeded())
       setRest([0, 0, 0])
       setPlans([null, null, null])
       setWanted(null)

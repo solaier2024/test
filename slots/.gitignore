@@ -28,3 +28,6 @@ dist-ssr
 # byte for byte, so it is a source asset and clipsrc/generated.json is its
 # provenance.
 clipsrc/aligned
+
+# Every frame shots.mjs takes. The few worth keeping are copied into docs/.
+.shots
