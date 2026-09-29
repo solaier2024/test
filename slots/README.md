@@ -65,10 +65,13 @@ OK: reachable, film rolls, bands sit in the glass, every asset loads
 | 开场 CG | 11.1 秒四镜头片头，双语字幕，可跳过 |
 | 动态片段 | 9 段，桌面 / 手机两档码率 × VP9 / H.264 两种编码，外加首帧 poster |
 | 生成素材 | 12 段 Kling 3 Omni image2video 源片，**入库**，附完整下单收据 |
-| 音频 | 全部 WebAudio 运行时合成，**仓库里一个音频文件都没有** |
+| 音频 | 全部 WebAudio 运行时合成，**仓库里一个音频文件都没有**；电平在浏览器出口实测 |
+| 拉杆 | **画面里那根拉杆就是你拉的那根**：拖动、有棘轮、过了离合才转 |
+| 下注 | 每拉 1–3 枚。钱按枚数放大，**证据不放大** |
 | 移动端 | 竖屏专用布局，44px 触控区，安全区避让，玻璃有像素下限并被检查 |
-| 引擎测试 | 22 项，含 8000 停位穷举与最多 6 万次拉杆的对照模拟 |
-| 交付预算 | 首屏 751 KB / 上限 2 MB；整桌 13.7 MB / 上限 40 MB。**超了构建失败** |
+| 引擎测试 | 38 项，含 8000 停位穷举与最多 6 万次拉杆的对照模拟 |
+| 验收脚本 | 8 个：类型、玻璃、窗口锁、首尾帧、预算、**实际游玩**、**实际声音**、部署 |
+| 交付预算 | 首屏 750 KB / 上限 2 MB；整桌 13.6 MB / 上限 40 MB。**超了构建失败** |
 
 ---
 
@@ -126,6 +129,38 @@ OK: reachable, film rolls, bands sit in the glass, every asset loads
 热度满了就被扔出去。热度会随时间冷却，所以三次错判不会直接结束一晚。
 
 ![叫破](docs/call_verdict.jpg)
+
+### 下注：钱会放大，证据不会
+
+每拉 1–3 枚，是这一桌唯一一个由玩家设定的数字。它是一个**决策**而不是一个
+方差旋钮，因为钱和数数不往同一个方向走：
+
+- **钱按枚数线性放大，庄家优势一分不动。** 赔付表是"每枚"的，所以三枚进去就是
+  表上一切乘三，返还率在任何注码下都是卷带决定的那个数。**"加注把本捞回来"
+  在这一桌不成立，而且是故意不成立的**——面板上那行字因此从"一拉一枚"
+  改成了 `PER COIN IN`。
+- **数数完全不放大。** 一拉就是**看第三个窗口一眼**，不管它花了多少钱。
+  所以每拉的证据是平的，而每枚的证据被除以三。
+- **于是钱包就是时钟。** `npm run odds` 跑 200 个整晚量出来的：
+
+| | 1 枚 | 2 枚 | 3 枚 |
+| --- | --- | --- | --- |
+| HONEST：一晚多长 / 攒够证据 / 被扔出去 | 203 拉 / 0% / 38.0% | 107 拉 / 0% / 22.0% | 73 拉 / 0% / 13.0% |
+| DRUMMER | 185 拉 / **83.5%** / 23.0% | 88 拉 / 52.0% / 13.0% | 60 拉 / **32.0%** / 7.0% |
+| BANDIDO | 168 拉 / 100% / 9.5% | 80 拉 / 100% / 7.0% | 53 拉 / 100% / 2.5% |
+
+让它成为一个值得做的选择而不是纯粹的劣招的，是**结算按这一晚实际的平均注码支付**
+（`SETTLEMENT × staked / pulls`）。所以加注买的是更大的奖金和更小的拿到手的概率，
+而小多少**取决于机器**——BANDIDO 二十拉就露馅，那台上加注近乎白捡；
+DRUMMER 要熬大半晚才说得清哪里不对，那台上这就是全部的游戏。
+
+平均而非"叫破时显示的注码"，否则它只会退化成最后一拉之前猛拉一把的拉杆。
+`verify-play.mjs` 专门测这一条：一整晚按 2 枚打完、临叫破前跳到 3 枚，
+房间照付 90 而不是 135。
+
+> **热度不参与这件事，而且直觉是反的。** "大注引人注目"在数字里是错的：
+> 注码越高一晚越短，赢的次数和叫破的次数都更少，**被扔出去反而更不容易**
+> ——干净机器上从 38% 掉到 13%。两个测试把这个方向钉死了，免得以后被"修好"。
 
 ---
 
@@ -204,6 +239,26 @@ VP9 的玩家，读到的必须是同一局游戏。
 9 个停位，用 `easeOutBack` 过冲再回弹。它只读**引擎时钟**（`performance.now()`），
 所以片子卡住、解不了码、没下下来，转轮照转，第三轮照样在该停的那一毫秒停。
 **片段是画面，永远不是规则。**
+
+### 拉杆也是同一条分界
+
+需求里要的是"一只手可以操作拉杆"，而屏幕底下一个 PULL 按钮**是让机器转起来的
+办法，不是那件事**——它把玩家放到画面外面操作一个遥控器。所以画面里那颗球是
+一个活的目标：按住往下拖，你拖的就是照片里那条手臂。
+
+分界和别处一样：**片子承载定性的东西（手臂压下去只有那段素材有诚实的画面），
+DOM 承载定量的东西（你的手拖到哪儿了，这是任何片段都不可能知道的实时量）。**
+所以 DOM 只画一个跟着指尖走的圆环，每 9 度一个棘轮齿；手臂交给 `pull.webm`。
+拿两张 plate 去插值那条手臂是另一个选项，结果读起来像二次曝光而不是运动——
+两张里的手臂位置差太远，交叉淡入只会让你同时看见两条。
+
+几何写在 `src/machine.ts`：一个支点加上两张 plate 上量出来的静止/到底角度与半径。
+`gripAtTop()` 用二分法反解，因为**行程和竖直拖动距离不成正比**——不反解的话
+圆环会跑到手指旁边去。过了 38% 的行程就离合，和真家伙一样：过了这个点手臂
+不再是你的，松手也没用。
+
+底下那个按钮留着。拖动需要指针和一块够大的画面，键盘、读屏软件和竖屏手机
+三样都没有，**所以拉杆是好的那种玩法，永远不是唯一那种**。轻点那颗球也算。
 
 ### 玻璃这条缝
 
@@ -382,6 +437,46 @@ OK: within the delivery budget
 所以反应不是从寂静里冒出来的。叫破的时候整个房间静音（`hush`），
 这是这一桌唯一一次安静。
 
+### 它曾经比它所在的那个房间还小声
+
+这是这个项目里最大的一个缺陷，而且**在源码里完全看不出来**。每一段提示音都
+在正确的时刻、由正确的结果、配着正确的字幕被请求，音频图从振荡器到 destination
+一路接对。它仍然不满足需求，因为人群比房间底噪低 12dB：
+
+| | 之前 | 现在 | 1.2kHz 以上占比 |
+| --- | --- | --- | --- |
+| `roar` | -37.4 | **-25.0** | 0.72 |
+| `gasp` | -37.0 | **-29.0** | 0.79 ← 亮 |
+| `sigh` | -37.7 | **-28.1** | 0.43 ← 暗 |
+| 落币 | -30.1 | -31.1 | 1.40 |
+| 铃铛 | -28.4 | -28.6 | 0.98 |
+| 房间底噪 | -36 | -36.5 | |
+
+左边那一列就是整个问题：**三段量得到的反应全都比它们正在反应的那个房间还轻，
+而机器自己的两个声音比它们全都响。** 之前每一次"听到人群反应了"，
+听到的其实是落币和铃铛。
+
+修法是 `THROAT = 13`、让房间声在反应期间自己让开（`bedDuck`），再重新配一遍平衡。
+检查是 `npm run verify:audio`：它在 destination 上装一个 analyser
+（改写 `AudioNode.prototype.connect`，不给产品加测试钩子），跑 25 次实测——
+六种反应各自单独响一遍、和房间比、和落币铃铛比；然后**真玩三拉**，
+要求听到的那个声音就是字幕说的那一个；最后是 hush、静音、取消静音。
+
+```
+ok    the room's roar is audible over it              -25.0 dBFS over a -36.5 room
+ok    a loss is answered within 6dB of a win          groan -28.1 against a roar of -25.0
+ok    and the room is louder than the money           roar -25.0, coins -31.1, bell -28.6
+ok    a gasp is a brighter sound than a groan         0.79 against 0.43 above 1.2kHz
+ok    pull 1: and it is the gasp it says it is        0.57 against 0.79 measured alone
+ok    calling the house stops the room dead           -77.2 dBFS, room was -36.5
+```
+
+用**峰值保持 + 1.2kHz 上下的能量比**当元音判据，而不是用整体谱心——
+那架立式钢琴一走动就能把谱心搬一个八度。
+
+> 绑定是两头都钉的：`src/game/engine.test.ts` 穷举 `reactionTo()` 选得对不对，
+> `verify-audio.mjs` 量**传到扬声器的那个声音**是不是字幕点名的那一个。
+
 ### 别的
 
 - **钢琴**在屋子另一头，自己一条总线过低通。弹的是 G 调 I–VI7–II7–V7，
@@ -432,13 +527,84 @@ OK: within the delivery budget
 ## 怎么验
 
 ```bash
-npm run verify          # lint + test + window + identity + budget，推之前跑这个
+npm run verify          # lint + 类型 + test + window + lock + identity + budget
+                        # 离线能查的全部，推之前跑这个
+
+# 下面三个需要有东西在服务这个游戏，所以不在上面那条链里
+npm run dev &                    # 先开一个
+npm run verify:play              # 用指针真玩一遍：拉杆、下注、结算
+npm run verify:audio             # 在浏览器出口量声音
 npm run verify:deploy -- <url>   # 把部署好的站当新访客走一遍
+
 npm run shots           # 桌面：按时间表拍一整局
 npm run shots:mobile    # 竖屏：走一整局并逐屏体检
-npm run demo            # 录一段实时走查
-npm run odds            # 重算上面那张赔率表
+npm run demo            # 录一段实时走查（无声，见下）
+npm run demo:sound      # 同一段走查，带声音
+npm run odds            # 重算上面那两张表
 ```
+
+`tsc` 在 `verify` 链里，因为 **oxlint 不做类型检查、vitest 也不做**——
+少了这一步，一个类型错误最早只会在 CI 的构建阶段被发现。
+
+### verify:play：上面每一条都可以在一张没人能玩的桌子上通过
+
+单元测试管卷带，verify-lock 管素材，verify-audio 管混音，shots-mobile 管布局。
+**没有一个把手放在机器上，也没有一个跟着一枚硬币从钱包走到赔付再作为结算走出来。**
+需求要的是"可真正玩"，而"这东西能玩"是一个关于整条链的断言。
+
+20 项，全部用真实指针：
+
+```
+ok    the lever is drawn on the arm in the picture           65% across, 15% down the plate
+ok    and is big enough to take hold of                      102x102 CSS px
+ok    and nothing is lying on top of it                      a finger there hits .lever-knob
+ok    a nudge short of the clutch does not spin it           0 pulls, purse still 60
+ok    and the grip follows the hand down the arm             65px down and 122px out, on an arc
+ok    hauling it past the clutch plays a pull                0 to 1 pulls
+ok    the same night at three coins pays three times as much 20 coins out on 4 in, 60 on 12
+ok    but buys exactly the same amount of evidence           4 looks at the third band, at either price
+ok    a crooked machine can be counted out                   the call lit after 20 pulls
+ok    and calling it pays the settlement                     45 coins on an average stake of 1.00
+ok    and raising the stake at the last second buys nothing  showing 3 coins, paid 90 and not 135
+```
+
+第三条是有来历的：拉杆一度位置对、尺寸对、画得也对，而 HUD 铺在整张桌子上面
+盖住了它，**每一次按下去打在一个 div 上**。这在源码里同样看不出来。
+
+"同一晚打两遍"利用的是固定种子：卷带不知道下了多少注，所以两次落在同一批线上，
+两者之间唯一的差别就是钱。这把"每枚支付"变成一次比较，而且**两个方向的错法
+都抓得住**——收三倍不付三倍，和付三倍不收钱。
+
+### 走查录像：无声的那份不算证据
+
+需求第三条是"输赢均有观众叹息或者喝彩"，而唯一一份演示素材是一部默片。
+那不是录制脚本的疏忽，**那就是页面录制这件事本身**：这里的声音是浏览器运行时
+合成的（十四条共振峰人声、房间声、一架立式钢琴），Playwright 录的是合成器输出，
+它产出的东西按构造就是无声的。
+
+所以有第二个录制器录**屏幕**，并且把录屏所需的那一套自己立起来：
+Xvfb 给有头浏览器画、pulseaudio 一个 null sink 给它播（monitor 回读起来像麦克风）、
+ffmpeg 把 x11grab 和那个 monitor 合成一个文件。三样都由脚本启动和拆掉。
+两个录制器共用 `lib/walkthrough.mjs`，所以编排只有一份，不会漂成两份。
+
+录完它**把自己的声轨从成品文件里读回来**，这才是关键的那一步。不是"有没有声音"
+（录着房间底噪也能过），而是四个响的时刻加一个静的时刻：
+
+```
+recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:04.03
+  the room sits at -43.5 dBFS
+   23.3s  -33.9 dBFS      差一格，房间的气被抽走
+   32.0s  -27.3 dBFS      中了，全片最响的一下
+   41.3s  -28.6 dBFS
+   51.0s  -32.0 dBFS
+   57.0s  -31.1 dBFS      对一次太早的叫破的判决
+   56.0s  -63.7 dBFS  <-  叫破的一瞬间房间死寂
+
+OK: 5 reactions and a hush, on the file
+```
+
+找静音只在**房间第一次出声之后**找。第一版在开头那段黑场上通过了——
+正是这个文件存在的意义所在。
 
 ### 截图脚本是按时间表拍的，不是凭感觉
 
@@ -503,11 +669,14 @@ src/game/        引擎：卷带、偏置、赔付、证据、叫破。没有时
 src/components/  Reels（DOM 卷带）、Scene（plate + 片子）、Clip、Intro、Tally
 src/audio/       全部合成：crowd / music / sfx / engine（混响与总线）
 src/fx/          Canvas 颗粒、烟、油灯
-src/machine.ts   玻璃的位置，以 plate 比例表示。两个工种唯一必须一致的数字
+src/machine.ts   玻璃的位置和拉杆的弧线，都以 plate 比例表示。
+                 两个工种唯一必须一致的数字
 clipsrc/         源 plate + generated/（生成的源片）+ generated.json（收据）
 scripts/         build-clips / align-plates / measure-drift / odds
-                 verify-window / verify-identity / verify-budget / verify-deploy
-                 shots / shots-mobile / record-demo
+                 verify-window / verify-lock / verify-identity / verify-budget
+                 verify-play（真玩一遍）/ verify-audio（真听一遍）/ verify-deploy
+                 shots / shots-mobile / record-demo / record-sound
+                 lib/walkthrough.mjs —— 两个录制器共用的那一份编排
 docs/            这个 README 里的截图，由 shots 脚本生成
 ```
 
