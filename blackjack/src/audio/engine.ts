@@ -186,10 +186,21 @@ export async function unlock(): Promise<void> {
 }
 
 if (typeof window !== 'undefined') {
-  const once = () => {
-    void unlock()
+  const EVENTS = ['pointerdown', 'keydown', 'touchstart'] as const
+  /*
+   * Detached only once audio is actually running, not merely once something has
+   * been touched. These used to be registered with { once: true }, which removes a
+   * listener when it fires whether or not it achieved anything - so a resume()
+   * that was refused or threw spent the only attempt, and the sound button became
+   * the sole remaining way in. Now every gesture gets a try until one works.
+   */
+  const attempt = () => {
+    void unlock().then(() => {
+      if (!isUnlocked()) return
+      for (const ev of EVENTS) window.removeEventListener(ev, attempt)
+    })
   }
-  for (const ev of ['pointerdown', 'keydown', 'touchstart'] as const) {
-    window.addEventListener(ev, once, { once: true, passive: true })
+  for (const ev of EVENTS) {
+    window.addEventListener(ev, attempt, { passive: true })
   }
 }
