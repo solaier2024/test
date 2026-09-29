@@ -79,10 +79,21 @@ jobs:
         working-directory: blackjack
         run: |
           npx playwright install --with-deps chromium
-          # githack caches for a few minutes, so give it a moment to catch up.
-          sleep 45
-          node scripts/verify-deploy.mjs \
-            "https://raw.githack.com/${GITHUB_REPOSITORY}/gh-pages-blackjack/index.html"
+          URL="https://raw.githack.com/${GITHUB_REPOSITORY}/gh-pages-blackjack/index.html"
+          # githack caches for a few minutes, and a fixed sleep is not long enough:
+          # checking too early runs the previous build's bundle against this build's
+          # files, which fails on whatever the new build stopped shipping. Wait for
+          # the bundle this job actually produced to be the one being served.
+          BUNDLE=$(basename "$(ls dist/assets/index-*.js)")
+          for _ in $(seq 1 40); do
+            if curl -fsS "$URL" | grep -q "$BUNDLE"; then break; fi
+            sleep 15
+          done
+          curl -fsS "$URL" | grep -q "$BUNDLE" || {
+            echo "githack is still serving an older bundle than $BUNDLE"
+            exit 1
+          }
+          node scripts/verify-deploy.mjs "$URL"
 
       - name: Where it is
         run: |
