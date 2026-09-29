@@ -69,6 +69,23 @@ jobs:
       - run: npm run verify:budget
         working-directory: slots
 
+      # The crowd is the whole opponent on this table, and the brief was that
+      # it answers a loss as loudly as a win. That is a claim about a mix, and
+      # a mix is the one thing no unit test can see: the reactions shipped 12dB
+      # under the room tone for weeks with every line of source involved
+      # correct. This measures the real output of a real browser instead.
+      - name: Measure the room
+        working-directory: slots
+        run: |
+          set -eu
+          npx playwright install --with-deps chromium
+          npm run dev -- --port 5180 --strictPort >/tmp/vite.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:5180/ && break
+            sleep 1
+          done
+          npm run verify:audio
+
       # A project site is served from /<repo>/, and this table from /slots/
       # under it.
       - name: Build for Pages

@@ -16,12 +16,15 @@
     "shots:mobile": "node scripts/shots-mobile.mjs",
     "demo": "node scripts/record-demo.mjs",
 
-    "//verify": "Everything a change has to survive. Run it before pushing.",
+    "//verify": "Everything a change has to survive that can be checked off the filesystem. Run it before pushing.",
     "verify": "npm run lint && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:budget",
     "verify:window": "node scripts/verify-window.mjs",
     "verify:lock": "node scripts/verify-lock.mjs",
     "verify:identity": "node scripts/verify-identity.mjs",
     "verify:budget": "node scripts/verify-budget.mjs",
+
+    "//verify:live": "These two need something serving the game, so they are not in the chain above. verify:audio wants a dev server (npm run dev); verify:deploy wants the published URL.",
+    "verify:audio": "node scripts/verify-audio.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",
 
     "//odds": "The engine is TypeScript and the scripts import it directly rather than keeping a second copy of the bands. Node 22.14 needs to be told to strip the types; 22.18 and up does it unasked.",

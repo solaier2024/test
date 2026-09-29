@@ -148,25 +148,59 @@ const SHAPE: Record<Reaction, {
   tremor: number
   spread: number
   clap: [number, number]
+  /** How far the piano comes down under it, 0 to 1. */
   duck: number
+  /** How far the room's own muttering comes down under it, 0 to 1. */
+  bed: number
 }> = {
-  /* Everything at once, up, and held. Hats in the air. */
-  roar: { voices: 14, f0: [190, 320], glide: 1.22, vowel: 'a', attack: 0.05, seconds: 2.5, gain: 0.05, breath: 0.2, tremor: 0, spread: 0.09, clap: [26, 2.1], duck: 0.3 },
+  /* Everything at once, up, and held. Hats in the air, and the loudest thing
+   * on the table - louder than the bell, which is the point of it. */
+  roar: { voices: 14, f0: [190, 320], glide: 1.22, vowel: 'a', attack: 0.05, seconds: 2.5, gain: 0.05, breath: 0.2, tremor: 0, spread: 0.09, clap: [26, 2.1], duck: 0.3, bed: 0.7 },
   /* A win, but not the one they came to see. */
-  cheer: { voices: 9, f0: [175, 285], glide: 1.14, vowel: 'a', attack: 0.07, seconds: 1.5, gain: 0.04, breath: 0.22, tremor: 0, spread: 0.13, clap: [11, 1.2], duck: 0.2 },
-  /* The sound of a room taking one breath in together, on the third reel. */
-  gasp: { voices: 11, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.62, gain: 0.03, breath: 0.85, tremor: 0, spread: 0.05, clap: [0, 0], duck: 0.42 },
-  /* Down, slow, and it takes a while to stop. */
-  sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.032, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12 },
-  /* Somebody says something to somebody else. Barely a reaction at all. */
-  murmur: { voices: 5, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.1, gain: 0.018, breath: 0.45, tremor: 0, spread: 0.3, clap: [0, 0], duck: 0.06 },
+  cheer: { voices: 9, f0: [175, 285], glide: 1.14, vowel: 'a', attack: 0.07, seconds: 1.5, gain: 0.04, breath: 0.22, tremor: 0, spread: 0.13, clap: [11, 1.2], duck: 0.2, bed: 0.7 },
+  /* The sound of a room taking one breath in together, on the third reel.
+   * Breath is nearly all of it, and noise through a formant is far louder than
+   * a sawtooth through the same one, so this gets the smallest gain and the
+   * deepest bed duck: a gasp is not a loud sound, it is twenty conversations
+   * stopping at once, and it only reads as one if they actually stop. */
+  gasp: { voices: 11, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.62, gain: 0.029, breath: 0.85, tremor: 0, spread: 0.05, clap: [0, 0], duck: 0.42, bed: 0.92 },
+  /* Down, slow, and it takes a while to stop. Sits in the same octaves as the
+   * bed, so it needs the room out of the way more than it needs volume. */
+  sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.036, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12, bed: 0.85 },
+  /* Somebody says something to somebody else. Barely a reaction at all, and
+   * the one row here that is meant to stay close to the room. */
+  murmur: { voices: 5, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.1, gain: 0.024, breath: 0.45, tremor: 0, spread: 0.3, clap: [0, 0], duck: 0.06, bed: 0.25 },
   /* Laughter is the cruellest one in here, so it gets the tremor. */
-  jeer: { voices: 8, f0: [155, 250], glide: 0.88, vowel: 'a', attack: 0.05, seconds: 1.45, gain: 0.036, breath: 0.25, tremor: 7.2, spread: 0.16, clap: [4, 1.1], duck: 0.26 },
+  jeer: { voices: 8, f0: [155, 250], glide: 0.88, vowel: 'a', attack: 0.05, seconds: 1.45, gain: 0.034, breath: 0.25, tremor: 7.2, spread: 0.16, clap: [4, 1.1], duck: 0.26, bed: 0.75 },
 }
+
+/**
+ * What a row of the table above is worth as an amplitude.
+ *
+ * It is a big number and it has to be. A voice here is a sawtooth through
+ * three narrow formant bandpasses, and those throw nearly all of it away: only
+ * the two or three harmonics that happen to fall inside a 100Hz window survive,
+ * and then the pitch glide sweeps them back out of it. The arithmetic is not
+ * obvious from the source, which is why this was wrong for so long - measured
+ * at the destination, the entire crowd at the old value of 2.4 peaked at
+ * -37dBFS against a room tone of -36dBFS. Fourteen men shouting were quieter
+ * than the room, and 7dB under the coin fall. Every "the crowd reacted" in the
+ * transcript up to that point was really the coins and the bell.
+ *
+ * The value below comes from sweeping it against those two, which are the
+ * things a reaction has to be heard over, and verify-audio.mjs is what stops
+ * it drifting back.
+ */
+const THROAT = 13
 
 /**
  * @param density 0 to 1. How many of them are standing there, which the table
  *        raises as the night gets louder and the room closes in.
+ *
+ * Note that density moves how MANY throats there are and not how loud the room
+ * is: the per-voice gain is divided by the square root of the count, so n
+ * incoherent voices come out at roughly the same level however many there are.
+ * A fuller room is a thicker sound, not a louder one.
  */
 export function react(kind: Reaction, density = 0.6): void {
   const c = ac()
@@ -181,7 +215,7 @@ export function react(kind: Reaction, density = 0.6): void {
       vowel: s.vowel,
       attack: s.attack * (0.8 + Math.random() * 0.5),
       seconds: s.seconds * (0.82 + Math.random() * 0.36),
-      gain: (s.gain / Math.sqrt(n)) * (0.6 + Math.random() * 0.9) * 2.4,
+      gain: (s.gain / Math.sqrt(n)) * (0.6 + Math.random() * 0.9) * THROAT,
       breath: s.breath,
       tremor: s.tremor ? s.tremor * (0.9 + Math.random() * 0.25) : 0,
       send: 0.45,
@@ -189,11 +223,15 @@ export function react(kind: Reaction, density = 0.6): void {
   }
   if (s.clap[0]) claps(c.currentTime + 0.12, Math.round(s.clap[0] * (0.5 + density)), s.clap[1], 0.05)
   duck(s.duck, kind === 'roar' ? 0.5 : 0.2, 0.9)
+  /* And the muttering stops, which is most of how a groan gets heard at all -
+   * see bedDuck(). The hold is the useful part of the sound; the rest of it is
+   * the tail, and the room can start talking again over that. */
+  bedDuck(s.bed, s.seconds * 0.55, 0.9)
 }
 
 /* ------------------------------------------------------------------- the bed */
 
-let bed: { gain: GainNode; stop: () => void } | null = null
+let bed: { gain: GainNode; duck: GainNode; stop: () => void } | null = null
 
 /**
  * The room when nothing is happening: a dozen conversations two tables away,
@@ -212,6 +250,13 @@ export function startRoom(): void {
   out.connect(room).connect(reverbIn())
   out.gain.linearRampToValueAtTime(0.1, c.currentTime + 2.5)
 
+  /* Density, hush and duck all want to move the bed's level and they arrive
+   * within milliseconds of each other, so they get a node each rather than
+   * three sets of automation fighting over one gain. */
+  const ducked = c.createGain()
+  ducked.gain.value = 1
+  ducked.connect(out)
+
   const src = c.createBufferSource()
   src.buffer = noiseBuffer(c, 4)
   src.loop = true
@@ -227,7 +272,7 @@ export function startRoom(): void {
   const depth = c.createGain()
   depth.gain.value = 0.3
   lfo.connect(depth).connect(wobble.gain)
-  src.connect(band).connect(wobble).connect(out)
+  src.connect(band).connect(wobble).connect(ducked)
   src.start()
   lfo.start()
 
@@ -235,6 +280,14 @@ export function startRoom(): void {
   let alive = true
   const blip = () => {
     if (!alive) return
+    /* Not over a reaction. A blip is one man talking at conversational level,
+     * and it is the loudest thing the bed does - letting one land in the
+     * middle of a groan puts a stray syllable on top of the sound the whole
+     * room is supposed to be making together. */
+    if (ac().currentTime < quietUntil) {
+      window.setTimeout(blip, 600)
+      return
+    }
     voice({
       at: ac().currentTime,
       f0: 110 + Math.random() * 90,
@@ -253,6 +306,7 @@ export function startRoom(): void {
 
   bed = {
     gain: out,
+    duck: ducked,
     stop: () => {
       alive = false
       src.stop()
@@ -266,6 +320,38 @@ export function setRoomDensity(density: number): void {
   if (!bed) return
   const c = ac()
   bed.gain.gain.linearRampToValueAtTime(0.07 + density * 0.16, c.currentTime + 0.8)
+}
+
+/** Until when the bed is under a reaction, on the audio clock. */
+let quietUntil = 0
+
+/**
+ * The muttering stops while the room reacts.
+ *
+ * This is not polish, it is the difference between the brief being met and
+ * not. The bed is conversation at 520Hz and a groan is an "aww" gliding down
+ * through 130Hz with its formants at 570 and 840 - they are the same sound in
+ * the same octaves, so the bed masks it almost exactly. Measured at the
+ * destination before this existed, a win added 2.4x as much energy above
+ * 1.2kHz as below it and was 8dB clear of the room, while a groan added 0.001
+ * in three bands and a gasp was not distinguishable from the room at all. The
+ * table cheered a win and said nothing you could hear about a loss, which is
+ * half the brief missing and none of it visible in the source.
+ *
+ * A real room does this anyway: twenty conversations stop when something
+ * happens at the table, and start again while the groan is still fading.
+ */
+function bedDuck(amount: number, hold: number, release: number): void {
+  if (!bed || amount <= 0) return
+  const c = ac()
+  const g = bed.duck.gain
+  const now = c.currentTime
+  g.cancelScheduledValues(now)
+  g.setValueAtTime(g.value, now)
+  g.linearRampToValueAtTime(1 - amount, now + 0.07)
+  g.setValueAtTime(1 - amount, now + 0.07 + hold)
+  g.linearRampToValueAtTime(1, now + 0.07 + hold + release)
+  quietUntil = Math.max(quietUntil, now + 0.07 + hold)
 }
 
 export function stopRoom(): void {
