@@ -30,6 +30,9 @@ const en = {
 
   pull: 'PULL',
   pullHint: 'SPACE',
+  /* Read out by anything that cannot see the picture, so it has to say where
+   * the thing is as well as what it does. */
+  leverLabel: 'THE LEVER ON THE MACHINE. DRAG IT DOWN, OR PRESS TO PULL.',
   call: 'CALL THE HOUSE',
   callHint: 'C',
   bank: 'PURSE',
@@ -109,6 +112,7 @@ const es: Record<keyof Strings, string> = {
 
   pull: 'JALE',
   pullHint: 'ESPACIO',
+  leverLabel: 'LA PALANCA DE LA MÁQUINA. ARRÁSTRELA HACIA ABAJO, O PULSE PARA JALAR.',
   call: 'RECLAME',
   callHint: 'C',
   bank: 'BOLSA',

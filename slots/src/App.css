@@ -347,6 +347,11 @@
   padding: 0.5rem 1rem;
   background: rgba(8, 10, 12, 0.6);
   backdrop-filter: blur(3px);
+  /* A readout with nothing to click in it, laid over a picture that now has
+     something to grab. Held upright the bar sits across the top of the plate
+     and the lever's knob is just under its lower edge, so without this it
+     swallows the taps aimed at the machine. */
+  pointer-events: none;
 }
 
 .hud span {
@@ -419,6 +424,96 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- the lever */
+
+/*
+ * A hit target over the knob that is painted into the plate. It sits in the
+ * frame, so its position is a percentage of the picture and it stays on the
+ * knob at every size the picture is drawn at - including under the slow push
+ * on .frame, because that transform carries this with it.
+ *
+ * Nothing is drawn here at rest. The knob is already in the photograph and
+ * anything laid on top of it would be a worse version of it; what the ring
+ * does is say the thing is live when a pointer is near it, and then be the
+ * part of the picture that follows your hand.
+ */
+.lever-knob {
+  position: absolute;
+  z-index: 4;
+  /* 8% of the frame is 102px on the registered plate, which is the knob and
+     the fingers around it. The floor is the series' thumb size. */
+  width: max(50px, 8%);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  /* Pointer drags have to be the game's, not the browser's scroll. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.lever-knob:disabled {
+  cursor: default;
+}
+
+.lever-knob.held {
+  cursor: grabbing;
+}
+
+.lever-ring {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 161, 58, 0);
+  box-shadow: 0 0 0 0 rgba(224, 161, 58, 0);
+  transition: border-color 0.18s, box-shadow 0.18s, scale 0.18s;
+}
+
+@media (hover: hover) {
+  .lever-knob:hover:not(:disabled) .lever-ring {
+    border-color: rgba(224, 161, 58, 0.55);
+    box-shadow: 0 0 1.1rem 0.1rem rgba(224, 161, 58, 0.18);
+  }
+}
+
+.lever-knob:focus-visible {
+  outline: none;
+}
+
+.lever-knob:focus-visible .lever-ring {
+  border-color: var(--gold);
+  box-shadow: 0 0 1.1rem 0.1rem rgba(224, 161, 58, 0.3);
+}
+
+/* Asks once, before the first pull of the night, and then stops. A touch
+   screen has no hover to find an invisible control with. */
+.lever-knob.unused .lever-ring {
+  animation: knob-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes knob-breathe {
+  0%,
+  100% {
+    border-color: rgba(224, 161, 58, 0.12);
+    box-shadow: 0 0 0.6rem 0 rgba(224, 161, 58, 0.06);
+  }
+  50% {
+    border-color: rgba(224, 161, 58, 0.6);
+    box-shadow: 0 0 1.3rem 0.12rem rgba(224, 161, 58, 0.24);
+  }
+}
+
+/* Under the hand: tighter and warmer the further the spring is wound, so the
+   ring is doing the job the painted arm cannot do until the clip plays. */
+.lever-knob.held .lever-ring {
+  border-color: rgba(240, 190, 90, calc(0.5 + var(--grip) * 0.5));
+  box-shadow: 0 0 1.4rem 0.15rem rgba(224, 161, 58, calc(0.18 + var(--grip) * 0.3));
+  scale: calc(1 - var(--grip) * 0.12);
+  transition: none;
 }
 
 /* ------------------------------------------------------------ the controls */
@@ -975,6 +1070,13 @@
   .said,
   .ending {
     animation: none;
+  }
+
+  /* The knob still has to be findable without a hover, so it goes on showing
+     the ring - it just stops breathing at it. */
+  .lever-knob.unused .lever-ring {
+    animation: none;
+    border-color: rgba(224, 161, 58, 0.45);
   }
 
   .plate.leaving {

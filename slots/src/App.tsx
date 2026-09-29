@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { Atmosphere } from './fx/Atmosphere'
 import { Intro } from './components/Intro'
+import { Lever } from './components/Lever'
 import { Reels, planReel, type ReelPlan } from './components/Reels'
 import { Scene, type Room } from './components/Scene'
 import { LangToggle, SoundToggle } from './components/SoundToggle'
@@ -462,7 +463,15 @@ export default function App() {
 
   return (
     <div className={`table${over ? ' over' : ''}`}>
-      <Scene room={room} clip={clip} small={small} attention={attention}>
+      <Scene
+        room={room}
+        clip={clip}
+        small={small}
+        attention={attention}
+        lever={
+          <Lever onPull={doPull} disabled={busy || over} label={t.leverLabel} unused={session.pulls === 0} />
+        }
+      >
         <Reels
           bands={machine.bands}
           plans={plans}

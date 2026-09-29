@@ -28,10 +28,16 @@ interface SceneProps {
   /** 0 to 1. Drives the warmth and the push, both of which are live. */
   attention: number
   children: ReactNode
+  /*
+   * Goes inside the frame rather than beside it, because it is aimed at
+   * something painted into the plate and the frame is the only box the plate's
+   * fractions mean anything in. Same reason the reels live in here.
+   */
+  lever?: ReactNode
   onClipEnded?: (name: string) => void
 }
 
-export function Scene({ room, clip, small, attention, children, onClipEnded }: SceneProps) {
+export function Scene({ room, clip, small, attention, children, lever, onClipEnded }: SceneProps) {
   const [shown, setShown] = useState<Room>(room)
   const [fading, setFading] = useState<Room | null>(null)
 
@@ -57,6 +63,7 @@ export function Scene({ room, clip, small, attention, children, onClipEnded }: S
         <Clip request={clip} small={small} onEnded={onClipEnded} />
         {/* The window in the casting, and everything that shows through it. */}
         <div className="window">{children}</div>
+        {lever}
       </div>
     </div>
   )

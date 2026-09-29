@@ -89,6 +89,18 @@ export function leverPull(): void {
   duck(0.14, 0.15, 0.5)
 }
 
+/**
+ * One tooth of the ratchet, for a hand dragging the arm down by hand rather
+ * than letting leverPull() play the whole movement.
+ *
+ * @param tension 0 to 1, how far down the throw the tooth is. The pitch rises
+ *        with it because the spring is being wound, which is the only cue a
+ *        player gets that the arm is nearly at the clutch.
+ */
+export function leverNotch(tension: number): void {
+  burst({ freq: 2500 + tension * 1100, q: 5.5, gain: 0.05, decay: 0.03, send: 0.18 })
+}
+
 /** The arm swinging back up under its spring. */
 export function leverReturn(): void {
   const c = ac()
