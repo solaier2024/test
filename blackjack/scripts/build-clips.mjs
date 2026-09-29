@@ -158,6 +158,50 @@ function stageFrames(frames) {
   return stage
 }
 
+/*
+ * What each kind of clip is encoded for, because the two kinds are limited by
+ * different things.
+ *
+ * THE DEALER CLIPS are limited by the costume. CRF 34 was too lossy for it: VP9
+ * smooths fine black lace against skin, so the trim came out visibly thinner in
+ * the clips than on the JPEG plate underneath them, which reads as the costume
+ * changing the moment a clip starts even though the plates are byte-locked. 28
+ * holds the lace. They are short, so quality is cheap here - the whole six-clip
+ * set is about a megabyte.
+ *
+ * THE OPENING is limited by the network, and quality-only encoding was the wrong
+ * instrument for it. Twelve seconds of slow push-ins across six photographic
+ * stills is hard to compress - every frame is a slightly rescaled version of the
+ * last, so motion vectors match poorly - and at CRF 28 it came out at 6.1 MB, or
+ * 3.78 Mbps. That is more bandwidth than a phone on anything short of good 4G can
+ * carry, and it showed: throttled to 3 Mbps the opening played 7.4 of its 12.9
+ * seconds in 13 seconds of wall clock and stalled seven times; at 1.6 Mbps it
+ * managed 3.5 seconds. The first thing a visitor sees was also the one asset that
+ * could not stream, which is the failure VIDEO.md section 7 predicted in as many
+ * words: 首屏必须有一条低码率快速路径.
+ *
+ * So the opening gets a bitrate CEILING as well as a quality target - VP9's
+ * constrained-quality mode, which spends up to the cap where it helps and less
+ * where it does not. The cap is derived from the requirement rather than guessed:
+ * roughly half of a 3 Mbps connection, so it streams with headroom to spare.
+ *
+ * The cost of that is small and was checked rather than assumed. Against the old
+ * 6.1 MB encode the capped one holds a mean SSIM of 0.949, and a crop of her at
+ * the shot that matters - the lace, the choker, the pendant, the satin - is not
+ * visibly different. The small tier is capped harder again, because the whole
+ * point of it is to be the path that works when the full one would not.
+ */
+const TIERS = {
+  clip: [
+    ['', W, H, 28, '0'],
+    ['.sm', SMALL_W, SMALL_H, 33, '0'],
+  ],
+  opening: [
+    ['', W, H, 36, '1500k'],
+    ['.sm', SMALL_W, SMALL_H, 38, '600k'],
+  ],
+}
+
 /**
  * The four files and the poster the table serves for one clip, from whatever
  * ffmpeg input, with the frame count asserted afterwards.
@@ -166,20 +210,19 @@ function stageFrames(frames) {
  * ones: Wan attaches a silent AAC track whether or not it is asked to, and the
  * score owns the audio.
  */
-function render(name, input, poster, expected) {
-  /*
-   * CRF 34 was too lossy for this costume. VP9 smooths fine black lace against
-   * skin, so the trim came out visibly thinner in the clips than on the JPEG
-   * plate underneath them - which reads as the costume changing when the clip
-   * starts, even though the plates are byte-locked. 28 holds the lace.
-   */
-  for (const [suffix, w, h, crf, bitrate] of [
-    ['', W, H, 28, '0'],
-    ['.sm', SMALL_W, SMALL_H, 33, '0'],
-  ]) {
+function render(name, input, poster, expected, tier = 'clip') {
+  for (const [suffix, w, h, crf, bitrate] of TIERS[tier]) {
+    /*
+     * '0' is VP9's "ignore the bitrate, just hit the quality" and is what the
+     * dealer clips want. A real figure turns the same -crf into a ceiling.
+     * H.264 spells the ceiling differently: -crf alone has no cap, so a capped
+     * tier needs -maxrate with a buffer to enforce it.
+     */
+    const capped = bitrate !== '0'
     ff([...input, '-vf', `scale=${w}:${h}`, '-c:v', 'libvpx-vp9', '-crf', String(crf), '-b:v', bitrate,
       '-row-mt', '1', '-an', join(OUT, `${name}${suffix}.webm`)])
     ff([...input, '-vf', `scale=${w}:${h}`, '-c:v', 'libx264', '-crf', String(crf - 6),
+      ...(capped ? ['-maxrate', bitrate, '-bufsize', `${parseInt(bitrate, 10) * 2}k`] : []),
       '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', join(OUT, `${name}${suffix}.mp4`)])
   }
   // Poster is the clip's own first frame, so the still underneath matches it.
@@ -194,7 +237,7 @@ function render(name, input, poster, expected) {
   return Number(probe)
 }
 
-function encode(name, frames) {
+function encode(name, frames, tier = 'clip') {
   const stage = stageFrames(frames)
   try {
     return render(
@@ -202,6 +245,7 @@ function encode(name, frames) {
       ['-framerate', String(FPS), '-i', join(stage, '%05d.png')],
       ['-i', join(stage, '00000.png')],
       frames.length,
+      tier,
     )
   } finally {
     rmSync(stage, { recursive: true, force: true })
@@ -400,7 +444,7 @@ mkdirSync(CACHE, { recursive: true })
 
 if (!only.length || only.includes('intro')) {
   const frames = buildOpening()
-  const n = encode('intro', frames)
+  const n = encode('intro', frames, 'opening')
   console.log(`${'intro'.padEnd(10)} ${String(n).padStart(3)} frames  ${(n / FPS).toFixed(2)}s`)
   if (only.length === 1) process.exit(0)
 }
