@@ -35,7 +35,8 @@
  * numbers from the same session, which survives a change of mix.
  *
  * What the table sounds like now, peak-hold at the destination against a room
- * tone of -36dBFS, and what it sounded like before any of this was measured:
+ * whose average level is -45dBFS, and what it sounded like before any of this
+ * was measured:
  *
  *                       was     now      above 1.2kHz
  *     roar            -37.4   -24.9          0.72
@@ -102,13 +103,16 @@ const PROBE = () => {
     const sum = new Float64Array(probe.frequencyBinCount)
     const hz = probe.context.sampleRate / 2 / probe.frequencyBinCount
     let peak = 0
+    let sumRms = 0
     let frames = 0
     const until = performance.now() + ms
     while (performance.now() < until) {
       probe.getFloatTimeDomainData(time)
       let sq = 0
       for (const s of time) sq += s * s
-      peak = Math.max(peak, Math.sqrt(sq / time.length))
+      const rms = Math.sqrt(sq / time.length)
+      peak = Math.max(peak, rms)
+      sumRms += rms
       probe.getFloatFrequencyData(freq)
       for (let i = 0; i < freq.length; i++) sum[i] += freq[i] > -100 ? 10 ** (freq[i] / 20) : 0
       frames++
@@ -127,6 +131,7 @@ const PROBE = () => {
     }
     return {
       db: peak > 0 ? 20 * Math.log10(peak) : -200,
+      mean: sumRms / frames > 0 ? 20 * Math.log10(sumRms / frames) : -200,
       bright: band(1200, 6000) / Math.max(1e-9, band(80, 1200)),
     }
   }
@@ -276,17 +281,39 @@ expect('and it is a room rather than a hum', saloon - layer('sfx', 'mean') > 5,
  * Measured first and every reaction is compared against it, so a table that
  * was silent to begin with cannot pass the rest of this file by default.
  *
- * Three windows and the middle one, like everything else here, and for a
- * reason that only appeared once the bar had glassware in it: the room used
- * to be a steady hum, where one peak-hold reading is the level, and it is now
- * a hum with events on top, where one reading is whichever event happened to
- * land. Measured across windows it moves by 6dB, which is enough to have
- * turned every "audible over the room" comparison below into a coin toss.
+ * It is the room's AVERAGE level, not its peak, and that distinction only
+ * started mattering when the bar got glassware. A peak-hold reading of a
+ * steady hum is the level of that hum. A peak-hold reading of a room with
+ * sparse transients in it is the loudest event that happened to land inside
+ * the window - an extreme value, which is not a level and does not converge.
+ * Measured, that is not a quibble:
+ *
+ *     3s windows, peak   -38.1 -40.8 -35.5 -39.9 -40.9   median -39.9
+ *     8s windows, peak   -36.1 -36.7 -37.1 -40.2 -36.8   median -36.8
+ *     3s windows, mean   -46.1 -45.6 -43.4 -45.6 -46.0   median -45.6
+ *     8s windows, mean   -44.8 -44.7 -44.8 -45.1 -45.2   median -44.8
+ *
+ * The peak swings 5dB between windows AND climbs 3dB when you listen longer,
+ * because listening longer catches rarer events - there is no value it is
+ * converging on. The mean of an 8s window repeats to half a dB. So the mean
+ * is the reference, and the reactions below are still peaks: "is this event
+ * audible over the ongoing room" is exactly a peak against a level.
+ *
+ * This cost a CI failure on the deployed build to work out. A murmur came in
+ * 0.2dB under a room whose peak had drifted 5dB up between runs - the mix was
+ * fine and the ruler was rubber.
  */
 const roomRuns = []
-for (let i = 0; i < 3; i++) roomRuns.push(await page.evaluate((ms) => window.__grab(ms), 3000))
-const room = { db: median(roomRuns.map((r) => r.db)), bright: median(roomRuns.map((r) => r.bright)) }
-expect('the empty table has a room tone', room.db > -55 && room.db < -25, `${room.db.toFixed(1)} dBFS`)
+for (let i = 0; i < 3; i++) roomRuns.push(await page.evaluate((ms) => window.__grab(ms), 6000))
+const room = {
+  level: median(roomRuns.map((r) => r.mean)),
+  bright: median(roomRuns.map((r) => r.bright)),
+}
+expect(
+  'the empty table has a room tone',
+  room.level > -55 && room.level < -32,
+  `${room.level.toFixed(1)} dBFS average`,
+)
 
 const fire = async (what) => {
   const got = await page.evaluate(([w, ms]) => window.__fire(w, ms), [what, 2800])
@@ -328,14 +355,25 @@ for (const kind of ['roar', 'cheer', 'gasp', 'sigh', 'murmur', 'jeer']) {
 for (const kind of ['coins', 'bell']) {
   heard[kind] = await fire(kind)
 }
-const over = (k) => `${heard[k].db.toFixed(1)} dBFS over a ${room.db.toFixed(1)} room`
+const over = (k) => `${heard[k].db.toFixed(1)} dBFS over a ${room.level.toFixed(1)} room`
+
+/*
+ * How far over the room a reaction has to come, in dB. Both are chosen from
+ * hearing rather than from what the mix happens to measure: 10dB is roughly
+ * the classic doubling of loudness, which is what a room reacting TOGETHER
+ * should be worth, and 6dB is an unambiguous step up for the one reaction
+ * that is not really a reaction. Measured, the five clear 10 by five or more
+ * and the murmur clears 6 by five, so neither is a knife edge.
+ */
+const TOGETHER = 10
+const BARELY = 6
 
 /*
  * All six, not just the two the happy path fires. A reaction nobody has heard
  * since it was written is exactly where 12dB goes missing.
  */
 for (const kind of ['roar', 'cheer', 'gasp', 'sigh', 'jeer']) {
-  expect(`the room's ${kind} is audible over it`, heard[kind].db > room.db + 3.5, over(kind))
+  expect(`the room's ${kind} is audible over it`, heard[kind].db > room.level + TOGETHER, over(kind))
 }
 /*
  * The exception, and it is deliberate: a murmur is the room NOT reacting -
@@ -345,8 +383,8 @@ for (const kind of ['roar', 'cheer', 'gasp', 'sigh', 'jeer']) {
 const quietest = Math.min(...['roar', 'cheer', 'gasp', 'sigh', 'jeer'].map((k) => heard[k].db))
 expect(
   'a murmur is there, and is the least the room does',
-  heard.murmur.db > room.db + 1 && heard.murmur.db < quietest - 1,
-  `${heard.murmur.db.toFixed(1)} dBFS, between a ${room.db.toFixed(1)} room and a ${quietest.toFixed(1)} groan`,
+  heard.murmur.db > room.level + BARELY && heard.murmur.db < quietest - 1,
+  `${heard.murmur.db.toFixed(1)} dBFS, between a ${room.level.toFixed(1)} room and a ${quietest.toFixed(1)} groan`,
 )
 /*
  * And it holds still enough to be worth ordering. A murmur was five throats
@@ -444,8 +482,8 @@ for (const n of [1, 2, 3]) {
    */
   expect(
     `pull ${n}: the room is heard doing it`,
-    got.db > room.db + 3,
-    `${got.kind ?? '?'} at ${got.db.toFixed(1)} dBFS over a ${room.db.toFixed(1)} room`,
+    got.db > room.level + TOGETHER,
+    `${got.kind ?? '?'} at ${got.db.toFixed(1)} dBFS over a ${room.level.toFixed(1)} room`,
   )
   /*
    * The colour matches the reaction the engine named, measured the same way
@@ -477,7 +515,11 @@ const hushing = page.evaluate(([w, d]) => new Promise((done) => {
 }), [900, 500])
 await page.keyboard.press('c')
 const hushed = await hushing
-expect('calling the house stops the room dead', hushed.db < room.db - 15, `${hushed.db.toFixed(1)} dBFS, room was ${room.db.toFixed(1)}`)
+expect(
+  'calling the house stops the room dead',
+  hushed.db < room.level - 20,
+  `${hushed.db.toFixed(1)} dBFS, room was ${room.level.toFixed(1)}`,
+)
 await page.waitForTimeout(4500)
 
 await page.locator('button.sound').click()
@@ -490,7 +532,9 @@ await page.locator('button.sound').click()
 await page.waitForTimeout(1800)
 expect('unmuting reads on again', (await label()).includes('🔊'), await label())
 const back = await page.evaluate((d) => window.__grab(d), 2000)
-expect('and brings the room back', back.db > room.db - 6, `${back.db.toFixed(1)} dBFS`)
+/* A peak against a level again: the room is back when it is doing something
+ * over its own average, not merely when the meter is off the floor. */
+expect('and brings the room back', back.db > room.level + 3, `${back.db.toFixed(1)} dBFS`)
 
 await browser.close()
 
