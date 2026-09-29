@@ -498,6 +498,6 @@ if (problems.length) console.error('\n' + problems.join('\n'))
 console.log(
   problems.length
     ? '\nFAILED'
-    : `\nOK: ${checks} measurements at the destination; the room answers a loss as well as a win`,
+    : `\nOK: ${checks} measurements of real signal; the saloon leads and answers a loss as well as a win`,
 )
 process.exit(problems.length ? 1 : 0)
