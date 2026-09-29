@@ -243,28 +243,163 @@ export function react(kind: Reaction, density = 0.6): void {
 let bed: { gain: GainNode; duck: GainNode; stop: () => void } | null = null
 
 /**
+ * One piece of saloon furniture making a noise: a glass set down, a bottle
+ * against a glass, a boot on the boards, a chair going back, the street door.
+ *
+ * These are what the difference between "a room" and "filtered noise" is made
+ * of. The bed on its own is twenty conversations at 520Hz, which reads as a
+ * hum; it has no EVENTS in it, and a busy room is mostly events. They are also
+ * what keeps the ambience in front of the upright without simply turning the
+ * noise up - a hum loud enough to lead the mix is just hiss, while a room with
+ * glassware in it reads as busy at a much lower level.
+ *
+ * Deliberately not on the machine's own sound palette even though the physics
+ * overlap: these come up through the bed's ducking gain, so when the room
+ * stops to watch a reel, the bar stops with it. A glass landing in the middle
+ * of a held breath would be the one thing in the mix that had not noticed.
+ */
+function clatter(into: AudioNode): void {
+  const c = ac()
+  const at = c.currentTime
+  const pick = Math.random()
+  const out = c.createGain()
+  out.connect(into)
+  const room = c.createGain()
+  /* Everything in here is across the room, so it is mostly reverb. A dry clink
+   * sits in front of the crowd instead of behind it. */
+  room.gain.value = 0.8
+  out.connect(room).connect(reverbIn())
+
+  const ring = (freq: number, gain: number, decay: number) => {
+    const o = c.createOscillator()
+    o.type = 'sine'
+    o.frequency.value = freq
+    const g = c.createGain()
+    g.gain.setValueAtTime(0.0001, at)
+    g.gain.linearRampToValueAtTime(gain, at + 0.002)
+    g.gain.exponentialRampToValueAtTime(0.0001, at + decay)
+    o.connect(g).connect(out)
+    o.start(at)
+    o.stop(at + decay + 0.05)
+  }
+  const knock = (freq: number, q: number, gain: number, decay: number) => {
+    const s = c.createBufferSource()
+    s.buffer = noiseBuffer(c)
+    const f = c.createBiquadFilter()
+    f.type = 'bandpass'
+    f.frequency.value = freq
+    f.Q.value = q
+    const g = c.createGain()
+    g.gain.setValueAtTime(0.0001, at)
+    g.gain.linearRampToValueAtTime(gain, at + 0.004)
+    g.gain.exponentialRampToValueAtTime(0.0001, at + decay)
+    s.connect(f).connect(g).connect(out)
+    s.start(at, Math.random() * 1.4)
+    s.stop(at + decay + 0.05)
+  }
+
+  if (pick < 0.3) {
+    // A glass down on the bar: the wood first, then what is left ringing in it.
+    knock(900, 1.4, 0.05, 0.05)
+    ring(1650 + Math.random() * 900, 0.016, 0.28)
+  } else if (pick < 0.5) {
+    // Bottle against glass, twice, the way pouring sounds from across a room.
+    for (let i = 0; i < 2; i++) {
+      const t = i * 0.09
+      const o = c.createOscillator()
+      o.type = 'sine'
+      o.frequency.value = 2400 + Math.random() * 1400
+      const g = c.createGain()
+      g.gain.setValueAtTime(0.0001, at + t)
+      g.gain.linearRampToValueAtTime(0.011, at + t + 0.002)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + t + 0.2)
+      o.connect(g).connect(out)
+      o.start(at + t)
+      o.stop(at + t + 0.25)
+    }
+  } else if (pick < 0.78) {
+    // Boots on boards. Two or three steps, never evenly spaced.
+    const steps = 2 + Math.floor(Math.random() * 2)
+    for (let i = 0; i < steps; i++) {
+      const t = i * (0.29 + Math.random() * 0.1)
+      const s = c.createBufferSource()
+      s.buffer = noiseBuffer(c)
+      const f = c.createBiquadFilter()
+      f.type = 'lowpass'
+      f.frequency.value = 320
+      const g = c.createGain()
+      g.gain.setValueAtTime(0.0001, at + t)
+      g.gain.linearRampToValueAtTime(0.05, at + t + 0.005)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + t + 0.13)
+      s.connect(f).connect(g).connect(out)
+      s.start(at + t, Math.random() * 1.4)
+      s.stop(at + t + 0.2)
+    }
+  } else if (pick < 0.92) {
+    // A chair going back: wood dragging, which is noise with a slope on it.
+    const s = c.createBufferSource()
+    s.buffer = noiseBuffer(c)
+    const f = c.createBiquadFilter()
+    f.type = 'bandpass'
+    f.frequency.setValueAtTime(420, at)
+    f.frequency.exponentialRampToValueAtTime(760, at + 0.3)
+    f.Q.value = 3.2
+    const g = c.createGain()
+    g.gain.setValueAtTime(0.0001, at)
+    g.gain.linearRampToValueAtTime(0.03, at + 0.04)
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.34)
+    s.connect(f).connect(g).connect(out)
+    s.start(at, Math.random() * 1.4)
+    s.stop(at + 0.4)
+  } else {
+    // The street door, and the town for a second, then it shuts.
+    knock(140, 0.9, 0.07, 0.22)
+    ring(96, 0.02, 0.4)
+  }
+}
+
+/**
  * The room when nothing is happening: a dozen conversations two tables away,
- * which is filtered noise with a slow wobble on it and the odd syllable poking
- * through. Without this the saloon sounds like an empty room with a machine in
- * it, and every reaction arrives out of silence.
+ * the odd syllable poking through, and the bar going about its business.
+ * Without this the saloon sounds like an empty room with a machine in it, and
+ * every reaction arrives out of silence.
+ *
+ * Three things hang off one duck:
+ *
+ *     muttering (level follows density) -.
+ *     the bar, glasses and boots --------+-> duck -> sfx bus
+ *     a syllable now and then -----------'        \-> reverb
+ *
+ * They share the duck because when the room stops to watch a reel it ALL
+ * stops - a glass landing in the middle of a held breath would be the one
+ * thing in the mix that had not noticed. They do not share a level, because
+ * density is about how many people are talking, and the barman keeps pouring
+ * either way.
  */
 export function startRoom(): void {
   if (bed) return
   const c = ac()
-  const out = c.createGain()
-  out.gain.value = 0.0001
-  out.connect(sfxBus())
-  const room = c.createGain()
-  room.gain.value = 0.7
-  out.connect(room).connect(reverbIn())
-  out.gain.linearRampToValueAtTime(0.1, c.currentTime + 2.5)
+  const mutter = c.createGain()
+  mutter.gain.value = 0.0001
+  mutter.gain.linearRampToValueAtTime(0.1, c.currentTime + 2.5)
 
   /* Density, hush and duck all want to move the bed's level and they arrive
    * within milliseconds of each other, so they get a node each rather than
    * three sets of automation fighting over one gain. */
   const ducked = c.createGain()
   ducked.gain.value = 1
-  ducked.connect(out)
+  ducked.connect(sfxBus())
+  const room = c.createGain()
+  room.gain.value = 0.7
+  ducked.connect(room).connect(reverbIn())
+  mutter.connect(ducked)
+
+  /* The bar's own noises, at their own level. Set by ear against the machine
+   * and then checked: verify-audio insists the ambience leads an idle table
+   * and that a pull is still clearly louder than it. */
+  const bar = c.createGain()
+  bar.gain.value = 2
+  bar.connect(ducked)
 
   const src = c.createBufferSource()
   src.buffer = noiseBuffer(c, 4)
@@ -281,7 +416,7 @@ export function startRoom(): void {
   const depth = c.createGain()
   depth.gain.value = 0.3
   lfo.connect(depth).connect(wobble.gain)
-  src.connect(band).connect(wobble).connect(ducked)
+  src.connect(band).connect(wobble).connect(mutter)
   src.start()
   lfo.start()
 
@@ -313,8 +448,18 @@ export function startRoom(): void {
   }
   window.setTimeout(blip, 1200)
 
+  /* And the bar itself, on its own clock. Same rule as a blip: nothing lands
+   * on top of a reaction, because the room holding its breath has to include
+   * the man pouring the drinks. */
+  const knockAbout = () => {
+    if (!alive) return
+    if (ac().currentTime >= quietUntil) clatter(bar)
+    window.setTimeout(knockAbout, 900 + Math.random() * 2200)
+  }
+  window.setTimeout(knockAbout, 800)
+
   bed = {
-    gain: out,
+    gain: mutter,
     duck: ducked,
     stop: () => {
       alive = false
@@ -371,16 +516,23 @@ export function stopRoom(): void {
 /**
  * Everything stops. Used when the count is called - the oldest gesture in the
  * genre and the only moment on this table where the room is silent.
+ *
+ * On the duck rather than on the muttering, because EVERYTHING means the
+ * barman too. When the bar got its own level under the same duck, hushing the
+ * muttering alone left the glasses going: the check measured a "silence" only
+ * 8dB below the room, which is not a room stopping, it is a room getting
+ * quieter. quietUntil then stops anything new from starting during it.
  */
 export function hush(seconds: number): void {
   const c = ac()
   if (!bed) return
-  const g = bed.gain.gain
+  const g = bed.duck.gain
   g.cancelScheduledValues(c.currentTime)
   g.setValueAtTime(g.value, c.currentTime)
   g.linearRampToValueAtTime(0.0001, c.currentTime + 0.14)
   g.setValueAtTime(0.0001, c.currentTime + seconds)
-  g.linearRampToValueAtTime(0.12, c.currentTime + seconds + 1.2)
+  g.linearRampToValueAtTime(1, c.currentTime + seconds + 1.2)
+  quietUntil = Math.max(quietUntil, c.currentTime + seconds)
 }
 
 /** One man, close, saying it out loud, over the top of everything. */

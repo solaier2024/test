@@ -1,20 +1,25 @@
 import { ac, musicBus, noiseBuffer, pianoBus, reverbIn, stopThePiano } from './engine'
 
 /*
- * The upright in the corner.
+ * The upright in the corner. NOT a score.
+ *
+ * The sound of this table is the room and the machine. This file is one more
+ * thing the room is doing, at the level of the glasses and the boots, and the
+ * distinction is load-bearing rather than a matter of taste: a soundtrack is
+ * something the player is outside of, and the whole point of the picture is
+ * that they are sitting in the bar.
+ *
+ * Three things keep it furniture. It is on its own bus behind a low-pass at a
+ * level measured to sit UNDER the ambience rather than over it (engine.ts).
+ * What it plays is the oldest turnaround in the room - I - VI7 - II7 - V7 in
+ * G, stride left hand - which is a cadence and not anybody's tune. And the
+ * right hand comes and goes: somebody is playing, not something is playing.
  *
  * Every note is synthesised, so there is still not one audio file in this
  * project. The instrument is a badly kept saloon piano: a struck string is a
  * handful of slightly stretched partials with a hammer thump on the front, and
  * the thing that makes it a SALOON piano rather than a piano is that each note
  * is a fixed few cents out and never gets tuned.
- *
- * What it plays is the oldest turnaround in the room, I - VI7 - II7 - V7 in G,
- * stride left hand. It is a cadence, not anybody's tune.
- *
- * It is on its own bus behind a low-pass, because it is across the room, and
- * because that is what lets the room shut it up in one line when the count gets
- * called.
  */
 
 const BPM = 96
@@ -45,6 +50,8 @@ let timer = 0
 let step = 0
 let nextAt = 0
 let intensity = 0
+/** Whether he is playing the tune this time round, or only comping. */
+let playing = false
 let drone: { osc: OscillatorNode; gain: GainNode } | null = null
 
 const semitone = (base: number, n: number) => base * 2 ** (n / 12)
@@ -103,7 +110,7 @@ function schedule(at: number, i: number): void {
     chord.forEach((f, n) => strike(at + n * 0.006, f, 0.055 * level, 0.8))
   }
   // The right hand drops out first when the room goes quiet.
-  if (intensity < 0.72) {
+  if (playing && intensity < 0.72) {
     const note = TUNE.find((t) => t.at === i % (STEPS * 4))
     if (note) strike(at, semitone(392.0, note.semi - 7), 0.075 * level * (1 - intensity * 0.6), 1.1)
   }
@@ -115,6 +122,11 @@ function tick(): void {
   while (nextAt < c.currentTime + LOOKAHEAD) {
     schedule(nextAt, step)
     step = (step + 1) % (STEPS * 4)
+    /* At the top of each turnaround, decide whether he carries on with the
+     * melody or just comps for a while. A right hand that never stops is the
+     * single thing that makes this read as a soundtrack instead of as a man
+     * at a piano, and it costs one line to fix. */
+    if (step === 0) playing = Math.random() < 0.45
     nextAt += spb
   }
 }

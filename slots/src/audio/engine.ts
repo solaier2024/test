@@ -13,6 +13,8 @@
 
 /** Resting level of the music bus; the ducking curve returns to exactly this. */
 const MUSIC_LEVEL = 0.92
+/** Resting level of the upright, which the room shutting it up returns to. */
+const PIANO_LEVEL = 0.13
 
 let ctx: AudioContext | null = null
 let master: GainNode
@@ -42,12 +44,19 @@ export function ac(): AudioContext {
   sfxNode.gain.value = 0.9
   sfxNode.connect(master)
 
-  // The upright is in the next room: quieter, dulled by a wall, mostly reverb.
+  /*
+   * The upright is across the room: quieter, dulled by the distance, and it
+   * is FURNITURE. Measured on its own bus it used to peak at -35.8 against an
+   * ambience of -39.8, which is to say the table had a soundtrack with a
+   * saloon behind it rather than a saloon with a piano in the corner. The
+   * sound of this table is the room and the machine; the piano is one of the
+   * things the room is doing.
+   */
   pianoNode = ctx.createGain()
-  pianoNode.gain.value = 0.3
+  pianoNode.gain.value = PIANO_LEVEL
   const wall = ctx.createBiquadFilter()
   wall.type = 'lowpass'
-  wall.frequency.value = 1900
+  wall.frequency.value = 1500
   pianoNode.connect(wall).connect(master)
 
   roomIn = ctx.createGain()
@@ -132,7 +141,7 @@ export function stopThePiano(seconds: number): void {
   g.setValueAtTime(g.value, now)
   g.linearRampToValueAtTime(0.0001, now + 0.08)
   g.setValueAtTime(0.0001, now + seconds)
-  g.linearRampToValueAtTime(0.3, now + seconds + 1.6)
+  g.linearRampToValueAtTime(PIANO_LEVEL, now + seconds + 1.6)
 }
 
 /**

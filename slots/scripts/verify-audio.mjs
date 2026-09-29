@@ -140,6 +140,41 @@ const PROBE = () => {
     else window.__audio.react(what, density)
     return await measuring
   }
+  /**
+   * Peak level of each bus over a window, measured on the buses themselves.
+   *
+   * The probe above sits at the destination and can only ever report the sum,
+   * and the thing the brief is about is the BALANCE: the saloon and the
+   * machine in front, the upright behind them. These are the live nodes the
+   * game plays through - main.tsx hands them over, it does not build a second
+   * graph for measuring.
+   */
+  window.__layers = async (ms) => {
+    const { sfx, piano, music } = window.__audio.buses()
+    const c = window.__audio.ctx()
+    const taps = Object.entries({ sfx, piano, music }).map(([name, node]) => {
+      const a = c.createAnalyser()
+      a.fftSize = 2048
+      a.smoothingTimeConstant = 0
+      node.connect(a)
+      return { name, a, buf: new Float32Array(a.fftSize), peak: 0, sum: 0, n: 0 }
+    })
+    const until = performance.now() + ms
+    while (performance.now() < until) {
+      for (const t of taps) {
+        t.a.getFloatTimeDomainData(t.buf)
+        let sq = 0
+        for (const s of t.buf) sq += s * s
+        const rms = Math.sqrt(sq / t.buf.length)
+        t.peak = Math.max(t.peak, rms)
+        t.sum += rms
+        t.n++
+      }
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    const db = (v) => (v > 0 ? 20 * Math.log10(v) : -200)
+    return Object.fromEntries(taps.map((t) => [t.name, { peak: db(t.peak), mean: db(t.sum / t.n) }]))
+  }
   /** Waits for the room to say something on screen, then measures from there. */
   window.__onReaction = async (ms) => {
     const text = () => document.querySelector('.said')?.textContent?.trim() ?? ''
@@ -149,6 +184,8 @@ const PROBE = () => {
     return { ...(await grab(ms)), said }
   }
 }
+
+const median = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 
 const problems = []
 let checks = 0
@@ -197,13 +234,58 @@ await page.locator('.machines button').nth(2).click()
 await page.waitForSelector('.reels', { timeout: 30000 })
 await page.waitForTimeout(3000)
 
+/* ---- 0. what the table is made of ------------------------------------- */
+
+/*
+ * The brief, in one sentence: the sound of this table is the saloon and the
+ * machine, and the upright in the corner is furniture. That is a claim about
+ * the balance between three buses, and it is not visible at the destination
+ * where they are already summed - so this section measures each bus on its
+ * own and asserts the ordering between them.
+ *
+ * It is a check worth having because the mix drifted the other way without
+ * anybody deciding to. Measured before this existed: the piano peaked at
+ * -35.8 and the whole ambience at -39.8, so an idle table was a soundtrack
+ * with a saloon behind it rather than a saloon with a piano in it.
+ *
+ * Medians of three windows, for the same reason the reactions below are: an
+ * idle saloon is EVENTS - a glass down, boots, a chair - and which ones fall
+ * inside a six second window swings the peak by 6dB. That spread is the room
+ * being a room, and the median is what the room is like.
+ */
+const idle = []
+for (let i = 0; i < 3; i++) idle.push(await page.evaluate((ms) => window.__layers(ms), 6000))
+const layer = (bus, field = 'peak') => median(idle.map((m) => m[bus][field]))
+const saloon = layer('sfx')
+const upright = layer('piano')
+
+expect('an idle table is the saloon, not the piano', saloon > upright + 4,
+  `the room ${saloon.toFixed(1)} dBFS against an upright at ${upright.toFixed(1)}`)
+/*
+ * And the room is a ROOM, not a hiss. A bed of filtered noise loud enough to
+ * lead the mix is just tape hiss; what makes a saloon read as busy at a much
+ * lower level is that things happen in it. A wide gap between peak and mean
+ * is what "things happen in it" looks like as a number.
+ */
+expect('and it is a room rather than a hum', saloon - layer('sfx', 'mean') > 5,
+  `${(saloon - layer('sfx', 'mean')).toFixed(1)}dB between the loudest thing in it and its average`)
+
 /* ---- 1. the room, and the six things it does -------------------------- */
 
 /*
  * Measured first and every reaction is compared against it, so a table that
  * was silent to begin with cannot pass the rest of this file by default.
+ *
+ * Three windows and the middle one, like everything else here, and for a
+ * reason that only appeared once the bar had glassware in it: the room used
+ * to be a steady hum, where one peak-hold reading is the level, and it is now
+ * a hum with events on top, where one reading is whichever event happened to
+ * land. Measured across windows it moves by 6dB, which is enough to have
+ * turned every "audible over the room" comparison below into a coin toss.
  */
-const room = await page.evaluate((ms) => window.__grab(ms), 4000)
+const roomRuns = []
+for (let i = 0; i < 3; i++) roomRuns.push(await page.evaluate((ms) => window.__grab(ms), 3000))
+const room = { db: median(roomRuns.map((r) => r.db)), bright: median(roomRuns.map((r) => r.bright)) }
 expect('the empty table has a room tone', room.db > -55 && room.db < -25, `${room.db.toFixed(1)} dBFS`)
 
 const fire = async (what) => {
@@ -227,7 +309,6 @@ const fire = async (what) => {
  * mix. It is not a softer claim - the thresholds below are unchanged - it is
  * the same claim measured with an instrument that can hold still.
  */
-const median = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 const fireOften = async (what, n = 3) => {
   const runs = []
   for (let i = 0; i < n; i++) runs.push(await fire(what))
@@ -314,6 +395,21 @@ expect(
 )
 
 /* ---- 2. bound to the outcome, by playing ------------------------------ */
+
+/*
+ * The other half of the balance, measured while the machine is working: iron
+ * and coins in front of the saloon, and the upright still behind both. The
+ * window is one whole pull, so what it catches is the ratchet, the three
+ * bands landing and whatever the room says about it.
+ */
+const working = page.evaluate((ms) => window.__layers(ms), 7000)
+await page.locator('button.lever').click()
+const played = await working
+await page.waitForTimeout(2500)
+expect('the machine leads while it is working', played.sfx.peak > saloon + 5,
+  `${played.sfx.peak.toFixed(1)} dBFS against an idle saloon of ${saloon.toFixed(1)}`)
+expect('and the upright is behind both of them', played.piano.peak < saloon - 2,
+  `upright ${played.piano.peak.toFixed(1)}, saloon ${saloon.toFixed(1)}, machine ${played.sfx.peak.toFixed(1)} dBFS`)
 
 /*
  * Reaction lines, as regexes, so a pull can be checked against the reaction

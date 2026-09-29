@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource/rye/400.css'
 import './index.css'
 import App from './App'
-import { ac, tapOutput, unlock } from './audio/engine'
+import { ac, pianoBus, sfxBus, musicBus, tapOutput, unlock } from './audio/engine'
 import { react, startRoom } from './audio/crowd'
 import { setIntensity, startMusic } from './audio/music'
 import { libertyBell, leverPull, payoutCoins } from './audio/sfx'
@@ -31,6 +31,15 @@ window.__audio = {
   lever: () => leverPull(),
   coins: (n: number) => payoutCoins(n),
   bell: (n = 3) => libertyBell(n),
+  /*
+   * The three buses, so a script can measure one layer at a time.
+   *
+   * The brief is about the BALANCE between layers - the room and the machine
+   * in front, the upright behind them - and a probe on the output can only
+   * ever report their sum. These are the live nodes the game plays through,
+   * not a second graph built for measuring.
+   */
+  buses: () => ({ sfx: sfxBus(), piano: pianoBus(), music: musicBus() }),
 }
 
 createRoot(document.getElementById('root')!).render(
