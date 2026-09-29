@@ -21,11 +21,16 @@
  * 5. SHE IS ACTUALLY ALIVE. The opposite failure: a clip that satisfies 1-4 by
  *    simply not moving. Her face has to change.
  *
- *   node scripts/verify-generated.mjs <clip.mp4> [more.mp4 ...]
+ *   node scripts/verify-generated.mjs                        # the shipped set
+ *   node scripts/verify-generated.mjs <clip.mp4> [more.mp4]  # a candidate take
  */
 import { execFileSync } from 'node:child_process'
-import { basename } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { MASTER, REGIONS, boxDiff, core, plateFile, readRgb } from './lock-costume.mjs'
+
+const GEN = join(dirname(fileURLToPath(import.meta.url)), '..', 'clipsrc', 'openart')
 
 const W = 1280
 const H = 720
@@ -130,7 +135,11 @@ const frames = (path) => {
 
 const fail = []
 
-for (const path of process.argv.slice(2)) {
+const paths = process.argv.slice(2).length
+  ? process.argv.slice(2)
+  : readdirSync(GEN).filter((f) => f.endsWith('.mp4')).sort().map((f) => join(GEN, f))
+
+for (const path of paths) {
   const name = basename(path)
   const f = frames(path)
   const probe = execFileSync('ffprobe', [
