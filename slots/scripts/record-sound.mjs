@@ -70,7 +70,14 @@
  * because the chrome is 87 pixels tall until the day it is not.
  *
  * The pointer IS drawn, because half of what this is demonstrating is a hand
- * taking hold of a lever.
+ * taking hold of a lever - and drawing it is not the same as it being in the
+ * right place. -draw_mouse draws the X cursor, and Playwright's mouse.move
+ * does not move the X cursor: it posts the event straight into the renderer
+ * over CDP. So the take came out with a dead arrow parked at the middle of
+ * the screen, sitting over the reels, for all sixty-four seconds, while the
+ * lever hauled itself. followPointer() below puts the real cursor where the
+ * synthetic one is, and parks it under the bottom edge of the grab until the
+ * first haul needs it.
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdir, rm } from 'node:fs/promises'
@@ -100,12 +107,12 @@ const run = (cmd, args, env) => spawnSync(cmd, args, { encoding: 'utf8', env: { 
 
 function need(cmd) {
   if (spawnSync('sh', ['-c', `command -v ${cmd}`]).status !== 0) {
-    console.error(`${cmd} is not installed. This script needs Xvfb, pulseaudio and ffmpeg:\n` +
-      '  sudo apt-get install -y xvfb pulseaudio pulseaudio-utils ffmpeg')
+    console.error(`${cmd} is not installed. This script needs Xvfb, pulseaudio, ffmpeg and xdotool:\n` +
+      '  sudo apt-get install -y xvfb pulseaudio pulseaudio-utils ffmpeg xdotool')
     process.exit(1)
   }
 }
-for (const cmd of ['Xvfb', 'pulseaudio', 'pactl', 'ffmpeg']) need(cmd)
+for (const cmd of ['Xvfb', 'pulseaudio', 'pactl', 'ffmpeg', 'xdotool']) need(cmd)
 
 const XDG = process.env.XDG_RUNTIME_DIR ?? '/tmp/slots-capture-runtime'
 await mkdir(XDG, { recursive: true })
@@ -195,6 +202,38 @@ if (view.w !== WIDTH || view.h !== HEIGHT) {
   process.exit(1)
 }
 const grab = { w: view.w, h: view.h, top: view.top }
+
+/* ---- the pointer ------------------------------------------------------- */
+
+/*
+ * Viewport coordinates to screen ones. The window is at the origin and there
+ * is no window manager, so the only offset is the browser's own furniture:
+ * the chrome above, and half the leftover width as a border down each side.
+ */
+const border = Math.floor(furniture.side / 2)
+const toScreen = (x, y) => [Math.round(x) + border, Math.round(y) + grab.top]
+
+const xdo = (...args) => run('xdotool', args, env)
+
+/*
+ * The haul is handed over to the X server wholesale rather than having the
+ * cursor shadow a synthetic drag. Mixing them does not work: the real
+ * pointer's motion arrives at the renderer with no button held, which lands
+ * in the middle of a CDP drag and releases the lever. Measured - the first
+ * two pulls of the take simply did not happen, and the room had nothing to
+ * react to.
+ *
+ * Doing it for real is the better half of that trade anyway. What the film
+ * then shows is a cursor taking hold of the knob and dragging it down, which
+ * is the thing being claimed, rather than a lever that moves by itself next
+ * to a cursor that does not.
+ */
+page.mouse.move = async (x, y) => { xdo('mousemove', ...toScreen(x, y).map(String)) }
+page.mouse.down = async () => { xdo('mousedown', '1') }
+page.mouse.up = async () => { xdo('mouseup', '1') }
+
+/** Just under the bottom edge of the grab, so it is not in the film yet. */
+xdo('mousemove', String(WIDTH - 1), String(HEIGHT + grab.top + 10))
 
 /* ---- rolling ----------------------------------------------------------- */
 
