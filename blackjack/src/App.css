@@ -1,0 +1,1051 @@
+/* ------------------------------------------------------------------ layout */
+
+.page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* The height the control bar occupies; the felt reserves exactly this, so the
+     two cannot overlap however the bar's contents change. It has to scale with
+     viewport *height* as well, because a 640px-tall window has to fit the same
+     bar and the same two card rows out of a third less room. */
+  --hud-h: clamp(120px, 19vh, 146px);
+}
+
+/*
+ * The grain, smoke and vignette canvas is the outermost layer on purpose: above
+ * the footage, above the cards and above the interface. Grading only the footage
+ * leaves the UI looking cleaner than the picture, which gives it away instantly.
+ */
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* --------------------------------------------------------------- the scene */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #05070a;
+}
+
+/*
+ * The camera, and it is bolted to the floor. No transform, no animation, ever.
+ *
+ * This element wraps the plate stack AND all six video elements, so anything
+ * applied here moves the bar, the bottles, the lamp, the felt and the dealer
+ * together. It used to carry a 5.6s keyframe worth a 6px pan and a 1.008-to-1.016
+ * zoom, on the theory that a drifting still reads as a held camera rather than a
+ * photograph. Measured on the composited page that came to an 11px swing of the
+ * whole room, cycling forever, and it was reported as exactly what it was: the
+ * scene will not stop moving.
+ *
+ * It was the right trick for a still photograph and it is the wrong one now. The
+ * clips are generated video with real movement already in them, so her breathing
+ * lives in the footage where it belongs, the room stays where a locked-off camera
+ * would have left it, and scripts/verify-still.mjs holds this to 0px.
+ */
+.camera {
+  position: absolute;
+  inset: 0;
+}
+
+.plate,
+.clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * Asymmetric dissolve. A symmetric cross-fade puts both plates near half opacity
+ * at the midpoint and the black behind them shows through, which looks like the
+ * dealer vanishing from her chair for half a second. The outgoing plate holds
+ * full opacity for a beat and then leaves slowly; the incoming one arrives
+ * faster, so total coverage never drops below about 97%.
+ */
+.plate.arriving {
+  animation: arrive 760ms ease-out both;
+}
+
+.plate.leaving {
+  animation: leave 1100ms 260ms ease-in both;
+}
+
+@keyframes arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes leave {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.plate.blink {
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * The video stack. The idle loop is the bed: it runs the whole time the table is
+ * open at full opacity, and every other clip fades in on top of it. Because the
+ * layer underneath is always opaque, a crossfade here can never dip total coverage
+ * the way two fading plates can - there is no moment where the black behind them
+ * shows through.
+ *
+ * Both ends of every clip are the same resting pose, so 150ms is enough to take
+ * the edge off the switch without turning it into a dissolve of two poses.
+ */
+.clip {
+  opacity: 0;
+  z-index: 2;
+  transition: opacity 150ms linear;
+  /* Its own compositor layer, so fading it does not repaint the one below. */
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.clip.bed {
+  opacity: 1;
+  z-index: 1;
+  transition: none;
+}
+
+.clip.on {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------- the felt */
+
+/*
+ * Cards are laid onto the table plane. The camera never moves, so the plane's
+ * transform is a constant: one rotateX shared by every row means a card, a stake
+ * and a label all sit in the same plane as the baize in the footage.
+ *
+ * Each row is label / cards / stake on one line. Stacking the label above the
+ * cards looked fine with two cards and collided the moment a hand drew a third.
+ */
+.felt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /*
+   * She sits behind the table and her body takes the middle of the frame, so the
+   * only clean baize is the near third. There is not enough height there for two
+   * stacked rows, so the hands sit side by side - which is also what a live table
+   * does when the frame is short on room.
+   *
+   * The bottom edge is the control bar's declared height rather than a guess,
+   * because a guess is how the money line ended up printed across the cards.
+   */
+  top: 67%;
+  bottom: calc(var(--hud-h) + 6px);
+  z-index: 10;
+  perspective: 1100px;
+  perspective-origin: 50% 0%;
+  pointer-events: none;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 64px);
+  /* Settles the plate's own felt markings under the cards and gives the drawn
+     layer something to sit on. */
+  background: radial-gradient(ellipse 120% 150% at 50% 40%, rgba(4, 16, 11, 0.34), rgba(4, 13, 9, 0.1) 62%, transparent 82%);
+}
+
+.hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.hands-row {
+  display: flex;
+  gap: clamp(10px, 2.4vw, 34px);
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.cards {
+  display: flex;
+  align-items: flex-end;
+  transform: rotateX(26deg);
+  transform-style: preserve-3d;
+  min-height: 1px;
+}
+
+/* Width, but capped by height too: on a short window the limit is vertical. */
+.card {
+  width: clamp(28px, min(3.7vw, 6.4vh), 54px);
+  aspect-ratio: 240 / 336;
+  margin-left: clamp(-22px, -1.6vw, -10px);
+  /* Two shadows: a tight contact one that pins it to the baize and a long soft
+     one from the lamp off to the left. This is what seats a card on a table. */
+  filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.72)) drop-shadow(9px 14px 14px rgba(0, 0, 0, 0.5));
+  transform-origin: 50% 100%;
+}
+
+.card:first-child {
+  margin-left: 0;
+}
+
+.felt.split .card {
+  width: clamp(26px, 2.7vw, 40px);
+  margin-left: clamp(-16px, -1.2vw, -7px);
+}
+
+.felt.split .hand-label b {
+  font-size: clamp(13px, 1.5vw, 19px);
+}
+
+.card.fresh {
+  animation: land 300ms cubic-bezier(0.18, 0.9, 0.24, 1.02) both;
+}
+
+/* A little overshoot and a touch of spin, because a card thrown onto baize does
+   not arrive square. */
+@keyframes land {
+  0% { transform: translate3d(34%, -190%, 40px) rotate(-12deg); opacity: 0; }
+  62% { transform: translate3d(0, 6%, 0) rotate(1.6deg); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+}
+
+.hand-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.45em;
+  font-size: clamp(8.5px, 0.9vw, 11px);
+  letter-spacing: 0.16em;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.hand-label em {
+  font-style: normal;
+}
+
+.hand-label b {
+  font-family: var(--display);
+  font-size: clamp(16px, 1.9vw, 25px);
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.hand-label b.bust {
+  color: #e4666a;
+}
+
+.hand-label .tag {
+  font-style: normal;
+  font-size: 8.5px;
+  padding: 0.15em 0.4em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  opacity: 0.9;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tag.win, .tag.natural { color: #8fd3a4; }
+.tag.lose, .tag.bust { color: #e4666a; }
+.tag.push { color: var(--gold); }
+
+.hand.active .hand-label b {
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(200, 162, 74, 0.55);
+}
+
+/* The stake rides in the label row. Under the cards it was a fixed-pixel race
+   against the control bar, and that race gets lost again at the next size. */
+.stake {
+  font-size: clamp(9.5px, 1vw, 12.5px);
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+
+.stake::before {
+  content: '·';
+  margin-right: 0.45em;
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------- the readouts */
+
+.readouts {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  top: 15vh;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4vh;
+  align-items: flex-start;
+  transition: opacity 240ms ease;
+}
+
+/* Leaning over her hands means you are not watching the shoe. */
+.table-page.leaning .readouts {
+  opacity: 0.18;
+}
+
+.shoe {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shoe-label {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: #d8c8a6;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
+}
+
+.shoe-body {
+  position: relative;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
+  width: 26px;
+  height: 12vh;
+  min-height: 70px;
+  border: 1px solid rgba(200, 162, 74, 0.45);
+  border-radius: 2px;
+  background: rgba(6, 10, 12, 0.6);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+/* The block of cards going down is the readout a real counter watches, so it is
+   the readout here too - no number anywhere. */
+.shoe-stack {
+  width: 100%;
+  background: repeating-linear-gradient(to top, #e7dcc4 0 2px, #b9ab8c 2px 3px);
+  transition: height 420ms ease;
+}
+
+.shoe-glow {
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 100%, rgba(200, 162, 74, 0.8), transparent 70%);
+  transition: opacity 600ms ease;
+}
+
+/* ------------------------------------------------------------------ the hud */
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hud-h);
+  z-index: 40;
+  padding: 0 clamp(12px, 3vw, 40px) max(8px, env(safe-area-inset-bottom));
+  justify-content: flex-end;
+  background: linear-gradient(to top, rgba(4, 6, 8, 0.95) 34%, rgba(4, 6, 8, 0.6) 74%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7vh;
+}
+
+.money {
+  display: flex;
+  gap: clamp(12px, 2.4vw, 30px);
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+}
+
+.money b {
+  font-family: var(--display);
+  font-size: clamp(16px, 2vw, 24px);
+  color: var(--gold);
+  letter-spacing: 0;
+  margin-left: 0.5em;
+}
+
+.note-line {
+  margin: 0;
+  min-height: 1.3em;
+  max-width: 62ch;
+  font-size: clamp(10.5px, 1.1vw, 13px);
+  letter-spacing: 0.02em;
+  color: rgba(240, 228, 204, 0.72);
+  font-style: italic;
+  text-align: center;
+  transition: color 200ms ease;
+}
+
+.note-line.watching {
+  color: rgba(205, 234, 255, 0.92);
+}
+
+/*
+ * The result sits on the bare baize to the left of the cards, beside the chips.
+ * Centred over the picture there is no height that clears both the dealer and the
+ * hand labels at every window size; sharing the narration's line cost the control
+ * bar 29px it did not have and printed the chip count across the cards. That
+ * corner of the felt is genuinely empty.
+ */
+.banner {
+  position: absolute;
+  left: 3.5%;
+  top: 68%;
+  z-index: 35;
+  margin: 0;
+  max-width: 26vw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1em;
+  font-family: var(--display);
+  font-size: clamp(12px, 1.5vw, 20px);
+  line-height: 1.15;
+  color: #e97b7f;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.98), 0 0 40px rgba(0, 0, 0, 0.8);
+  animation: arrive 260ms ease-out both;
+  pointer-events: none;
+}
+
+.banner.good {
+  color: #9ad9ad;
+}
+
+.banner span {
+  font-family: var(--serif);
+  font-size: 0.55em;
+  color: var(--gold);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7vh;
+  width: 100%;
+}
+
+.acts {
+  display: flex;
+  gap: clamp(5px, 0.8vw, 11px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Watching her is a different kind of action from playing the hand, so it sits
+   apart from the four that touch the cards. */
+.acts-gap {
+  width: clamp(8px, 2.4vw, 34px);
+}
+
+.act.wide {
+  min-width: 180px;
+}
+
+/*
+ * Buttons are not buttons: they are gold letterpress on the felt. Every one is
+ * at least 50px tall so it works under a thumb, per the sibling project's
+ * portrait audit.
+ */
+.act,
+.chip,
+.big {
+  min-height: 50px;
+  padding: 0 clamp(12px, 2vw, 26px);
+  background: linear-gradient(to bottom, rgba(24, 30, 26, 0.88), rgba(10, 14, 12, 0.94));
+  border: 1px solid rgba(200, 162, 74, 0.5);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: var(--display);
+  font-size: clamp(10.5px, 1.2vw, 14px);
+  letter-spacing: 0.1em;
+  transition: border-color 160ms ease, color 160ms ease, transform 90ms ease, box-shadow 200ms ease;
+}
+
+.act.primary {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 22px rgba(200, 162, 74, 0.16), 0 0 18px rgba(0, 0, 0, 0.5);
+  color: #f0dca8;
+}
+
+/* hover is quarantined: on a touchscreen it sticks, so :active does the work. */
+@media (hover: hover) {
+  .act:hover:not(:disabled),
+  .chip:hover:not(:disabled),
+  .big:hover {
+    border-color: #ecd49a;
+    color: #fff1cf;
+  }
+}
+
+.act:active:not(:disabled),
+.chip:active:not(:disabled),
+.big:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.act:disabled,
+.chip:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.chip {
+  min-width: 54px;
+  border-radius: 50px;
+}
+
+.chip.on {
+  border-color: var(--gold);
+  color: #fff1cf;
+  box-shadow: inset 0 0 18px rgba(200, 162, 74, 0.25);
+}
+
+.act.lean.on {
+  border-color: #8fd3ff;
+  color: #cdeaff;
+  box-shadow: inset 0 0 22px rgba(90, 170, 220, 0.22);
+}
+
+.keys {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(185, 168, 137, 0.7);
+  text-align: center;
+}
+
+.over {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8vh;
+  text-align: center;
+  max-width: 44ch;
+}
+
+.over h2 {
+  font-family: var(--display);
+  font-size: clamp(17px, 2.8vw, 32px);
+  margin: 0;
+  color: var(--gold);
+}
+
+.over p {
+  margin: 0;
+  font-size: clamp(11px, 1.25vw, 14px);
+  color: var(--ink-dim);
+}
+
+/* -------------------------------------------------------------- the chrome */
+
+.chrome-row {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+}
+
+.chrome {
+  min-height: 44px;
+  padding: 0 12px;
+  background: rgba(6, 10, 12, 0.7);
+  border: 1px solid rgba(200, 162, 74, 0.4);
+  border-radius: 3px;
+  color: var(--ink-dim);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+}
+
+.chrome.waiting {
+  animation: pulse 1.7s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { border-color: rgba(200, 162, 74, 0.35); }
+  50% { border-color: var(--gold); color: var(--gold); }
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  min-height: 44px;
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: rgba(185, 168, 137, 0.6);
+  text-align: center;
+}
+
+.disclaimer.floating {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  z-index: 55;
+  pointer-events: none;
+}
+
+.table-page .disclaimer.floating {
+  bottom: auto;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  transform: none;
+  text-align: left;
+  max-width: 30vw;
+  line-height: 1.5;
+}
+
+/* ----------------------------------------------------- title / table picker */
+
+.page-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  filter: brightness(0.5) saturate(0.85);
+}
+
+.page-art.dim {
+  filter: brightness(0.26) saturate(0.6) blur(2px);
+}
+
+.title-page,
+.tables-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+  overflow-y: auto;
+  padding: 8vh 4vw 4vh;
+}
+
+.title-block {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.4vh;
+  text-align: center;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.4em;
+  color: var(--gold);
+}
+
+.title-block h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 8vw, 88px);
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  color: #f4e6c2;
+  text-shadow: 0 4px 34px rgba(0, 0, 0, 0.9), 0 0 70px rgba(200, 162, 74, 0.2);
+}
+
+.tagline {
+  margin: 0 0 1vh;
+  font-size: clamp(12px, 1.5vw, 17px);
+  font-style: italic;
+  color: var(--ink-dim);
+  max-width: 46ch;
+}
+
+.section {
+  position: relative;
+  z-index: 10;
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(14px, 2.2vw, 24px);
+  letter-spacing: 0.14em;
+  color: var(--gold);
+}
+
+.tables {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  gap: clamp(10px, 2vw, 22px);
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 1100px;
+}
+
+.table-card {
+  flex: 1 1 260px;
+  max-width: 320px;
+  padding: clamp(14px, 2vw, 22px);
+  background: linear-gradient(to bottom, rgba(16, 34, 27, 0.9), rgba(6, 12, 10, 0.94));
+  border: 1px solid rgba(200, 162, 74, 0.36);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.table-card h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(15px, 1.9vw, 22px);
+  color: #f0dca8;
+  letter-spacing: 0.05em;
+}
+
+.table-card .note {
+  margin: 0;
+  font-size: clamp(11px, 1.15vw, 13.5px);
+  font-style: italic;
+  color: var(--ink-dim);
+  min-height: 4.2em;
+}
+
+.rules {
+  margin: 0;
+  padding: 0 0 0 1.1em;
+  font-size: clamp(10.5px, 1.1vw, 13px);
+  color: rgba(240, 228, 204, 0.82);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rules li::marker {
+  color: var(--gold);
+}
+
+.rules .hot {
+  color: #e0a03c;
+}
+
+.table-card .big {
+  margin-top: auto;
+}
+
+/* ------------------------------------------------------------------- intro */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.intro-line {
+  position: absolute;
+  left: 50%;
+  bottom: 12vh;
+  transform: translateX(-50%);
+  margin: 0;
+  width: min(80vw, 60ch);
+  text-align: center;
+  font-size: clamp(13px, 1.9vw, 22px);
+  line-height: 1.45;
+  color: #f4e8cc;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.95);
+  animation: arrive 420ms ease-out both;
+}
+
+.intro-line.tap {
+  bottom: 24vh;
+  font-family: var(--display);
+  color: var(--gold);
+}
+
+.intro-title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1vh;
+  animation: arrive 700ms ease-out both;
+  pointer-events: none;
+}
+
+.intro-title h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(28px, 7.5vw, 82px);
+  color: #f4e6c2;
+  text-shadow: 0 4px 40px rgba(0, 0, 0, 0.95);
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.intro-title p {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  color: var(--gold);
+}
+
+.intro-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--gold);
+  transform-origin: 0 50%;
+  opacity: 0.5;
+}
+
+.chrome.leave {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  top: auto;
+  bottom: calc(var(--hud-h) + 10px);
+  z-index: 50;
+  min-height: 44px;
+  font-size: 8.5px;
+}
+
+.table-page .disclaimer.floating {
+  z-index: 55;
+}
+
+.chrome.skip {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 50;
+}
+
+/* ------------------------------------------------------- portrait phones */
+
+/*
+ * Portrait is a different layout, not a smaller one: object-fit cover on a 16:9
+ * plate in a 390x844 window shows about a quarter of the frame width, so the
+ * stage gets a fixed slice at the top and everything else stacks underneath.
+ */
+@media (max-width: 860px) and (orientation: portrait) {
+  /*
+   * Portrait is a different layout, not a smaller one: object-fit cover on a 16:9
+   * plate in a 390x844 window shows about a quarter of the frame width, so the
+   * screen is cut into explicit bands instead. dvh rather than vh, so a
+   * retracting address bar cannot push the controls off the bottom.
+   */
+  .page {
+    --hud-h: auto;
+  }
+
+  .scene {
+    bottom: auto;
+    height: 44dvh;
+  }
+
+  /* The lower part of the stage is the table, which is where the cards go. */
+  .felt {
+    top: 26dvh;
+    bottom: auto;
+    height: 18dvh;
+    gap: 5vw;
+  }
+
+  .cards {
+    transform: rotateX(18deg);
+  }
+
+  .card {
+    width: clamp(34px, 11vw, 54px);
+    margin-left: -3.2vw;
+  }
+
+  .felt.split .card {
+    width: clamp(26px, 8vw, 38px);
+    margin-left: -2.6vw;
+  }
+
+  .hands-row {
+    gap: 3vw;
+  }
+
+  .banner {
+    left: 50%;
+    top: 20dvh;
+    transform: translateX(-50%);
+    align-items: center;
+    max-width: 90vw;
+    font-size: clamp(13px, 4.4vw, 20px);
+  }
+
+  .readouts {
+    top: 45dvh;
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .shoe {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .shoe-body {
+    width: 52px;
+    height: 12px;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  /* Laid on its side there is no "down", so the stack runs right to left. */
+  .shoe-stack {
+    width: auto;
+    height: 100%;
+    background: repeating-linear-gradient(to right, #e7dcc4 0 2px, #b9ab8c 2px 3px);
+  }
+
+  .hud {
+    top: 54dvh;
+    bottom: 0;
+    height: auto;
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding-top: 6px;
+    gap: 7px;
+    background: linear-gradient(to top, rgba(4, 6, 8, 0.97) 62%, rgba(4, 6, 8, 0.88));
+  }
+
+  .acts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .acts-gap {
+    display: none;
+  }
+
+  .act.wide {
+    min-width: 0;
+    grid-column: span 2;
+  }
+
+  .acts .chip {
+    min-width: 0;
+    padding: 0 2px;
+  }
+
+  .controls > .act.primary {
+    width: 100%;
+  }
+
+  .chrome.leave {
+    top: auto;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    font-size: 8.5px;
+    min-height: 44px;
+    background: rgba(4, 6, 8, 0.85);
+    border: none;
+  }
+
+  /* Back to the page bottom: over the top corner it collided with the language
+     and sound buttons. */
+  .table-page .disclaimer.floating {
+    top: auto;
+    bottom: max(3px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 94vw;
+    font-size: 8px;
+    text-align: center;
+  }
+
+  .hud {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  /* The picker stacks and the page scrolls. A snapping sideways carousel reads
+     nicely but fights every programmatic scroll, so the cards are compacted
+     until three of them fit a phone's scroll instead. */
+  .tables-page {
+    padding: 9dvh 4vw 4dvh;
+    justify-content: flex-start;
+    gap: 1.4dvh;
+  }
+
+  .table-card {
+    flex: 1 1 100%;
+    max-width: 100%;
+    padding: 12px 14px;
+    gap: 7px;
+  }
+
+  .table-card .note {
+    min-height: 0;
+    font-size: 11px;
+  }
+
+  .rules {
+    font-size: 10.5px;
+    gap: 1px;
+  }
+}
+
+/* Everything that flickers or drifts stops on request. Nothing in the picture
+   drifts any more, so this is down to the one blinking affordance. */
+@media (prefers-reduced-motion: reduce) {
+  .chrome.waiting {
+    animation: none !important;
+  }
+
+  .plate.arriving,
+  .plate.leaving,
+  .card.fresh,
+  .banner,
+  .intro-line,
+  .intro-title {
+    animation-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,106 @@
+name: Deploy the blackjack preview
+
+# Builds blackjack/ on this branch and publishes it to the gh-pages-blackjack
+# branch, which githack serves with real content types.
+#
+# It deliberately does NOT publish to gh-pages. The sibling branch's workflow
+# force-pushes that whole branch from a fresh git init, so anything this added
+# there - even in its own subdirectory - would be wiped on its next build.
+# A separate branch means the two previews cannot clobber each other.
+#
+# Enabling GitHub Pages itself needs repository administration scope, which the
+# Actions token does not have (POST/PUT /repos/{o}/{r}/pages both return 403),
+# so githack is the published address rather than a fallback.
+
+on:
+  push:
+    branches: ['cursor/western-series-design-726b']
+    paths:
+      - 'blackjack/**'
+      - '.github/workflows/blackjack-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: preview-blackjack
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: blackjack/package-lock.json
+
+      - run: npm ci
+        working-directory: blackjack
+
+      - run: npm test
+        working-directory: blackjack
+
+      - run: npx tsc -b
+        working-directory: blackjack
+
+      - name: Build
+        working-directory: blackjack
+        env:
+          VITE_BASE: /${{ github.repository }}/gh-pages-blackjack/
+        run: npx vite build
+
+      - name: Add the serving shims
+        run: |
+          # No client-side router, but serving the app for unknown paths means a
+          # mistyped deep link still boots instead of 404ing.
+          cp blackjack/dist/index.html blackjack/dist/404.html
+          # Jekyll is on by default for branch sources and would swallow any path
+          # component beginning with an underscore.
+          touch blackjack/dist/.nojekyll
+
+      - name: Push the build
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd blackjack/dist
+          git init -q
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "Blackjack preview from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages-blackjack
+
+      - name: Check the deploy as a new visitor
+        working-directory: blackjack
+        run: |
+          npx playwright install --with-deps chromium
+          URL="https://raw.githack.com/${GITHUB_REPOSITORY}/gh-pages-blackjack/index.html"
+          # githack caches for a few minutes, and a fixed sleep is not long enough:
+          # checking too early runs the previous build's bundle against this build's
+          # files, which fails on whatever the new build stopped shipping. Wait for
+          # the bundle this job actually produced to be the one being served.
+          BUNDLE=$(basename "$(ls dist/assets/index-*.js)")
+          for _ in $(seq 1 40); do
+            if curl -fsS "$URL" | grep -q "$BUNDLE"; then break; fi
+            sleep 15
+          done
+          curl -fsS "$URL" | grep -q "$BUNDLE" || {
+            echo "githack is still serving an older bundle than $BUNDLE"
+            exit 1
+          }
+          node scripts/verify-deploy.mjs "$URL"
+
+      - name: Where it is
+        run: |
+          {
+            echo '### The table is open'
+            echo
+            echo "https://raw.githack.com/${GITHUB_REPOSITORY}/gh-pages-blackjack/index.html"
+            echo
+            echo 'githack shows a one-time "External Content Notice" first: click **Open the page**.'
+          } >> "$GITHUB_STEP_SUMMARY"

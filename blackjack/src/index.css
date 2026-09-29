@@ -1,0 +1,62 @@
+:root {
+  --ink: #f0e4cc;
+  --ink-dim: #b9a889;
+  --gold: #c8a24a;
+  --red: #a8232b;
+  --felt: #17392c;
+  --night: #07090b;
+
+  --serif: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  --display: Rye, Georgia, serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--night);
+  color: var(--ink);
+  font-family: var(--serif);
+  /* 100dvh rather than 100vh so a retracting address bar cannot push the
+     controls off the bottom of a phone. */
+  min-height: 100dvh;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* No focus ring for the mouse, a loud one for the keyboard. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Off-screen but still rendered: display:none and visibility:hidden are both
+   dropped from the accessibility tree, so a live region using either is never
+   announced. */
+.sr-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
