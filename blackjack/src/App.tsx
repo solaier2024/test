@@ -143,16 +143,25 @@ export default function App() {
   // noticing. This is the only thing that raises heat on its own.
   useEffect(() => {
     if (screen !== 'table') return
+    let drawn = -1
     const id = window.setInterval(() => {
       const g = gref.current
       if (g.phase === 'over') return
-      if (leaningRef.current) {
-        gref.current = { ...g, heat: Math.min(1, g.heat + heatFromLean(ROSA, 0.25)) }
-        sync()
-      } else if (g.heat > 0) {
-        gref.current = coolOff(g, 0.25)
-        sync()
-      }
+      let next = g
+      if (leaningRef.current) next = { ...g, heat: Math.min(1, g.heat + heatFromLean(ROSA, 0.25)) }
+      else if (g.heat > 0) next = coolOff(g, 0.25)
+      else return
+      gref.current = next
+      /*
+       * The model moves every tick; the screen only follows when it would look
+       * different. This used to re-render the whole table four times a second for
+       * as long as the heat was above zero, which is main-thread time the video
+       * decoder wants and a change too small for the gauge to show anyway.
+       */
+      const step = Math.round(next.heat * 200)
+      if (step === drawn) return
+      drawn = step
+      sync()
     }, 250)
     return () => window.clearInterval(id)
   }, [screen, sync])
