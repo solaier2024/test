@@ -3,6 +3,8 @@ import {
   CLEAN_BELL_RATE,
   MACHINES,
   PROOF,
+  SETTLEMENT,
+  STAKES,
   START_BANK,
   callHouse,
   cool,
@@ -13,7 +15,9 @@ import {
   reactionTo,
   returnToPlayer,
   rng,
+  setStake,
   settle,
+  settlementFor,
   shortChanged,
   windowAt,
 } from './engine'
@@ -355,6 +359,181 @@ describe('calling the house', () => {
   it('works on the thin band too: short is short', () => {
     expect(shortChanged(drummer)).toBe(true)
     expect(callHouse(primed(drummer, PROOF + 1)).won).toBe(true)
+  })
+})
+
+/*
+ * The stake is the only number the player sets, and it is a decision rather
+ * than a variance dial only because the money and the count do not move
+ * together. Each half is pinned separately, because it would be very easy to
+ * "simplify" one into the other and quietly turn the choice into a slider.
+ */
+describe('the bet', () => {
+  it('pays a straight multiple, and does not touch the edge', () => {
+    for (const m of MACHINES) {
+      const rtp = returnToPlayer(m)
+      for (const stake of STAKES) {
+        const next = rng(17)
+        let out = 0
+        for (let i = 0; i < 40000; i++) out += pull(m, next, stake).coins
+        expect(out / (40000 * stake)).toBeCloseTo(rtp, 1)
+      }
+    }
+  })
+
+  /* Same rests, same everything, times the coins in. Not a re-roll at a
+   * different size - the machine does not know what you put in it. */
+  it('is the same pull at a different price', () => {
+    const one = rng(8)
+    const three = rng(8)
+    for (let i = 0; i < 2000; i++) {
+      const a = pull(bandido, one, 1)
+      const b = pull(bandido, three, 3)
+      expect(b.stops).toEqual(a.stops)
+      expect(b.coins).toBe(a.coins * 3)
+      expect(b.nearMiss).toBe(a.nearMiss)
+      expect(b.bellOnThird).toBe(a.bellOnThird)
+    }
+  })
+
+  /*
+   * And the count is flat. This is the whole trade: a pull is one look at the
+   * third window whatever it cost, so betting three buys the same proof at
+   * three times the price. If this ever becomes proportional the stake stops
+   * being a decision and becomes a difficulty setting.
+   */
+  it('buys no more evidence for three coins than for one', () => {
+    /* A purse deep enough that the night cannot end, so the only difference
+     * between the two runs is the price. Writing this without that is how the
+     * first version of this test failed: the stake-three purse ran down, the
+     * stake came off it on its own, and the last few pulls were at one coin. */
+    const ran = (stake: number) => {
+      let session = { ...opening(bandido), stake, bank: 1e6 }
+      const next = rng(12)
+      for (let i = 0; i < 40; i++) {
+        session = { ...settle(session, pull(bandido, next, stake)), bank: 1e6 }
+      }
+      return session
+    }
+    const cheap = ran(1)
+    const dear = ran(3)
+    expect(dear.evidence).toBe(cheap.evidence)
+    expect(dear.bells).toBe(cheap.bells)
+    expect(dear.staked).toBe(cheap.staked * 3)
+  })
+
+  /*
+   * The other half of the trade, and the one that decides nights: a count is
+   * made of pulls, and the purse is how many pulls you have. This is the
+   * whole reason the stake is a choice rather than a preference.
+   *
+   * Measured rather than asserted loosely, because the interesting part is
+   * that the size of the effect depends on the machine. The bandido gives
+   * itself away inside fifty pulls, so betting big on it costs nothing; the
+   * drummer is the one that takes all night, and there it costs most of it.
+   */
+  it('spends the pulls a count is made of', () => {
+    const nights = (m: Machine, stake: number) => {
+      let pulls = 0
+      let reached = 0
+      const N = 200
+      for (let s = 0; s < N; s++) {
+        let session = { ...opening(m), stake }
+        const next = rng(1000 + s)
+        let got = false
+        while (session.phase !== 'over' && pulls < 1e6) {
+          session = settle(session, pull(m, next, session.stake))
+          pulls++
+          if (session.evidence >= PROOF) got = true
+        }
+        if (got) reached++
+      }
+      return { pulls: pulls / N, proved: reached / N }
+    }
+
+    const cheap = nights(drummer, 1)
+    const dear = nights(drummer, 3)
+    // A night about a third as long.
+    expect(dear.pulls).toBeLessThan(cheap.pulls * 0.45)
+    // And most of the proofs gone with it.
+    expect(cheap.proved).toBeGreaterThan(0.75)
+    expect(dear.proved).toBeLessThan(cheap.proved * 0.6)
+
+    /* And the counter-example, which is the reason to have a choice at all:
+     * on the machine with no bells on the band, the count clears long before
+     * the purse does, so the same bet costs nothing. */
+    expect(nights(bandido, 1).proved).toBe(1)
+    expect(nights(bandido, 3).proved).toBe(1)
+  })
+
+  /*
+   * Heat is not part of this, and the intuition that it should be is wrong in
+   * the opposite direction: a bigger stake ends the night sooner, so there
+   * are fewer wins and fewer calls in it and being thrown out gets LESS
+   * likely. Pinned because "big bettors draw attention" is exactly the kind
+   * of plausible thing somebody would add later.
+   */
+  it('does not get you thrown out any faster', () => {
+    const thrownOut = (stake: number) => {
+      let thrown = 0
+      for (let s = 0; s < 200; s++) {
+        let session = { ...opening(honest), stake }
+        const next = rng(1000 + s)
+        while (session.phase !== 'over') session = settle(session, pull(honest, next, session.stake))
+        if (session.ended === 'thrown-out') thrown++
+      }
+      return thrown
+    }
+    expect(thrownOut(3)).toBeLessThan(thrownOut(1))
+  })
+
+  it('cannot be set to something the purse cannot cover, or mid-spin', () => {
+    const poor = { ...opening(honest), bank: 2 }
+    expect(setStake(poor, 3).stake).toBe(1)
+    expect(setStake(poor, 2).stake).toBe(2)
+    expect(setStake({ ...opening(honest), phase: 'spinning' as const }, 3).stake).toBe(1)
+    expect(setStake(opening(honest), 7).stake).toBe(1)
+  })
+
+  /* Rather than ending a night that still has coins in it. */
+  it('comes down on its own when the purse can no longer cover it', () => {
+    const next = rng(2)
+    let session = { ...opening(honest), stake: 3, bank: 5 }
+    session = settle(session, pull(honest, next, 3))
+    if (session.bank < 3 && session.bank >= 1) expect(session.stake).toBeLessThanOrEqual(session.bank)
+    expect(session.stake).toBeGreaterThanOrEqual(1)
+  })
+
+  /*
+   * The settlement follows the level you were playing at, so that proving a
+   * machine crooked after a night of three-coin pulls is worth three times
+   * proving it after a night of one-coin pulls - and so that the obvious
+   * exploit does not work. One big bet on the last pull moves an average over
+   * forty by almost nothing.
+   */
+  describe('the settlement', () => {
+    const played = (stake: number, pulls: number) => ({
+      ...opening(bandido),
+      evidence: PROOF + 0.1,
+      pulls,
+      staked: stake * pulls,
+    })
+
+    it('is paid at the level the night was played at', () => {
+      expect(settlementFor(played(1, 40))).toBe(SETTLEMENT)
+      expect(settlementFor(played(3, 40))).toBe(SETTLEMENT * 3)
+      expect(callHouse(played(3, 40)).session.bank).toBe(START_BANK + SETTLEMENT * 3)
+    })
+
+    it('cannot be yanked up on the last pull', () => {
+      const quiet = played(1, 40)
+      const andOneBigOne = { ...quiet, pulls: 41, staked: quiet.staked + 3 }
+      expect(settlementFor(andOneBigOne)).toBeLessThan(SETTLEMENT * 1.1)
+    })
+
+    it('pays the minimum to somebody who proved it without playing', () => {
+      expect(settlementFor({ ...opening(bandido), pulls: 0, staked: 0 })).toBe(SETTLEMENT)
+    })
   })
 })
 

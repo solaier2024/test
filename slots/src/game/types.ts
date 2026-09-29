@@ -68,6 +68,10 @@ export type Phase = 'ready' | 'spinning' | 'settling' | 'called' | 'over'
 export interface Session {
   machine: Machine
   bank: number
+  /** Coins on the next pull. The only number the player sets. */
+  stake: number
+  /** Coins put in over the night, so the house knows what it owes. */
+  staked: number
   pulls: number
   /** Pulls on which a bell was visible anywhere in the third window. */
   bells: number

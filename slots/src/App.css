@@ -426,6 +426,71 @@
   white-space: nowrap;
 }
 
+/* ---------------------------------------------------------------- the bet */
+
+/* Inside the pay card, under a rule, because every number above it is now a
+   number per coin and the two have to be read together. */
+.stake {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(200, 162, 74, 0.28);
+}
+
+.stake h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+
+.stake-row {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.stake-coin {
+  /* A coin, and the series' thumb size, whichever is bigger. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid rgba(200, 162, 74, 0.4);
+  border-radius: 50%;
+  background: radial-gradient(70% 70% at 35% 28%, #3a2c18, #16100a);
+  font-family: var(--display);
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+  transition: color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+@media (hover: hover) {
+  .stake-coin:hover:not(:disabled) {
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+}
+
+.stake-coin.on {
+  border-color: #e0a13a;
+  color: #f4dca6;
+  box-shadow: 0 0 0.7rem rgba(224, 161, 58, 0.35), inset 0 0 0.5rem rgba(224, 161, 58, 0.18);
+}
+
+.stake-coin:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stake-note {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
 /* --------------------------------------------------------------- the lever */
 
 /*
@@ -865,8 +930,18 @@
   }
 
   .paycard-note,
-  .tally-hint {
+  .tally-hint,
+  .stake-note {
     display: none;
+  }
+
+  /* Label beside the coins rather than over them. The card is 8.5rem wide
+     here and the footer has to cost a row, not three. */
+  .stake {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.4rem;
   }
 
   .hud {
@@ -933,8 +1008,15 @@
     --pic-top: 4rem;
     /* Sized by what it has to leave behind rather than by how it looks: the
      * glass is 17.81% of the picture's width, and shots-mobile.mjs fails the
-     * layout below 90 CSS pixels of glass. 46dvh gives 96. */
-    --pic-h: 46dvh;
+     * layout below 90 CSS pixels of glass. 46dvh gave 96, and 44 gives 92.
+     *
+     * The three and a half pixels went to the bet. Below the picture there is
+     * room for the count, the pay card and the controls and nothing else, and
+     * the card grew a footer; the alternative was 40px coins, which is under
+     * the 44px thumb every control in this series is held to. A symbol three
+     * per cent smaller is still countable and a button that size is not still
+     * pressable, so the picture pays. */
+    --pic-h: 44dvh;
     --pic-w: calc(var(--pic-h) * 16 / 9);
     /* Which fraction of the plate sits at the centre of the screen. The
      * casting spans about 0.24 to 0.56 and the arm reaches 0.8, so this is
@@ -1021,12 +1103,49 @@
     column-gap: 1rem;
   }
 
-  /* The note stays because it is a rule - one coin, centre line only - and a
+  /* The note stays because it is a rule - per coin, centre line only - and a
    * player who does not know it misreads every pull. The count's caption does
    * not, because the label, the running fraction and the notches already say
    * it, and it is the only caption here that costs more than it explains. */
   .paycard-note {
     display: revert;
+  }
+
+  /*
+   * The rule and the coins share the last line.
+   *
+   * There are 225 pixels under the picture for the count, the card and the
+   * controls, and adding the bet as its own row put the card 21 pixels into
+   * the count. Given its own line the footer costs 65; sharing one with the
+   * note it costs 40, which is the difference between fitting and not. They
+   * belong together anyway - the note says what a coin buys and the coins say
+   * how many are going in.
+   */
+  .paycard {
+    grid-template-columns: 1fr auto;
+  }
+
+  .paycard-title,
+  .paycard ul {
+    grid-column: 1 / -1;
+  }
+
+  .paycard-note {
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .stake {
+    grid-column: 2;
+    grid-template-columns: auto auto;
+    border-top: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .stake h3 {
+    max-width: 4.5rem;
+    line-height: 1.2;
   }
 
   /*

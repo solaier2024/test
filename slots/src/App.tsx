@@ -5,6 +5,7 @@ import { Intro } from './components/Intro'
 import { Lever } from './components/Lever'
 import { Reels, planReel, type ReelPlan } from './components/Reels'
 import { Scene, type Room } from './components/Scene'
+import { Stake } from './components/Stake'
 import { LangToggle, SoundToggle } from './components/SoundToggle'
 import { PayCard, Tally } from './components/Tally'
 import type { ClipRequest } from './components/Clip'
@@ -18,17 +19,18 @@ import { useSoundState } from './audio/useSound'
 import {
   MACHINES,
   PROOF,
-  STAKE,
+  STAKES,
   callHouse,
   cool,
   opening,
   pull as spin,
   reactionTo,
   rng,
+  setStake,
   settle,
 } from './game/engine'
 import { STOPS, type Face, type Machine, type Outcome, type Reaction, type Session } from './game/types'
-import { STRINGS, type Lang } from './i18n/strings'
+import { STRINGS, type Lang, type TextKey } from './i18n/strings'
 
 /*
  * The table.
@@ -61,7 +63,7 @@ interface Beat {
 }
 
 /** The line the room says, per reaction, so a muted player reads it instead. */
-const SAID: Record<Reaction, keyof (typeof STRINGS)['en']> = {
+const SAID: Record<Reaction, TextKey> = {
   roar: 'crowdRoar',
   cheer: 'crowdCheer',
   gasp: 'crowdGasp',
@@ -301,7 +303,7 @@ export default function App() {
 
   const doPull = useCallback(() => {
     const s = sessionRef.current
-    if (busyRef.current || s.phase === 'over' || s.bank < STAKE) return
+    if (busyRef.current || s.phase === 'over' || s.bank < s.stake) return
     void unlock()
     busyRef.current = true
     setBusy(true)
@@ -309,7 +311,7 @@ export default function App() {
     setWanted(null)
     setRoom('back')
 
-    const out = spin(machine, random.current)
+    const out = spin(machine, random.current, s.stake)
     const t0 = now()
     const scale = reduced ? 0.45 : 1
     const release = t0 + LEVER * scale
@@ -319,7 +321,7 @@ export default function App() {
       release + (out.tease ? HANG : RESTS[2]) * scale,
     ]
 
-    coinIn()
+    coinIn(s.stake)
     leverPull()
     setClip({ name: 'pull', token: ++token.current })
     push(t0 + 0.5 * scale, () => {
@@ -399,6 +401,12 @@ export default function App() {
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault()
         doCall()
+      }
+      /* The stake is the other thing a player changes often enough to want a
+       * key for, and the coin count is its own obvious shortcut. */
+      if (STAKES.some((n) => String(n) === e.key)) {
+        e.preventDefault()
+        setSession((s) => setStake(s, Number(e.key)))
       }
     }
     window.addEventListener('keydown', keys)
@@ -499,7 +507,23 @@ export default function App() {
         hint={t.tallyHint}
       />
 
-      <PayCard title={t.card} suit={t.cardSuit} anyBell={t.cardAnyBell} note={t.cardNote} />
+      <PayCard
+        title={t.card}
+        suit={t.cardSuit}
+        anyBell={t.cardAnyBell}
+        note={t.cardNote}
+        stake={
+          <Stake
+            stake={session.stake}
+            bank={session.bank}
+            disabled={busy || over}
+            onStake={(n) => setSession((s) => setStake(s, n))}
+            title={t.stake}
+            note={t.stakeNote}
+            label={(n) => t.stakeLabel(n)}
+          />
+        }
+      />
 
       <div className="hud">
         <span>

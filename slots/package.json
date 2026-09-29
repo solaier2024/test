@@ -17,7 +17,9 @@
     "demo": "node scripts/record-demo.mjs",
 
     "//verify": "Everything a change has to survive that can be checked off the filesystem. Run it before pushing.",
-    "verify": "npm run lint && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:budget",
+    "verify": "npm run lint && npm run verify:types && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:budget",
+    "//verify:types": "The linter does not typecheck and vitest does not either, so without this a type error reaches CI through the build and nowhere earlier.",
+    "verify:types": "tsc -b",
     "verify:window": "node scripts/verify-window.mjs",
     "verify:lock": "node scripts/verify-lock.mjs",
     "verify:identity": "node scripts/verify-identity.mjs",

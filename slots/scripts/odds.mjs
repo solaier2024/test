@@ -18,6 +18,7 @@
 import {
   MACHINES,
   PROOF,
+  STAKES,
   START_BANK,
   opening,
   pull,
@@ -64,13 +65,43 @@ function toProof(machine, seed) {
 }
 
 /** Pulls until the purse is empty, with no calling and no getting thrown out. */
-function toBroke(machine, seed) {
+function toBroke(machine, seed, stake = 1) {
   const next = rng(seed)
-  let session = opening(machine)
+  let session = { ...opening(machine), stake }
   while (session.bank >= 1 && session.pulls < CAP) {
-    session = settle({ ...session, heat: 0 }, pull(machine, next))
+    session = settle({ ...session, heat: 0 }, pull(machine, next, session.stake))
   }
   return session.pulls
+}
+
+/**
+ * A whole night at a fixed stake, played out: how long it lasts and whether
+ * the count ever got strong enough to call.
+ *
+ * This is the table the bet is balanced on, and it is the only one here that
+ * cannot be reasoned out from the bands. A count is made of pulls and the
+ * purse is how many pulls you have, so raising the stake spends the thing the
+ * proof is made of - but how much that costs depends entirely on how long the
+ * machine takes to give itself away, which is the difference between the two
+ * crooked ones.
+ */
+function nights(machine, stake) {
+  let pulls = 0
+  let proved = 0
+  let thrown = 0
+  for (const seed of seeds) {
+    const next = rng(1000 + seed)
+    let session = { ...opening(machine), stake }
+    let reached = false
+    while (session.phase !== 'over' && session.pulls < CAP) {
+      session = settle(session, pull(machine, next, session.stake))
+      if (session.evidence >= PROOF) reached = true
+    }
+    pulls += session.pulls
+    if (reached) proved++
+    if (session.ended === 'thrown-out') thrown++
+  }
+  return { pulls: pulls / RUNS, proved: proved / RUNS, thrown: thrown / RUNS }
 }
 
 const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
@@ -103,3 +134,33 @@ for (const m of MACHINES) {
 console.log(`\n${SPINS.toLocaleString()} pulls each; return enumerated over all 8000 rests.`)
 console.log(`a call needs ${PROOF} of evidence, and only lands on a machine that is short: ` +
   MACHINES.filter(shortChanged).map((m) => m.id).join(', '))
+
+/* ------------------------------------------------------------------ the bet */
+
+console.log(`\nand what the stake costs, over ${RUNS} whole nights each:\n`)
+console.log(
+  ['machine', 'coins a pull', 'a night is', 'reached proof', 'thrown out']
+    .map((s, i) => (i ? s.padStart(15) : s.padEnd(10)))
+    .join(''),
+)
+for (const m of MACHINES) {
+  for (const stake of STAKES) {
+    const n = nights(m, stake)
+    console.log(
+      [
+        (stake === STAKES[0] ? m.id : '').padEnd(10),
+        String(stake).padStart(15),
+        `${n.pulls.toFixed(0)} pulls`.padStart(15),
+        pct(n.proved).padStart(15),
+        pct(n.thrown).padStart(15),
+      ].join(''),
+    )
+  }
+}
+console.log(
+  '\nthe purse is the clock: a count is made of pulls, so a bigger stake spends the\n' +
+  'thing the proof is made of. What it costs depends on how long the machine takes\n' +
+  'to give itself away - which is the whole difference between the two crooked ones.\n' +
+  'Being thrown out goes the other way, and is worth knowing: a shorter night has\n' +
+  'fewer wins and fewer calls in it, so the big bettor is LESS watched, not more.',
+)

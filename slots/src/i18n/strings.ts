@@ -46,7 +46,13 @@ const en = {
   card: 'PAYS',
   cardSuit: 'THREE OF ANY SUIT',
   cardAnyBell: 'ANYWHERE',
-  cardNote: 'ONE COIN A PULL · CENTRE LINE ONLY',
+  cardNote: 'PER COIN IN · CENTRE LINE ONLY',
+
+  stake: 'COINS A PULL',
+  /* The trade, in one line, because it is invisible otherwise: the money
+   * scales with the stake and the count does not. */
+  stakeNote: 'Pays per coin. The count does not: one look at the third band, whatever it cost you.',
+  stakeLabel: (n: number) => `${n} ${n === 1 ? 'COIN' : 'COINS'} A PULL`,
 
   crowdRoar: 'The room comes off the floor.',
   crowdCheer: 'Somebody slaps the bar.',
@@ -87,7 +93,7 @@ const en = {
 
 type Strings = typeof en
 
-const es: Record<keyof Strings, string> = {
+const es: Strings = {
   title: 'EL BANDIDO MANCO',
   subtitle: 'LA MÁQUINA DE UN BRAZO',
   year: 'La misma cantina. Quince años después.',
@@ -126,7 +132,11 @@ const es: Record<keyof Strings, string> = {
   card: 'PAGA',
   cardSuit: 'TRES DEL MISMO PALO',
   cardAnyBell: 'DONDE SEA',
-  cardNote: 'UNA FICHA POR JALADA · SOLO LA LÍNEA DE EN MEDIO',
+  cardNote: 'POR CADA FICHA · SOLO LA LÍNEA DE EN MEDIO',
+
+  stake: 'FICHAS POR JALADA',
+  stakeNote: 'Paga por ficha. La cuenta no: una mirada a la tercera cinta, cueste lo que cueste.',
+  stakeLabel: (n: number) => `${n} ${n === 1 ? 'FICHA' : 'FICHAS'} POR JALADA`,
 
   crowdRoar: 'La sala se levanta del suelo.',
   crowdCheer: 'Alguien da un palmazo en la barra.',
@@ -165,3 +175,5 @@ const es: Record<keyof Strings, string> = {
 export type Lang = 'en' | 'es'
 export const STRINGS: Record<Lang, Strings> = { en, es }
 export type Key = keyof Strings
+/** The keys that are a finished line, as opposed to the few that take a number. */
+export type TextKey = { [K in Key]: Strings[K] extends string ? K : never }[Key]

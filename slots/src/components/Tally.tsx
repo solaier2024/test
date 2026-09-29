@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { PROOF } from '../game/engine'
 import { PAYS, type Face } from '../game/types'
 import { FaceMark } from './Face'
@@ -52,7 +53,26 @@ const LABEL: Record<string, Face> = {
   star: 'star',
 }
 
-export function PayCard({ title, suit, anyBell, note }: { title: string; suit: string; anyBell: string; note: string }) {
+/*
+ * The stake goes in the card's footer rather than beside the lever, and it is
+ * the right place for a reason beyond finding room for it: the card is the
+ * only object here that says what a coin is worth, and every number printed
+ * on it is now a number per coin. Putting the multiplier anywhere else leaves
+ * the card saying 100 while the machine pays 300.
+ */
+export function PayCard({
+  title,
+  suit,
+  anyBell,
+  note,
+  stake,
+}: {
+  title: string
+  suit: string
+  anyBell: string
+  note: string
+  stake?: ReactNode
+}) {
   return (
     <div className="paycard">
       <span className="paycard-title">{title}</span>
@@ -81,6 +101,7 @@ export function PayCard({ title, suit, anyBell, note }: { title: string; suit: s
         ))}
       </ul>
       <span className="paycard-note">{note}</span>
+      {stake}
     </div>
   )
 }

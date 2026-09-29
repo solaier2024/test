@@ -110,7 +110,12 @@ function cachedTeaseStops(machine: Machine, want: Face, centre: Face): number[] 
 
 /* ------------------------------------------------------------------ a pull */
 
-export function pull(machine: Machine, next: () => number): Outcome {
+/**
+ * @param stake coins in. The card on the front pays per coin, so this is a
+ *        straight multiplier on what comes out - and on what the room makes
+ *        of it, because the crowd reads coins and not lines.
+ */
+export function pull(machine: Machine, next: () => number, stake = 1): Outcome {
   const stops: [number, number, number] = [
     Math.floor(next() * STOPS),
     Math.floor(next() * STOPS),
@@ -144,7 +149,7 @@ export function pull(machine: Machine, next: () => number): Outcome {
     stops,
     windows,
     line,
-    coins: payout(line),
+    coins: payout(line) * stake,
     tease,
     nearMiss: tease && line[2] !== want && (windows[2][0] === want || windows[2][2] === want),
     bellOnThird: windows[2].includes('bell'),
@@ -178,15 +183,69 @@ export const shortChanged = (m: Machine) =>
 /* ------------------------------------------------------------- the session */
 
 export const START_BANK = 60
-export const STAKE = 1
 export const CALL_COST = 8
-/** What the house hands back when the room makes it hand something back. */
+
+/*
+ * Coins on a pull, and the one number the player sets.
+ *
+ * It is a decision rather than a variance dial because the money and the
+ * count do not move together.
+ *
+ *   The money scales, and the edge does not. The card pays per coin, so three
+ *   in is three times everything on it, and the return stays what the bands
+ *   make it at every stake. "Bet more to win it back" does not work here and
+ *   is not supposed to.
+ *
+ *   The count does not scale. A pull is one look at the third window whatever
+ *   it cost, so evidence per pull is flat and evidence per COIN is divided by
+ *   three.
+ *
+ *   And the purse is the clock. Three coins a pull is a night about a third
+ *   as long - measured over 200 nights a machine by scripts/odds.mjs: 168
+ *   pulls down to 53 on the bandido, 185 down to 60 on the drummer. Proving a
+ *   machine is short of bells takes pulls and nothing else, so spending them
+ *   faster is spending the thing the proof is made of.
+ *
+ * What makes that a choice and not just a worse option is the settlement,
+ * which is paid at the level the night was played at. So the stake buys a
+ * bigger prize with a smaller chance of collecting it, and how much smaller
+ * depends on the machine, which is the good part: the bandido gives itself
+ * away inside about twenty pulls, so on that one every stake reaches the
+ * proof and the bet is close to free money. The drummer takes most of a night
+ * to say what is wrong with it, and there it is the whole game - 83.5% of
+ * one-coin nights get to the proof and 32% of three-coin ones do.
+ *
+ * Heat, notably, is NOT part of this. The intuition that a big bettor draws
+ * more attention is wrong in the numbers, and in the opposite direction:
+ * higher stakes end the night sooner, which means fewer wins and fewer calls,
+ * so being thrown out gets LESS likely, not more. On the honest machine 38%
+ * of one-coin nights end with the coat coming over, against 13% at three.
+ */
+export const STAKES = [1, 2, 3] as const
+export const MIN_STAKE = STAKES[0]
+
+/**
+ * What the house hands back when the room makes it hand something back, per
+ * coin the player was putting in.
+ *
+ * Scaled by the average stake over the night rather than the stake showing
+ * when you call, which would just be a lever to yank on the last pull: the
+ * house settles at the level you were playing at, and one big bet at the end
+ * moves that average by nothing.
+ */
 export const SETTLEMENT = 45
+
+export function settlementFor(session: Session): number {
+  const average = session.pulls > 0 ? session.staked / session.pulls : MIN_STAKE
+  return Math.round(SETTLEMENT * average)
+}
 
 export function opening(machine: Machine): Session {
   return {
     machine,
     bank: START_BANK,
+    stake: MIN_STAKE,
+    staked: 0,
     pulls: 0,
     bells: 0,
     evidence: 0,
@@ -197,15 +256,27 @@ export function opening(machine: Machine): Session {
   }
 }
 
+/** Only between pulls, and never more than the purse can cover. */
+export function setStake(session: Session, stake: number): Session {
+  if (session.phase !== 'ready') return session
+  if (!STAKES.includes(stake as (typeof STAKES)[number])) return session
+  if (stake > session.bank) return session
+  return { ...session, stake }
+}
+
 /** Heat from a pull: winning loudly is what gets you looked at. */
 const heatFor = (coins: number) => (coins >= 20 ? 0.1 : coins >= 5 ? 0.05 : 0)
 
 export function settle(session: Session, out: Outcome): Session {
-  const bank = session.bank - STAKE + out.coins
+  const bank = session.bank - session.stake + out.coins
   const heat = Math.min(1, session.heat + heatFor(out.coins))
   const next: Session = {
     ...session,
     bank,
+    staked: session.staked + session.stake,
+    /* The purse can no longer cover what is set. Come down to what it can,
+     * rather than ending a night that still has coins in it. */
+    stake: Math.min(session.stake, Math.max(MIN_STAKE, bank)),
     pulls: session.pulls + 1,
     bells: session.bells + (out.bellOnThird ? 1 : 0),
     evidence: session.evidence + (out.bellOnThird ? seenBell : noBell),
@@ -215,7 +286,7 @@ export function settle(session: Session, out: Outcome): Session {
     ended: null,
   }
   if (heat >= 1) return { ...next, phase: 'over', ended: 'thrown-out' }
-  if (bank < STAKE) return { ...next, phase: 'over', ended: 'broke' }
+  if (bank < MIN_STAKE) return { ...next, phase: 'over', ended: 'broke' }
   return next
 }
 
@@ -242,7 +313,7 @@ export function callHouse(session: Session): CallResult {
   const crooked = shortChanged(session.machine)
   if (proven && crooked) {
     return {
-      session: { ...session, bank: session.bank + SETTLEMENT, phase: 'over', ended: 'proved' },
+      session: { ...session, bank: session.bank + settlementFor(session), phase: 'over', ended: 'proved' },
       won: true,
       wrongMachine: false,
     }
@@ -251,7 +322,7 @@ export function callHouse(session: Session): CallResult {
   const heat = Math.min(1, session.heat + 0.34)
   const session2: Session = { ...session, bank, heat, phase: 'ready' }
   if (heat >= 1) return { session: { ...session2, phase: 'over', ended: 'thrown-out' }, won: false, wrongMachine: !crooked }
-  if (bank < STAKE) return { session: { ...session2, phase: 'over', ended: 'broke' }, won: false, wrongMachine: !crooked }
+  if (bank < MIN_STAKE) return { session: { ...session2, phase: 'over', ended: 'broke' }, won: false, wrongMachine: !crooked }
   return { session: session2, won: false, wrongMachine: proven && !crooked }
 }
 
@@ -272,7 +343,14 @@ export function reactionTo(out: Outcome): Reaction {
 
 /* ------------------------------------------------------ house edge, exactly */
 
-/** Enumerates all STOPS^3 rests. Used by the tests and by scripts/odds.mjs. */
+/**
+ * Enumerates all STOPS^3 rests. Used by the tests and by scripts/odds.mjs.
+ *
+ * Per coin, and therefore the same at every stake: the card pays a multiple
+ * of what goes in, so the edge is a property of the bands and nothing the
+ * player sets can move it. That is worth being able to say out loud, because
+ * "bet more to win it back" is the oldest wrong idea in the building.
+ */
 export function returnToPlayer(machine: Machine): number {
   let total = 0
   for (let i = 0; i < STOPS; i++) {
@@ -282,5 +360,5 @@ export function returnToPlayer(machine: Machine): number {
       }
     }
   }
-  return total / (STOPS ** 3 * STAKE)
+  return total / (STOPS ** 3 * MIN_STAKE)
 }

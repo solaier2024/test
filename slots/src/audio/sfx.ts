@@ -169,12 +169,23 @@ export function libertyBell(strikes = 3): void {
   duck(0.34, 0.5, 1.4)
 }
 
-/** A coin going in. One input, one coin, every time. */
-export function coinIn(): void {
+/**
+ * Coins going in, one slot at a time.
+ *
+ * Counted out rather than played once and made louder, because the count is
+ * the information: the stake is a number the player set and this is the only
+ * confirmation of it that does not need looking at. Each one is slightly
+ * detuned from the last, the way three coins down the same slot are.
+ */
+export function coinIn(count = 1): void {
   const c = ac()
-  tone({ at: c.currentTime, freq: 2400, gain: 0.04, decay: 0.1, send: 0.3 })
-  burst({ at: c.currentTime + 0.07, freq: 1800, q: 4, gain: 0.04, decay: 0.05 })
-  tone({ at: c.currentTime + 0.1, freq: 700, to: 300, gain: 0.03, decay: 0.12, type: 'triangle' })
+  for (let i = 0; i < count; i++) {
+    const at = c.currentTime + i * 0.16
+    const bend = 1 - i * 0.04
+    tone({ at, freq: 2400 * bend, gain: 0.04, decay: 0.1, send: 0.3 })
+    burst({ at: at + 0.07, freq: 1800 * bend, q: 4, gain: 0.04, decay: 0.05 })
+    tone({ at: at + 0.1, freq: 700 * bend, to: 300, gain: 0.03, decay: 0.12, type: 'triangle' })
+  }
 }
 
 /** The iron going quiet for the night, when the room shuts it down. */
