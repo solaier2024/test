@@ -13,8 +13,8 @@
  *    master, nothing downstream is guaranteed.
  * 2. THE LOOP CLOSES. Submitted with the master as endFrame too, so the last frame
  *    has to come back. This is what lets the idle clip loop without a crossfade.
- * 3. THE COSTUME HOLDS. Worst deviation of the costume box from the master over
- *    every frame - the generator adding fabric or moving a strap shows up here.
+ * 3. THE STRAP STAYS DOWN. The one costume detail a generator reaches to "fix",
+ *    and the only one a fixed box can judge on a body that moves. See LIMIT.
  * 4. THE ROOM STAYS STILL. The bottles, lamp, crate and baize must not move. This
  *    is the defect that made the displacement-field idle loop read as unnatural:
  *    the room breathed with her at half her own amplitude.
@@ -34,17 +34,31 @@ const FRAME = W * H * 3
 /** Where she is, and where the room is. Placed off the master plate. */
 const HER = {
   costume: core(REGIONS.torso),
+  /* The slipped left shoulder strap - the detail a generator reaches to "fix". */
+  strap: { x: 430, y: 225, w: 110, h: 100 },
   face: { x: 560, y: 90, w: 160, h: 130 },
   /* Her right hand where it rests on the baize, beside the card shoe. */
   hands: { x: 700, y: 480, w: 180, h: 100 },
 }
 
 /*
- * Clips whose whole point is the hands. A shuffle in which her face twitches and
- * her hands never leave the felt passes a face-only check and is still the wrong
- * clip, so these have to be named.
+ * Hand movement is printed rather than required, and no clip in the set uses it.
+ *
+ * Four takes went into trying. The model will move her hands on request - 23.77
+ * and 41.88 against a 2.4 noise floor - and it cannot do it without breaking
+ * something else. Asked to riffle a deck, it conjured one out of empty air,
+ * melted her fingers into a red block and vanished it again; asked to work the
+ * card shoe that is really in the plate, it fused her fingers into the wood; and
+ * on two of the three takes her shoulder came up and took the slipped strap with
+ * it, which fails the check below and breaks the loop. There is nothing in the
+ * source photograph for a hand to hold, and that is the root of it.
+ *
+ * So deal and shuffle are attention beats now - her eyes follow the card out, and
+ * she asks for a moment between shoes - and the cards stay what they always were,
+ * which is the game's own elements animating over the top. Her hands never leave
+ * the felt in any clip, so a figure above about 3 here means something has changed
+ * and wants looking at.
  */
-const HAND_CLIPS = ['deal', 'shuffle']
 /*
  * Objects that must not move, all of them placed clear of her. Two of these were
  * wrong on the first pass and both errors read as a defect in the clip rather
@@ -69,8 +83,24 @@ const LIMIT = {
   start: 6,
   /** Last frame against frame 0. */
   loop: 6,
-  /** Worst costume deviation from the master, any frame. */
-  costume: 14,
+  /*
+   * The strap is the assertion, and it earned that place by catching a defect a
+   * human eye had already passed.
+   *
+   * The one detail generators cannot leave alone is the strap slipped down off her
+   * left shoulder: it reads to a model as a mistake to be tidied up. Veo pulled it
+   * up, and so did a take of the deal clip - at 00:02, after which it stayed up
+   * through the final frame, which also breaks the loop. That take scored 24.96
+   * here while every clean clip sat at or under 10.70.
+   *
+   * It was very nearly thrown away. Cropping the worst frame of the bodice box
+   * showed the same satin, the same lace and the strap still down, which looked
+   * like the metric being over-sensitive to a body that had simply moved. It was
+   * not: the crop was of frame 44 and the strap does not snap up until frame 60.
+   * The number was right and the spot-check was too coarse. Hence 14 - wide of the
+   * 10.70 the honest clips reach, and nowhere near the 24.96 of one that lies.
+   */
+  strap: 14,
   /*
    * Worst room movement, any frame. Her breath must not reach the furniture.
    *
@@ -83,8 +113,6 @@ const LIMIT = {
   room: 6,
   /** Her face has to move at least this much somewhere, or she is a photograph. */
   alive: 4,
-  /** And on a hand clip, the hands have to actually leave the felt. */
-  gesture: 6,
 }
 
 const master = readRgb(plateFile(MASTER))
@@ -122,17 +150,16 @@ for (const path of process.argv.slice(2)) {
   // Worst case over every frame, not the mean: one frame with a redesigned bodice
   // is a visible pop, and a mean would bury it.
   const worst = (box) => Math.max(...f.map((fr) => boxDiff(master, fr, box)))
-  const costume = worst(HER.costume)
   const alive = worst(HER.face)
-  console.log(`  costume, worst frame vs master    ${costume.toFixed(2).padStart(6)}  (limit ${LIMIT.costume})   ${costume <= LIMIT.costume ? 'holds' : 'DRIFTED'}`)
+  const strap = worst(HER.strap)
+  console.log(`  costume, worst frame vs master    ${worst(HER.costume).toFixed(2).padStart(6)}  (reported only)`)
+  console.log(`  left strap stays slipped down     ${strap.toFixed(2).padStart(6)}  (limit ${LIMIT.strap})   ${strap <= LIMIT.strap ? 'down' : 'RIDES UP'}`)
   console.log(`  her face, worst frame vs master   ${alive.toFixed(2).padStart(6)}  (needs > ${LIMIT.alive})   ${alive >= LIMIT.alive ? 'alive' : 'A PHOTOGRAPH'}`)
-  if (costume > LIMIT.costume) fail.push(`${name}: the costume drifted (${costume.toFixed(2)})`)
+  if (strap > LIMIT.strap) fail.push(`${name}: the left strap rides up onto her shoulder (${strap.toFixed(2)})`)
   if (alive < LIMIT.alive) fail.push(`${name}: she barely moves (${alive.toFixed(2)})`)
 
   const gesture = Math.max(...f.map((fr) => boxDiff(f[0], fr, HER.hands)))
-  const handClip = HAND_CLIPS.some((c) => name.startsWith(c))
-  console.log(`  her hands move                    ${gesture.toFixed(2).padStart(6)}  ${handClip ? `(needs > ${LIMIT.gesture})   ${gesture >= LIMIT.gesture ? 'gestures' : 'HANDS NEVER MOVE'}` : '(not a hand clip)'}`)
-  if (handClip && gesture < LIMIT.gesture) fail.push(`${name}: the hands never move (${gesture.toFixed(2)})`)
+  console.log(`  her hands stay on the felt        ${gesture.toFixed(2).padStart(6)}  (reported only)`)
 
   /*
    * Two different questions about the room, and only the second one is a defect.

@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 /*
- * Turns the still keyframes in public/art/ and clipsrc/ into the short video
- * clips the table plays.
+ * Builds every video file the table serves.
  *
- * Every plate is rendered from the same locked-off camera, so two plates that
- * differ by one movement are exactly the input dense optical flow wants:
+ * There are two sources now, and the split is the point:
  *
- *   keyframe pair -> ffmpeg minterpolate -> resample through an easing curve
- *                 -> VP9 / H.264 at two sizes + a poster frame
+ *   the six dealer clips   clipsrc/openart/*.mp4 -> downscale -> VP9 / H.264 at
+ *                          two sizes + a poster. Generated video; nothing to
+ *                          interpolate, because the motion is already in it.
+ *   the opening            stills -> minterpolate / zoompan -> xfade -> the same
+ *                          encoder. Still optical flow, and still the right tool:
+ *                          the opening is six different camera set-ups, which is
+ *                          the one thing a single-plate generator cannot give us.
  *
  *   node scripts/build-clips.mjs            # everything
  *   node scripts/build-clips.mjs deal       # just these
  *   FORCE=1 node scripts/build-clips.mjs    # ignore the cache
  *
- * Three things this has to get right, all learned the hard way on the sibling
- * project and kept here deliberately:
+ * Three things the opening path has to get right, all learned the hard way on the
+ * sibling project and kept here deliberately:
  *
  * 1. minterpolate throws away the first and last input interval, so the input
  *    is padded to [a, b, b]. That leaves one interval to render and yields
@@ -40,12 +43,13 @@ import {
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { BREATH, MASTER, readRgb, warp } from './lock-costume.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
 const ART = join(ROOT, 'public', 'art')
 const SRC = join(ROOT, 'clipsrc')
+/** Where the generated dealer clips land. See clipsrc/openart/README.md. */
+const GEN = join(SRC, 'openart')
 const OUT = join(ROOT, 'public', 'clips')
 const CACHE = join(ROOT, 'node_modules', '.clipcache')
 
@@ -119,40 +123,6 @@ function morph(a, b, steps) {
   return frames
 }
 
-/**
- * The breath, as `steps + 1` amplitudes of one displacement field applied to the
- * master - not as optical flow towards a second generated plate.
- *
- * This is the clip that is on screen for most of a session, and as a morph it was
- * the worst thing in the build: the two plates differed across the entire frame,
- * so every breath warped the bar, the bottles and the baize, and the costume had
- * to be pinned with a rectangle that then sat frozen in the middle of all that
- * drift. As warps of one image there is nothing to drift - the room is untouched
- * by construction, the costume is the same pixels, and amplitude 0 is the master
- * exactly, so the loop closes on itself.
- */
-function breathSeries(steps = 48) {
-  const dir = join(CACHE, `breath-${digest(plate(MASTER), steps, JSON.stringify(BREATH))}`)
-  if (!force && existsSync(dir) && readdirSync(dir).length === steps + 1) {
-    return readdirSync(dir).sort().map((f) => join(dir, f))
-  }
-  rmSync(dir, { recursive: true, force: true })
-  mkdirSync(dir, { recursive: true })
-
-  const master = readRgb(plate(MASTER))
-  for (let i = 0; i <= steps; i++) {
-    execFileSync(
-      'ffmpeg',
-      ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-i', '-',
-        join(dir, `${String(i).padStart(4, '0')}.png`)],
-      { input: warp(master, BREATH, i / steps) },
-    )
-  }
-  const frames = readdirSync(dir).sort().map((f) => join(dir, f))
-  if (frames.length !== steps + 1) throw new Error(`breath series produced ${frames.length} frames`)
-  return frames
-}
-
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
 const easeOut = (t) => 1 - (1 - t) ** 3
 const linear = (t) => t
@@ -172,15 +142,11 @@ function timeline(steps) {
       continue
     }
     const ease = EASES[step.ease ?? 'easeInOut']
-    // A breathe step rides the warp series between two amplitudes; a from/to step
-    // rides the dense morph between two plates. Both are a curve sampled by index.
-    const [series, a, b] = step.breathe
-      ? [breathSeries(48), step.breathe[0], step.breathe[1]]
-      : [morph(plate(step.from), plate(step.to), 48), 0, 1]
+    const series = morph(plate(step.from), plate(step.to), 48)
     const last = series.length - 1
     for (let i = 0; i < step.frames; i++) {
       const t = step.frames === 1 ? 1 : i / (step.frames - 1)
-      frames.push(series[Math.round((a + (b - a) * ease(t)) * last)])
+      frames.push(series[Math.round(ease(t) * last)])
     }
   }
   return frames
@@ -192,10 +158,15 @@ function stageFrames(frames) {
   return stage
 }
 
-function encode(name, frames) {
-  const stage = stageFrames(frames)
-  const input = ['-framerate', String(FPS), '-i', join(stage, '%05d.png')]
-
+/**
+ * The four files and the poster the table serves for one clip, from whatever
+ * ffmpeg input, with the frame count asserted afterwards.
+ *
+ * `-an` on every output matters for the generated clips as well as the built
+ * ones: Wan attaches a silent AAC track whether or not it is asked to, and the
+ * score owns the audio.
+ */
+function render(name, input, poster, expected) {
   /*
    * CRF 34 was too lossy for this costume. VP9 smooths fine black lace against
    * skin, so the trim came out visibly thinner in the clips than on the JPEG
@@ -212,98 +183,62 @@ function encode(name, frames) {
       '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', join(OUT, `${name}${suffix}.mp4`)])
   }
   // Poster is the clip's own first frame, so the still underneath matches it.
-  ff(['-i', join(stage, '00000.png'), '-vf', `scale=${W}:${H}`, '-q:v', '4', join(OUT, `${name}.jpg`)])
-  rmSync(stage, { recursive: true, force: true })
+  ff([...poster, '-frames:v', '1', '-vf', `scale=${W}:${H}`, '-q:v', '4', join(OUT, `${name}.jpg`)])
 
   const probe = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0',
     '-show_entries', 'stream=nb_read_frames', '-count_frames', '-of', 'csv=p=0',
     join(OUT, `${name}.webm`)]).toString().trim()
-  if (Number(probe) !== frames.length) {
-    throw new Error(`${name}: encoded ${probe} frames, staged ${frames.length}`)
+  if (expected != null && Number(probe) !== expected) {
+    throw new Error(`${name}: encoded ${probe} frames, expected ${expected}`)
   }
   return Number(probe)
 }
 
-/*
- * The table's whole vocabulary. Her movements are orthogonal to the cards, so
- * no matter what is dealt she only ever does these things - which is the reason
- * a video-based blackjack table is affordable at all.
- *
- * Every clip starts and ends on the same resting plate, so the resting pose is
- * the hub of a star: N clips instead of N squared, and any two movements join
- * through the pose the still underneath is already showing.
- */
-const CLIPS = {
-  /* She slides a card across. The hand is furthest out at the moment the card
-   * touches the felt (CARD_LANDS_AT in the engine), then withdraws. */
-  deal: [
-    { from: 'dealer_cool', to: 'dealer_deal', frames: 15, ease: 'easeOut' },
-    { hold: 'dealer_deal', frames: 2 },
-    { from: 'dealer_deal', to: 'dealer_cool', frames: 6, ease: 'easeInOut' },
-  ],
-  /* The cut card came up. This doubles as the seam the score changes phrase on. */
-  shuffle: [
-    { from: 'dealer_cool', to: 'dealer_shuffle', frames: 14, ease: 'easeOut' },
-    { hold: 'dealer_shuffle', frames: 4 },
-    { from: 'dealer_shuffle', to: 'dealer_cool', frames: 14, ease: 'easeInOut' },
-    { hold: 'dealer_cool', frames: 3 },
-  ],
-  /*
-   * The moods are ROUND TRIPS, and that is a fix rather than a flourish.
-   *
-   * They used to end held on the warm, sharp or caught plate, and the idle loop
-   * that follows starts on the resting one - so at the end of every single hand
-   * her head and shoulders jumped from the expression straight back to neutral, in
-   * one frame, on the clip change. Taking the expression back out inside the clip
-   * costs a few frames and means every clip in the table's vocabulary now really
-   * does begin and end on the same pose, which is what the star topology below has
-   * always claimed.
-   *
-   * There is no `cool` clip any more. It ran warm -> cool, so playing it from the
-   * resting pose - which is what the settlement did whenever she was reading cool -
-   * snapped her into a smile on frame one and then eased out of it.
-   */
-  warm: [
-    { from: 'dealer_cool', to: 'dealer_warm', frames: 18, ease: 'easeOut' },
-    { hold: 'dealer_warm', frames: 10 },
-    { from: 'dealer_warm', to: 'dealer_cool', frames: 16, ease: 'easeInOut' },
-  ],
-  sharp: [
-    { from: 'dealer_cool', to: 'dealer_sharp', frames: 14, ease: 'easeOut' },
-    { hold: 'dealer_sharp', frames: 10 },
-    { from: 'dealer_sharp', to: 'dealer_cool', frames: 14, ease: 'easeInOut' },
-  ],
-  /* Not a dissolve. Caught is a cut hidden under the room going quiet. */
-  caught: [
-    { from: 'dealer_cool', to: 'dealer_caught', frames: 5, ease: 'easeOut' },
-    { hold: 'dealer_caught', frames: 22 },
-    { from: 'dealer_caught', to: 'dealer_cool', frames: 12, ease: 'easeInOut' },
-  ],
-  /*
-   * The hardest clip to do without: the one the table sits on between hands.
-   *
-   * The first cut of this held a single plate for four and a half of its five
-   * seconds and only blinked, and on a recording it read as a photograph. It now
-   * breathes the whole way through, so something is moving in every frame, with
-   * the blinks landing inside it.
-   *
-   * The breathing is a warp series rather than a morph towards a second generated
-   * plate - see breathSeries. The blinks stay a morph because a blink really is a
-   * change of content rather than a displacement, but they are the only optical
-   * flow left in the clip, they last seven frames, and they are confined to her
-   * eyes. Amplitude 0 is the master exactly, so the loop closes perfectly.
-   */
-  idle: [
-    { breathe: [0, 1], frames: 44, ease: 'easeInOut' },
-    { breathe: [1, 0], frames: 50, ease: 'easeInOut' },
-    { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
-    { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
-    { breathe: [0, 1], frames: 46, ease: 'easeInOut' },
-    { breathe: [1, 0], frames: 52, ease: 'easeInOut' },
-    { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
-    { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
-  ],
+function encode(name, frames) {
+  const stage = stageFrames(frames)
+  try {
+    return render(
+      name,
+      ['-framerate', String(FPS), '-i', join(stage, '%05d.png')],
+      ['-i', join(stage, '00000.png')],
+      frames.length,
+    )
+  } finally {
+    rmSync(stage, { recursive: true, force: true })
+  }
 }
+
+/**
+ * A generated clip, transcoded straight from the mp4 OpenArt returned.
+ *
+ * There is no interpolation left to do here, which is the point: the motion
+ * already exists in the source. It arrives at 1920x1080 and the table serves
+ * 1280x720, so this downsamples rather than upscales, which is the one place
+ * this pipeline is cheaper AND better than the one it replaced.
+ */
+function encodeGenerated(name) {
+  const src = join(GEN, `${name}.mp4`)
+  if (!existsSync(src)) throw new Error(`no generated source for ${name} at ${src}`)
+  return render(name, ['-i', src], ['-i', src], null)
+}
+
+/*
+ * The table's whole vocabulary, one generated clip each.
+ *
+ * Her movements are orthogonal to the cards, so no matter what is dealt she only
+ * ever does these things - which is the reason a video-based blackjack table is
+ * affordable at all. Every clip is generated with the resting plate as both its
+ * first and its last frame, so the resting pose stays the hub of a star: N clips
+ * instead of N squared, and any two of them join through the pose the still
+ * underneath is already showing.
+ *
+ * These were optical flow between pairs of stills until the motion itself became
+ * the problem - a displacement field cannot rotate a head or move an eye behind a
+ * lid, and two reviewers independently called the idle loop frozen. What each clip
+ * now costs, what it is allowed to contain, and why none of them use her hands,
+ * is in clipsrc/openart/README.md.
+ */
+const CLIPS = ['idle', 'deal', 'warm', 'sharp', 'shuffle', 'natural']
 
 /* ----------------------------------------------------------- the opening */
 
@@ -447,10 +382,11 @@ function buildOpening() {
 }
 
 /*
- * Refuse to encode from plates whose costume has drifted. The clips are optical
- * flow between two stills, so a neckline a few pixels out on one plate becomes a
- * neckline sliding up her chest on screen - and it is far cheaper to catch that
- * here than to notice it in a recording after six minutes of encoding.
+ * Refuse to encode from plates whose costume has drifted. This now guards the
+ * opening only - the dealer clips carry the master plate as their own first frame,
+ * and are checked by verify-generated.mjs instead - but the opening cross-fades
+ * between stills, so a neckline a few pixels out on one plate still becomes a
+ * neckline sliding up her chest on screen.
  */
 if (process.env.SKIP_COSTUME_CHECK !== '1') try {
   execFileSync('node', [join(HERE, 'verify-costume.mjs')], { stdio: 'inherit' })
@@ -469,13 +405,11 @@ if (!only.length || only.includes('intro')) {
   if (only.length === 1) process.exit(0)
 }
 
-const wanted = only.length ? only.filter((c) => c !== 'intro') : Object.keys(CLIPS)
+const wanted = only.length ? only.filter((c) => c !== 'intro') : CLIPS
 const report = []
 for (const name of wanted) {
-  const spec = CLIPS[name]
-  if (!spec) throw new Error(`unknown clip ${name}`)
-  const frames = timeline(spec)
-  const n = encode(name, frames)
+  if (!CLIPS.includes(name)) throw new Error(`unknown clip ${name}`)
+  const n = encodeGenerated(name)
   report.push(`${name.padEnd(10)} ${String(n).padStart(3)} frames  ${(n / FPS).toFixed(2)}s`)
   console.log(report.at(-1))
 }
