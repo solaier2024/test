@@ -133,13 +133,37 @@ if (tables.length !== 3) fail.push(`expected 3 tables, found ${tables.length}`)
 await page.locator('.table-card').nth(1).getByRole('button').click()
 await page.waitForSelector('.table-page', { timeout: 20000 })
 
-// Every plate has to have decoded, not merely returned 200.
-const plates = await page.evaluate(() =>
-  [...document.images].map((i) => ({ src: i.currentSrc.split('/').pop(), ok: i.complete && i.naturalWidth > 0 })),
-)
+/*
+ * Every plate has to decode, not merely return 200 - but it is allowed to take a
+ * moment over it. This used to read document.images the instant the table appeared
+ * and it passed only because the plates were being warmed on page load, so the
+ * cache already had them; once that warm-up moved behind the opening (it was
+ * stealing bandwidth from the film) the same check reported "plates did not
+ * decode:" with an empty list, because the one plate was still in flight and a
+ * pending <img> has an empty currentSrc. Measured against the deployed site, it
+ * decodes inside a second. The plate is the fallback underneath a playing clip,
+ * so a second is invisible; never decoding is the failure worth catching.
+ */
+const PLATE_WAIT = 15000
+const settled = async () =>
+  await page.evaluate(() =>
+    [...document.images].map((i) => ({
+      src: i.currentSrc.split('/').pop() || i.getAttribute('src')?.split('/').pop() || '(no source)',
+      ok: i.complete && i.naturalWidth > 0,
+    })),
+  )
+const startedAt = Date.now()
+let plates = await settled()
+while (plates.some((p) => !p.ok) && Date.now() - startedAt < PLATE_WAIT) {
+  await page.waitForTimeout(250)
+  plates = await settled()
+}
 const broken = plates.filter((p) => !p.ok)
-console.log(`plates:       ${plates.length - broken.length} decoded, ${broken.length} broken`)
-if (broken.length) fail.push(`plates did not decode: ${broken.map((b) => b.src).join(', ')}`)
+const took = Date.now() - startedAt
+console.log(`plates:       ${plates.length - broken.length} decoded, ${broken.length} broken (after ${took}ms)`)
+if (broken.length) {
+  fail.push(`plates did not decode in ${PLATE_WAIT}ms: ${broken.map((b) => b.src).join(', ')}`)
+}
 
 // And the idle loop has to be moving, not just present.
 const idle = await page.evaluate(async () => {
