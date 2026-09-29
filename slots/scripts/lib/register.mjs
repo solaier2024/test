@@ -10,8 +10,29 @@ import { execFileSync } from 'node:child_process'
 export const W = 1280
 export const H = 720
 
-/* The casting only. Not the crowd, which is supposed to move between plates,
- * and not the hand, which is supposed to move on two of them. */
+/*
+ * The box the casting is looked for in.
+ *
+ * It used to say "the casting only. Not the crowd, which is supposed to move
+ * between plates, and not the hand, which is supposed to move on two of them."
+ * That was the intent and not the box: the machine spans about x 379..731, so
+ * the left forty pixels of this rectangle are bar and crowd, and the right
+ * edge reaches into the arc the lever sweeps through.
+ *
+ * It is left where it is on purpose. A tightened box (390..720, 80..560, all
+ * cast iron) was measured against this one over every frame of the final
+ * clips: the worst translation was identical on all eight, 0px on the arm
+ * clips and 2px on the crowd clips. What the tight box did improve was the
+ * RESIDUAL it reports - roar_held went 10.06 to 6.94 - which says the old
+ * number was partly a measurement of the crowd rather than of the casting,
+ * and says nothing about the picture being any steadier.
+ *
+ * So changing it would re-register every plate and rebuild every clip to make
+ * a diagnostic read better. The property that actually matters is checked
+ * directly instead, and not through registration at all: see
+ * scripts/verify-lock.mjs, which asks whether the reel window IS the approved
+ * plate rather than how far the casting moved.
+ */
 export const ROI = { x0: 330, x1: 700, y0: 90, y1: 560 }
 const STEP = 2
 

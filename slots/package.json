@@ -17,8 +17,9 @@
     "demo": "node scripts/record-demo.mjs",
 
     "//verify": "Everything a change has to survive. Run it before pushing.",
-    "verify": "npm run lint && npm test && npm run verify:window && npm run verify:identity && npm run verify:budget",
+    "verify": "npm run lint && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:budget",
     "verify:window": "node scripts/verify-window.mjs",
+    "verify:lock": "node scripts/verify-lock.mjs",
     "verify:identity": "node scripts/verify-identity.mjs",
     "verify:budget": "node scripts/verify-budget.mjs",
     "verify:deploy": "node scripts/verify-deploy.mjs",

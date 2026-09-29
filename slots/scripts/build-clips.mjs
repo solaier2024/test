@@ -48,6 +48,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
   writeSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -84,8 +85,26 @@ const H = 720
 const SMALL_W = 768
 const SMALL_H = 432
 
-/** The plate every generated frame is registered against. */
+/**
+ * The one plate every other picture of this machine is held against: generated
+ * frames are registered to its casting, and every rim in the project - in the
+ * footage and in the plates - is a copy of its rim. See plateFrame() below.
+ */
 const LOCK_TO = 'machine_rest'
+
+/*
+ * Two lists, because they answer two different questions, and running them
+ * together is how the first attempt at this crashed on machine_pull.
+ *
+ * MACHINE_PLATES is every hand-made picture of this machine, and it is the set
+ * allowed to wear the shared rim.
+ *
+ * SHOWN is the subset the browser downloads, because Scene.tsx cross-fades
+ * between them. machine_pull is not in it: the arm at the bottom of its travel
+ * is only ever seen inside the pull clip, never as a plate the table rests on.
+ */
+const MACHINE_PLATES = ['machine_rest', 'machine_pull', 'machine_lean', 'machine_roar', 'machine_sigh', 'machine_breath']
+const SHOWN = ['machine_rest', 'machine_lean', 'machine_roar', 'machine_sigh', 'machine_breath']
 
 const force = process.env.FORCE === '1'
 const only = process.argv.slice(2)
@@ -152,6 +171,54 @@ function normalised(path) {
     mkdirSync(dirname(out), { recursive: true })
     ff(['-i', path, '-vf', `scale=${W}:${H},${DENOISE}`, '-pix_fmt', 'rgb24', out])
   }
+  return out
+}
+
+/*
+ * Every picture of the machine carries ONE rim, and it is machine_rest's.
+ *
+ * generatedFrames() already pins the rim on footage, and for a while that was
+ * the whole of it - which left a hole big enough to see through. The plates
+ * were not pinned, and the plates are half of what the table shows: Scene.tsx
+ * cross-fades between them, and every crowd clip ends with a `hold` of its
+ * reaction plate. So the last few frames of a clip, and the whole time a
+ * reaction sat on screen, the brass came from a separately generated image
+ * that had never been through the lock.
+ *
+ * scripts/verify-lock.mjs measures it per frame. On `lean` the rim tracked the
+ * plate to within 0.9 for forty-two frames and then jumped 4.94 in one frame
+ * and stayed there - the boundary between the pinned footage and the unpinned
+ * hold, landing on exactly the moment the room finishes leaning in.
+ *
+ * Pinning the plates too costs nothing. The rim in every approved plate is
+ * geometrically the same rectangle already (verify-window.mjs holds it to
+ * that); the plates only disagree about how the brass was PAINTED, and that is
+ * the one part of this picture nothing is allowed to have an opinion about.
+ */
+let rimRef = null
+const rimSource = () => (rimRef ??= readRGB(join(SRC, `${LOCK_TO}.png`)))
+
+/**
+ * A machine plate as a frame: normalised, then wearing the shared rim.
+ *
+ * Only for plates of the machine. The opening's plates go through normalised()
+ * on their own, because pinning a machine window onto a photograph of a street
+ * would paste the glass into the street - and because nothing is laid over the
+ * opening, so it has no window to keep still.
+ */
+function plateFrame(name) {
+  if (!MACHINE_PLATES.includes(name)) throw new Error(`${name} is not a machine plate`)
+  const src = normalised(plate(name))
+  if (name === LOCK_TO) return src
+  const out = join(CACHE, 'pinned', `${digest(src, RIM.x0, RIM.y1, LOCK_TO)}.png`)
+  if (!force && existsSync(out)) return out
+  mkdirSync(dirname(out), { recursive: true })
+  const stage = mkdtempSync(join(tmpdir(), 'pin-'))
+  const raw = join(stage, 'f.raw')
+  writeFileSync(raw, pinRim(readRGB(src), rimSource()))
+  writeSequence(raw, stage)
+  cpSync(join(stage, '00001.png'), out)
+  rmSync(stage, { recursive: true, force: true })
   return out
 }
 
@@ -302,7 +369,7 @@ function timeline(steps) {
   const frames = []
   for (const step of steps) {
     if (step.hold) {
-      const at = normalised(plate(step.hold))
+      const at = plateFrame(step.hold)
       for (let i = 0; i < step.frames; i++) frames.push(at)
       continue
     }
@@ -626,14 +693,14 @@ function buildOpening() {
  * than checked in twice, so public/art/ is a build product and clipsrc/ is the
  * only place a plate exists by hand.
  */
-const PLATES = ['machine_rest', 'machine_lean', 'machine_roar', 'machine_sigh', 'machine_breath']
-
 function buildPlates() {
   mkdirSync(ART, { recursive: true })
-  for (const name of PLATES) {
-    ff(['-i', join(SRC, `${name}.png`), '-vf', `scale=${W}:${H},${DENOISE}`, '-q:v', '4', join(ART, `${name}.jpg`)])
+  for (const name of SHOWN) {
+    // plateFrame, not a raw convert: the plate the browser cross-fades to has
+    // to wear the same rim as the footage it is revealed from underneath.
+    ff(['-i', plateFrame(name), '-q:v', '4', join(ART, `${name}.jpg`)])
   }
-  console.log(`${PLATES.length} plates -> ${ART}`)
+  console.log(`${SHOWN.length} plates -> ${ART}`)
 }
 
 /*
