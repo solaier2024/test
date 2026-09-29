@@ -39,21 +39,21 @@
  * was measured:
  *
  *                       was     now      above 1.2kHz
- *     roar            -37.4   -24.9          0.72
- *     cheer               -   -27.5          0.79
- *     gasp            -37.0   -27.1          0.79   <- brighter
- *     sigh            -37.7   -27.9          0.46   <- darker
- *     jeer                -   -28.7          0.60
- *     murmur              -   -33.6          0.73
- *     the coin fall   -30.1   -31.4          1.40
- *     the bell        -28.4   -29.8          0.98
+ *     roar            -37.4   -24.9          0.71
+ *     cheer               -   -26.4          0.79
+ *     gasp            -37.0   -27.4          0.92   <- brighter
+ *     sigh            -37.7   -26.9          0.58   <- darker
+ *     jeer                -   -27.4          0.60
+ *     murmur              -   -34.6          0.73
+ *     the coin fall   -30.1   -30.8          1.40
+ *     the bell        -28.4   -28.6          0.98
  *
  * The left column is the whole problem in one place: the three reactions that
  * were measurable were all quieter than the room they were supposed to be
  * reacting in, and both of the machine's own noises were louder than any of
  * them.
  *
- * The right column is a median of three firings, because a crowd is randomised
+ * The right column is a median of five firings, because a crowd is randomised
  * on purpose and one reading is a sample rather than a measurement. Thresholds
  * are set with a few dB of margin rather than against these exact figures.
  */
@@ -322,7 +322,7 @@ const fire = async (what) => {
 }
 
 /**
- * Three firings, and the middle one of each number.
+ * Five firings, and the middle one of each number.
  *
  * A crowd is deliberately randomised - every throat gets its own gain, start
  * time and length - so one peak-hold reading is a sample of a distribution and
@@ -335,8 +335,13 @@ const fire = async (what) => {
  * The median of three is the cheapest estimator that is actually about the
  * mix. It is not a softer claim - the thresholds below are unchanged - it is
  * the same claim measured with an instrument that can hold still.
+ *
+ * Five, not three, since CI failed the roar-against-groan ordering on a run
+ * whose widest spread was 4.9dB. Two medians of three, differenced, carry
+ * more noise than the 1-2dB that ordering had to spare. The other half of
+ * that repair was in the mix, where it belonged.
  */
-const fireOften = async (what, n = 3) => {
+const fireOften = async (what, n = 5) => {
   const runs = []
   for (let i = 0; i < n; i++) runs.push(await fire(what))
   return {
@@ -395,7 +400,7 @@ expect(
 expect(
   'and no reaction is too erratic to compare',
   Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)) < 6,
-  `widest spread over three firings ${Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)).toFixed(1)}dB`,
+  `widest spread over five firings ${Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)).toFixed(1)}dB`,
 )
 
 /*

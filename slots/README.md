@@ -518,12 +518,12 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 
 | | 之前 | 现在 | 1.2kHz 以上占比 |
 | --- | --- | --- | --- |
-| `roar` | -37.4 | **-24.9** | 0.72 |
-| `gasp` | -37.0 | **-27.1** | 0.79 ← 亮 |
-| `sigh` | -37.7 | **-27.9** | 0.46 ← 暗 |
-| `murmur` | — | -33.6 | 0.73 |
-| 落币 | -30.1 | -31.4 | 1.40 |
-| 铃铛 | -28.4 | -29.8 | 0.98 |
+| `roar` | -37.4 | **-24.9** | 0.71 |
+| `gasp` | -37.0 | **-27.4** | 0.92 ← 亮 |
+| `sigh` | -37.7 | **-26.9** | 0.58 ← 暗 |
+| `murmur` | — | -34.6 | 0.73 |
+| 落币 | -30.1 | -30.8 | 1.40 |
+| 铃铛 | -28.4 | -28.6 | 0.98 |
 | 房间底噪 | -36 | -44.8（均值，见下） | |
 
 左边那一列就是整个问题：**三段量得到的反应全都比它们正在反应的那个房间还轻，
@@ -537,15 +537,15 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 要求听到的那个声音就是字幕说的那一个；最后是 hush、静音、取消静音。
 
 ```
-ok    the empty table has a room tone                 -44.8 dBFS average
-ok    the room's roar is audible over it              -24.5 dBFS over a -44.8 room
-ok    a murmur is there, and is the least the room does  -34.4, between a -44.8 room and a -29.4 groan
-ok    and no reaction is too erratic to compare       widest spread over three firings 2.6dB
-ok    a loss is answered within 6dB of a win          groan -28.7 against a roar of -24.5
-ok    and the room is louder than the money           roar -24.5, coins -30.4, bell -29.2
-ok    a gasp is a brighter sound than a groan         0.86 against 0.58 above 1.2kHz
-ok    pull 1: and it is the roar it says it is        1.07 against 0.71 measured alone
-ok    calling the house stops the room dead           -78.6 dBFS, room was -44.8
+ok    the empty table has a room tone                 -44.5 dBFS average
+ok    the room's roar is audible over it              -24.9 dBFS over a -44.5 room
+ok    a murmur is there, and is the least the room does  -34.6, between a -44.5 room and a -27.4 groan
+ok    and no reaction is too erratic to compare       widest spread over five firings 3.3dB
+ok    a loss is answered within 6dB of a win          groan -26.9 against a roar of -24.9
+ok    and the room is louder than the money           roar -24.9, coins -30.8, bell -28.6
+ok    a gasp is a brighter sound than a groan         0.92 against 0.58 above 1.2kHz
+ok    pull 1: and it is the roar it says it is        1.12 against 0.71 measured alone
+ok    calling the house stops the room dead           -76.9 dBFS, room was -44.5
 ```
 
 用**峰值保持 + 1.2kHz 上下的能量比**当元音判据，而不是用整体谱心——

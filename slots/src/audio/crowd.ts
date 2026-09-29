@@ -165,8 +165,14 @@ const SHAPE: Record<Reaction, {
    * stopping at once, and it only reads as one if they actually stop. */
   gasp: { voices: 11, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.62, gain: 0.029, breath: 0.85, tremor: 0, spread: 0.05, clap: [0, 0], duck: 0.42, bed: 0.92 },
   /* Down, slow, and it takes a while to stop. Sits in the same octaves as the
-   * bed, so it needs the room out of the way more than it needs volume. */
-  sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.036, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12, bed: 0.85 },
+   * bed, so it needs the room out of the way more than it needs volume.
+   *
+   * It was 0.036, which put it 5dB under the roar - inside the 6dB the brief
+   * asks for, but only just, and CI duly failed at 6.6dB on a night the roar
+   * came out loud. Widening a threshold would have been the wrong repair: the
+   * requirement is that a loss is answered as loudly as a win, and 5dB down IS
+   * quieter. At 0.045 the gap is about 3dB. */
+  sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.045, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12, bed: 0.85 },
   /* Barely a reaction at all, and the one row here that is meant to stay close
    * to the room.
    *
