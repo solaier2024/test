@@ -2,7 +2,11 @@
 /*
  * What each machine in the house actually does, measured rather than claimed.
  *
- *   node scripts/odds.mjs
+ *   npm run odds
+ *
+ * It imports src/game/engine.ts directly rather than keeping a second copy of
+ * the bands, so it needs node's type stripping - which is what the npm script
+ * is for on a node old enough to want telling.
  *
  * The return is enumerated over all 8000 rests, so it is exact and not a
  * simulation. Everything else is a long night at the machine.
