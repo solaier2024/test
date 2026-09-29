@@ -344,10 +344,20 @@ const fire = async (what) => {
 const fireOften = async (what, n = 5) => {
   const runs = []
   for (let i = 0; i < n; i++) runs.push(await fire(what))
+  /*
+   * Spread with the loudest and the quietest thrown away, which is the middle
+   * three of the five. Highest-minus-lowest was the obvious thing to write
+   * and it is the wrong statistic to hold a threshold against, because it can
+   * only grow as you take more samples: going from three firings to five put
+   * this check 0.5dB from failing without anything about the mix changing.
+   * The inner range does not drift with n, and one freak firing cannot carry
+   * it on its own.
+   */
+  const sorted = runs.map((r) => r.db).sort((a, b) => a - b)
   return {
     db: median(runs.map((r) => r.db)),
     bright: median(runs.map((r) => r.bright)),
-    spread: Math.max(...runs.map((r) => r.db)) - Math.min(...runs.map((r) => r.db)),
+    spread: sorted[sorted.length - 2] - sorted[1],
   }
 }
 
@@ -397,10 +407,13 @@ expect(
  * random voice and swinging 6.7dB; it is twelve inside 160ms now, at the same
  * level, because the level was never the problem.
  */
+const worst = ['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].reduce((a, b) =>
+  heard[a].spread > heard[b].spread ? a : b,
+)
 expect(
   'and no reaction is too erratic to compare',
-  Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)) < 6,
-  `widest spread over five firings ${Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)).toFixed(1)}dB`,
+  heard[worst].spread < 4,
+  `widest is the ${worst}, ${heard[worst].spread.toFixed(1)}dB across the middle three of five`,
 )
 
 /*
