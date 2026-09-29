@@ -35,23 +35,24 @@
 }
 
 /*
- * One shared drift on every layer. Because it is the same animation there is no
- * relative movement between the plates, so a still reads as a held camera rather
- * than a photograph. It only ever scales up, so the frame edge never shows.
+ * The camera, and it is bolted to the floor. No transform, no animation, ever.
+ *
+ * This element wraps the plate stack AND all six video elements, so anything
+ * applied here moves the bar, the bottles, the lamp, the felt and the dealer
+ * together. It used to carry a 5.6s keyframe worth a 6px pan and a 1.008-to-1.016
+ * zoom, on the theory that a drifting still reads as a held camera rather than a
+ * photograph. Measured on the composited page that came to an 11px swing of the
+ * whole room, cycling forever, and it was reported as exactly what it was: the
+ * scene will not stop moving.
+ *
+ * It was the right trick for a still photograph and it is the wrong one now. The
+ * clips are generated video with real movement already in them, so her breathing
+ * lives in the footage where it belongs, the room stays where a locked-off camera
+ * would have left it, and scripts/verify-still.mjs holds this to 0px.
  */
-.breath {
+.camera {
   position: absolute;
   inset: 0;
-  animation: breathe 5600ms ease-in-out infinite;
-  transform-origin: 50% 44%;
-}
-
-@keyframes breathe {
-  0% { transform: translate3d(0, 0, 0) scale(1.008); }
-  28% { transform: translate3d(-5px, 4px, 0) scale(1.016); }
-  56% { transform: translate3d(4px, -6px, 0) scale(1.01); }
-  80% { transform: translate3d(-2px, 2px, 0) scale(1.014); }
-  100% { transform: translate3d(0, 0, 0) scale(1.008); }
 }
 
 .plate,
@@ -633,7 +634,6 @@
   background-size: cover;
   background-position: center 30%;
   filter: brightness(0.5) saturate(0.85);
-  animation: breathe 9000ms ease-in-out infinite;
 }
 
 .page-art.dim {
@@ -1033,10 +1033,9 @@
   }
 }
 
-/* Everything that breathes, flickers or drifts stops on request. */
+/* Everything that flickers or drifts stops on request. Nothing in the picture
+   drifts any more, so this is down to the one blinking affordance. */
 @media (prefers-reduced-motion: reduce) {
-  .breath,
-  .page-art,
   .chrome.waiting {
     animation: none !important;
   }

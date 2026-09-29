@@ -17,7 +17,9 @@
  *    and the only one a fixed box can judge on a body that moves. See LIMIT.
  * 4. THE ROOM STAYS STILL. The bottles, lamp, crate and baize must not move. This
  *    is the defect that made the displacement-field idle loop read as unnatural:
- *    the room breathed with her at half her own amplitude.
+ *    the room breathed with her at half her own amplitude. Asked two ways - do
+ *    those pixels change, and do they shift - because a camera move can slip past
+ *    the first question and is the loudest possible answer to the second.
  * 5. SHE IS ACTUALLY ALIVE. The opposite failure: a clip that satisfies 1-4 by
  *    simply not moving. Her face has to change.
  *
@@ -80,6 +82,30 @@ const ROOM = {
 }
 
 /*
+ * Which of those to run an alignment search on, and why not all of them.
+ *
+ * The room check below compares pixels in place, which answers "did this change?"
+ * but not "did it move?", and those come apart badly on a camera move: a one-pixel
+ * pan of a dark flat wall barely shifts a mean, and a one-pixel pan of the whole
+ * room is the most visible defect there is. So these boxes also get searched for
+ * the integer offset that best puts them back on their own first frame, which must
+ * be exactly zero. A zoom shows up as well as a pan, because a zoom displaces boxes
+ * at different distances from the frame centre by different amounts.
+ *
+ * That is not a theoretical gap. Re-encoding idle.mp4 through a deliberate two
+ * pixel circular crop drift leaves three of the six room boxes below their in-place
+ * budget - the baize at 4.30 against a limit of 6, because a flat expanse of green
+ * weave looks much the same one pixel over - while all five patches here report the
+ * pan. Every honest clip in the set comes back at exactly 0px on all five.
+ *
+ * The oil lamp sits this one out. It is the one piece of furniture whose light is
+ * supposed to change - the flame flickers in every clip - and a brightness swing
+ * that large can pull a sum-of-squares minimum off a true zero. Its position is
+ * still covered in place by the room budget.
+ */
+const ALIGN = ['bottles left', 'bottles right', 'dice cup', 'chips', 'baize']
+
+/*
  * Budgets. A JPEG round trip of the master against itself is about 0.85, and these
  * clips arrive as h264, so the floor is a little higher than that.
  */
@@ -118,6 +144,41 @@ const LIMIT = {
   room: 6,
   /** Her face has to move at least this much somewhere, or she is a photograph. */
   alive: 4,
+}
+
+/*
+ * How far the alignment search looks. A clip only has to be off by one to fail, so
+ * this is about reporting an honest magnitude, not about detection - and every
+ * shift costs (2R+1)^2 passes over the box. verify-still.mjs searches wider because
+ * on the page there was a real 11px defect to size up.
+ */
+const R = 4
+
+const lumaAt = (buf, x, y) => {
+  const i = (y * W + x) * 3
+  return 0.299 * buf[i] + 0.587 * buf[i + 1] + 0.114 * buf[i + 2]
+}
+
+/*
+ * The offset that best puts box `b` back on box `a`. Every second pixel in each
+ * direction is enough - a shift is a property of the whole box, not of any one
+ * pixel - and it makes the search four times cheaper.
+ */
+function bestShift(a, b, box) {
+  let best = { dx: 0, dy: 0, err: Infinity }
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      let sum = 0
+      for (let y = box.y; y < box.y + box.h; y += 2) {
+        for (let x = box.x; x < box.x + box.w; x += 2) {
+          const d = lumaAt(a, x, y) - lumaAt(b, x + dx, y + dy)
+          sum += d * d
+        }
+      }
+      if (sum < best.err) best = { dx, dy, err: sum }
+    }
+  }
+  return best
 }
 
 const master = readRgb(plateFile(MASTER))
@@ -190,6 +251,27 @@ for (const path of paths) {
     console.log(`  room: ${label.padEnd(15)} render ${render.toFixed(2).padStart(5)}   moves ${moved.toFixed(2).padStart(5)}  (limit ${LIMIT.room})   ${moved <= LIMIT.room ? 'still' : 'MOVING'}`)
   }
   if (worstRoom > LIMIT.room) fail.push(`${name}: the room moves (${worstRoom.toFixed(2)})`)
+
+  /*
+   * Every third frame. A camera does not pan for one frame and come back, so the
+   * search does not need every frame to find one - and this is the expensive check.
+   */
+  let worstShift = 0
+  let where = ''
+  for (const label of ALIGN) {
+    const box = ROOM[label]
+    let shift = 0
+    for (let i = 3; i < f.length; i += 3) {
+      const { dx, dy } = bestShift(f[0], f[i], box)
+      shift = Math.max(shift, Math.abs(dx), Math.abs(dy))
+    }
+    if (shift > worstShift) {
+      worstShift = shift
+      where = label
+    }
+    console.log(`  locked: ${label.padEnd(14)} worst offset back to frame 0 ${String(shift).padStart(2)}px   ${shift === 0 ? 'bolted down' : 'PANS'}`)
+  }
+  if (worstShift > 0) fail.push(`${name}: the camera moves - ${where} is off by ${worstShift}px`)
 }
 
 console.log('')
@@ -198,4 +280,4 @@ if (fail.length) {
   for (const f of fail) console.log(`  - ${f}`)
   process.exit(1)
 }
-console.log('OK: starts on the plate, closes, costume holds, room still, and she moves')
+console.log('OK: starts on the plate, closes, costume holds, camera bolted down, and she moves')

@@ -110,14 +110,16 @@ await page.waitForSelector('.tables-page')
 await page.locator('.table-card').nth(1).getByRole('button').click()
 await page.waitForSelector('.table-page')
 /*
- * Two things have to be held still to compare the costume across screens. The
- * grain canvas repaints over everything, and the shared camera drift scales the
- * table's plate by up to 1.6% - which against a 528px box of lace is about eight
- * pixels of offset and enough on its own to score 15. The opening's video has no
- * such transform, so the drift is switched off here to compare like with like.
+ * The grain canvas repaints over everything, so it comes out before the costume is
+ * cropped. It used to have company here: the table's plate carried a shared camera
+ * drift that scaled it by up to 1.6%, which against a 528px box of lace is about
+ * eight pixels of offset and enough on its own to score 15, so the drift had to be
+ * switched off to compare like with like against the opening's untransformed video.
+ * The drift is gone from the page entirely now - see .camera in App.css - and the
+ * two screens are the same geometry without any help.
  */
 await page.addStyleTag({
-  content: '.atmosphere { display: none !important; } .breath { animation: none !important; transform: none !important; }',
+  content: '.atmosphere { display: none !important; }',
 })
 await page.waitForTimeout(1500)
 shots.table = join(DIR, 'table.png')

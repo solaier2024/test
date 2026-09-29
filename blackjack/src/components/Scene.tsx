@@ -21,12 +21,10 @@ interface SceneProps {
   clip: ClipRequest | null
   small: boolean
   reduced: boolean
-  /** 0 to 1, how far the player is leaning over the table. */
-  lean: number
   onClipEnded?: (name: string) => void
 }
 
-export function Scene({ state, clip, small, reduced, lean, onClipEnded }: SceneProps) {
+export function Scene({ state, clip, small, reduced, onClipEnded }: SceneProps) {
   const [blink, setBlink] = useState(false)
   const [shown, setShown] = useState<SceneState>(state)
   const [fading, setFading] = useState<SceneState | null>(null)
@@ -68,11 +66,10 @@ export function Scene({ state, clip, small, reduced, lean, onClipEnded }: SceneP
     }
   }, [shown, clip, reduced])
 
-  const breathe = reduced ? 'none' : undefined
-
   return (
-    <div className="scene" style={{ ['--lean' as string]: String(lean) }}>
-      <div className="breath" style={{ animation: breathe }}>
+    <div className="scene">
+      {/* Locked off. Nothing here is ever transformed - see .camera in App.css. */}
+      <div className="camera">
         {fading && (
           <img className="plate leaving" src={plateUrl(PLATE[fading])} alt="" aria-hidden="true" />
         )}

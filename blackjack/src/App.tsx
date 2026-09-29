@@ -566,7 +566,6 @@ function Table(p: TableProps) {
         clip={p.clip}
         small={p.narrow}
         reduced={p.reduced}
-        lean={p.lean}
         onClipEnded={p.onClipEnded}
       />
 

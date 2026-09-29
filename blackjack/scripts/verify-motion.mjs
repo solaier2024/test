@@ -32,19 +32,22 @@ await page.waitForSelector('.table-page')
 /*
  * The grain and smoke canvas repaints every frame over the whole screen, so it
  * has to come out of the picture or it is the only thing being measured. Hiding
- * it leaves the plate, the clip and the camera drift, which is the question.
+ * it leaves the plate and the clip, which is the question.
  */
 await page.addStyleTag({ content: '.atmosphere { display: none !important; }' })
 await page.waitForTimeout(1500)
 
 /*
- * Two patches of the picture, and one of the control bar as a control. The bar is
- * plain DOM and never moves, so it establishes the floor: anything the two
- * picture regions do above that floor is the scene actually moving.
+ * Her face, a patch of the back bar, and the control bar as a control. The control
+ * bar is plain DOM and never moves, so it establishes the floor: whatever her face
+ * does above that floor is the dealer actually moving.
  *
- * Face against shelf turns out not to be the right comparison - the camera drift
- * and the clip's own warp move the whole frame together, so both shift by the
- * same amount. The question worth asking is whether the picture moves at all.
+ * The shelf used to be held to the same standard as her face, on the reasoning
+ * that the whole picture ought to be alive. That was only ever satisfied by a CSS
+ * keyframe panning and zooming the entire room, and a player watching it said so:
+ * the scene will not stop moving. So the shelf has changed sides. It is a second
+ * static reference now, and the pairing below is the requirement in one line -
+ * she moves, the room does not.
  */
 const REGIONS = {
   face: { x: 520, y: 40, width: 240, height: 200 },
@@ -90,12 +93,32 @@ for (const [name, r] of Object.entries(report)) {
 }
 
 console.log('')
+/*
+ * What the back bar is allowed to do, as a share of what her face does. Not zero:
+ * the oil lamp flickers in the footage and the haze drifts across the bottles, so
+ * the light on them genuinely changes - it is the bottles themselves that must
+ * stay put, and verify-still.mjs is what pins those to the pixel. This is the
+ * coarse companion to that check, and the margin is wide: she reads about 1.2 here
+ * with the shelf at 0.2, while the drift that prompted all this moved an
+ * overlapping patch by 7.8.
+ */
+const ROOM_SHARE = 0.4
+
 const floor = Math.max(0.05, report.bar.mean)
-const moving = report.face.mean > floor * 4 && report.shelf.mean > floor * 4
-if (!moving) {
-  console.log(`FAILED: the picture is not moving above the static floor of ${floor.toFixed(3)}`)
+const share = report.shelf.mean / report.face.mean
+const fail = []
+if (report.face.mean <= floor * 4) {
+  fail.push(`she is not moving above the static floor of ${floor.toFixed(3)}`)
+}
+if (share > ROOM_SHARE) {
+  fail.push(`the back bar is changing nearly as much as she is (${(share * 100).toFixed(0)}% of her face)`)
+}
+if (fail.length) {
+  console.log(`FAILED (${fail.length}):`)
+  for (const f of fail) console.log(`  - ${f}`)
   process.exit(1)
 }
-console.log(`OK: the picture moves at ${(report.face.mean / floor).toFixed(0)}x the floor set by the static control bar.`)
+console.log(`OK: she moves at ${(report.face.mean / floor).toFixed(0)}x the floor set by the static control bar,`)
+console.log(`    and the back bar holds at ${(share * 100).toFixed(0)}% of her face, inside the ${ROOM_SHARE * 100}% the room is allowed.`)
 console.log('    Note this measures that motion exists, not that a viewer notices it -')
 console.log('    two independent video reviews of the same build reported her as frozen.')
