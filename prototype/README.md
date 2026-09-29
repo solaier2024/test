@@ -19,7 +19,7 @@
 | 地址 | 说明 |
 | --- | --- |
 | **https://raw.githack.com/solaier2024/test/gh-pages/githack/index.html** | 长期地址，随分支自动更新，现在就能打开。githack 会先弹一次 "External Content Notice"，点 "Open the page" 即进入游戏 |
-| **https://transport-current-features-adelaide.trycloudflare.com/** | 临时隧道，**没有中间页，点开即玩**。跑在这台开发机上，机器回收即失效 |
+| **https://alloy-matthew-kinds-heavy.trycloudflare.com/** | 临时隧道，**没有中间页，点开即玩**。跑在这台开发机上，机器回收即失效 |
 | **https://solaier2024.github.io/test/** | 还不能开。需要仓库管理员先在 Settings → Pages 里把 Source 选成 "Deploy from a branch" → `gh-pages` / `(root)`，点完之后每次推送自动更新 |
 
 两个地址指向同一次构建：`gh-pages` 分支根目录是 Pages 版（base 为 `/test/`），
@@ -593,18 +593,32 @@ EL PASE 的"过枪"是这条规则的一个受限逃生口：不开火就把枪�
 
 ## 运行
 
+代码在这条分支上，不在 `main`；能跑的工程在仓库的 `prototype/` 子目录里。
+
 ```bash
-npm install
+git clone -b cursor/western-saloon-roulette-casino-fa3e https://github.com/solaier2024/test.git last_round
+cd last_round/prototype
+npm ci
 npm run dev
 ```
+
+Windows PowerShell 一样，把克隆目标换成想放的路径即可（`git clone -b … D:/work/self/last_round`）。
+
+需要 Node ≥ 22.12（或 20.19+）——Vite 8 的下限。仓库连美术图和视频片段一起
+提交，克隆约 15 MB，装完依赖直接就能玩，不用跑素材构建。dev server 监听的是
+`localhost`，浏览器开 `http://localhost:5173/`；`127.0.0.1` 有时连不上，因为
+Vite 8 只绑了 IPv6 回环。
 
 其他命令：
 
 ```bash
-npm test     # 引擎测试，30 项，含每种模式 120 局模拟
+npm test     # 引擎测试，44 项，含每种模式 120 局模拟
 npm run lint
 npm run build
 ```
+
+`npm run build` 默认带上 GitHub Pages 的 `/test/` 前缀。要在本地当静态站自己
+托管，用 `VITE_BASE=/ npm run build`，产物就是以根目录为基准的。
 
 ### 键盘操作
 
@@ -623,7 +637,9 @@ node scripts/build-clips.mjs        # clipsrc/ + public/art/ → public/clips/
 
 ### 验证脚本
 
-除了 `build-clips.mjs` 之外都需要先跑起 `npm run dev`。
+除了 `build-clips.mjs` 和 `solve-targets.mjs` 之外都要开着浏览器跑，所以第一次
+用之前得 `npx playwright install chromium`；`build-clips.mjs` 另外要 `ffmpeg`。
+玩游戏本身两样都不需要，只有这些脚本要。其余脚本都需要先跑起 `npm run dev`。
 
 ```bash
 node scripts/capture-shot.mjs   # 装满实弹直到打出一枪，录页面视频供逐帧检查
