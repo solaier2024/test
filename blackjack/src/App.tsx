@@ -597,7 +597,7 @@ function Table(p: TableProps) {
           </span>
           <div className="cards">
             {g.dealerHand.cards.map((c, i) => (
-              <PlayingCard key={c.id} card={c} down={g.holeDown && i === 1} fresh />
+              <PlayingCard key={c.id} card={c} t={t} down={g.holeDown && i === 1} fresh />
             ))}
           </div>
         </div>
@@ -617,7 +617,7 @@ function Table(p: TableProps) {
                 </span>
                 <div className="cards">
                   {h.cards.map((c) => (
-                    <PlayingCard key={c.id} card={c} fresh />
+                    <PlayingCard key={c.id} card={c} t={t} fresh />
                   ))}
                 </div>
               </div>

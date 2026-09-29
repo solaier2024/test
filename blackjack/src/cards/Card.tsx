@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import type { Card, Rank, Suit } from '../game/types'
+import type { Strings } from '../i18n/strings'
 
 /*
  * The deck is drawn, not photographed. Fifty-two card faces as images would be
@@ -42,6 +43,8 @@ const COURT: Partial<Record<Rank, string>> = { J: 'J', Q: 'Q', K: 'K', A: 'A' }
 
 interface FaceProps {
   card: Card
+  /** Only for the spoken label - the printed face is a rank and a pip. */
+  t: Strings
   /** Face down shows the back. */
   down?: boolean
   /** Marks the card as the one that just landed, for the drop animation. */
@@ -49,9 +52,11 @@ interface FaceProps {
   className?: string
 }
 
-export const PlayingCard = memo(function PlayingCard({ card, down, fresh, className }: FaceProps) {
+export const PlayingCard = memo(function PlayingCard({ card, t, down, fresh, className }: FaceProps) {
   const ink = isRed(card.suit) ? RED : BLACK
-  const label = down ? 'face down' : `${card.rank} of ${card.suit}`
+  const label = down
+    ? t.faceDown
+    : t.cardName(t.rankName[card.rank as 'A' | 'J' | 'Q' | 'K'] ?? card.rank, t.suitName[card.suit])
 
   return (
     <div

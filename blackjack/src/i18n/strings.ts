@@ -47,6 +47,16 @@ export interface Strings {
   yourHand: string
   herHand: string
 
+  /*
+   * What a card is called out loud. Only a screen reader ever reads these - the
+   * printed face is a rank and a pip - but "7 of H" is what it used to say, so
+   * they have to be words, and words in the language the rest of the table is in.
+   */
+  suitName: Record<'S' | 'H' | 'D' | 'C', string>
+  rankName: Record<'A' | 'J' | 'Q' | 'K', string>
+  cardName: (rank: string, suit: string) => string
+  faceDown: string
+
   dealing: string
   yourMove: string
   herMove: string
@@ -123,6 +133,11 @@ const en: Strings = {
   shoeLeft: 'SHOE',
   yourHand: 'YOU',
   herHand: 'THE HOUSE',
+
+  suitName: { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' },
+  rankName: { A: 'ace', J: 'jack', Q: 'queen', K: 'king' },
+  cardName: (rank, suit) => `${rank} of ${suit}`,
+  faceDown: 'face down',
 
   dealing: 'She deals.',
   yourMove: 'Your move.',
@@ -204,6 +219,11 @@ const es: Strings = {
   shoeLeft: 'BARAJA',
   yourHand: 'TÚ',
   herHand: 'LA CASA',
+
+  suitName: { S: 'espadas', H: 'corazones', D: 'diamantes', C: 'tréboles' },
+  rankName: { A: 'as', J: 'jota', Q: 'reina', K: 'rey' },
+  cardName: (rank, suit) => `${rank} de ${suit}`,
+  faceDown: 'boca abajo',
 
   dealing: 'Reparte.',
   yourMove: 'Te toca.',
