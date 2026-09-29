@@ -149,10 +149,13 @@
     },
     "intro_machine": {
       "_": [
-        "The last shot of the opening is the only one that has to join up with",
-        "anything: it lands on the table, so it is conditioned on machine_rest at",
-        "BOTH ends and asked for a move of only a few percent. The opening then",
-        "hands over to the same plate the table opens on, and the cut is invisible."
+        "Shot three of four, and the only one of the four with a `to`. It is not",
+        "conditioned at both ends in order to join up with a cut - the opening",
+        "hands over to the machine picker, and the shot after this one is the",
+        "macro of the doctored band. It is conditioned at both ends so that the",
+        "machine in the opening is the SAME machine the player sits down at: a",
+        "push that is not pinned at its end arrives on some other casting, and",
+        "the plate this is pinned to is the one the table opens on."
       ],
       "from": "machine_rest",
       "to": "machine_rest",
