@@ -540,7 +540,7 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 ok    the empty table has a room tone                 -44.5 dBFS average
 ok    the room's roar is audible over it              -24.9 dBFS over a -44.5 room
 ok    a murmur is there, and is the least the room does  -34.6, between a -44.5 room and a -27.4 groan
-ok    and no reaction is too erratic to compare       widest spread over five firings 3.3dB
+ok    and no reaction is too erratic to compare       widest is the cheer, 1.0dB across the middle three of five
 ok    a loss is answered within 6dB of a win          groan -26.9 against a roar of -24.9
 ok    and the room is louder than the money           roar -24.9, coins -30.8, bell -28.6
 ok    a gasp is a brighter sound than a groan         0.92 against 0.58 above 1.2kHz
@@ -563,6 +563,15 @@ ok    calling the house stops the room dead           -76.9 dBFS, room was -44.5
 > 每条的增益除以根号条数，所以响度没变，变的是它们互相平均掉了，抖动降到
 > 2.2dB。**一个"低语"本来就该是大半屋子人继续在聊，而不是五个人在反应。**
 > 脚本那头：取三次的中位数，并且**额外检查抖动本身**，免得以后哪一版又薄回去。
+>
+> 后来这两处都还得再改一次，而且都是同一类错。中位数那头：三次不够，
+> "输赢差 6dB 以内"这一条在 CI 上量到 6.6dB 挂了——两个三次中位数相减带的
+> 噪声，比那条排序剩下的 1–2dB 余量还大，改成五次。**但那一条真正的问题不在
+> 脚本**：叹息比欢呼低 5dB 本来就不叫"输赢都有人应"，所以叹息的增益从 0.036
+> 提到 0.045，差距变成 2dB——**把门槛放宽到 8dB 也能变绿，代价是这一桌变差。**
+> 抖动那头：从三次改五次之后，"最大减最小"这个量本身变大了 0.5dB 就差点挂——
+> **极差只会随样本数增长，拿一个固定门槛去卡它，等于每次改进采样都把门槛收紧一次。**
+> 现在量的是**五次里中间三次的跨度**，它不随 n 漂，也不会被一次抽风的发声带走。
 
 > 绑定是两头都钉的：`src/game/engine.test.ts` 穷举 `reactionTo()` 选得对不对，
 > `verify-audio.mjs` 量**传到扬声器的那个声音**是不是字幕点名的那一个。
