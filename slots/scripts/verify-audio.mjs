@@ -38,21 +38,23 @@
  * tone of -36dBFS, and what it sounded like before any of this was measured:
  *
  *                       was     now      above 1.2kHz
- *     roar            -37.4   -25.3          0.72
- *     jeer                -   -26.5          0.60
- *     cheer               -   -26.3          0.79
- *     gasp            -37.0   -27.9          0.76   <- brighter
- *     sigh            -37.7   -29.4          0.44   <- darker
- *     murmur              -   -33.5          0.73
- *     the coin fall   -30.1   -29.9          1.40
- *     the bell        -28.4   -29.5          0.98
+ *     roar            -37.4   -24.9          0.72
+ *     cheer               -   -27.5          0.79
+ *     gasp            -37.0   -27.1          0.79   <- brighter
+ *     sigh            -37.7   -27.9          0.46   <- darker
+ *     jeer                -   -28.7          0.60
+ *     murmur              -   -33.6          0.73
+ *     the coin fall   -30.1   -31.4          1.40
+ *     the bell        -28.4   -29.8          0.98
  *
  * The left column is the whole problem in one place: the three reactions that
  * were measurable were all quieter than the room they were supposed to be
  * reacting in, and both of the machine's own noises were louder than any of
- * them. Readings vary by a decibel or so between runs - the per-voice gain and
- * the formant alignment are both randomised - so the thresholds are set with
- * a few dB of margin rather than against these exact figures.
+ * them.
+ *
+ * The right column is a median of three firings, because a crowd is randomised
+ * on purpose and one reading is a sample rather than a measurement. Thresholds
+ * are set with a few dB of margin rather than against these exact figures.
  */
 import { chromium } from 'playwright'
 import { skipIntro } from './lib/skip-intro.mjs'
@@ -210,8 +212,39 @@ const fire = async (what) => {
   return got
 }
 
+/**
+ * Three firings, and the middle one of each number.
+ *
+ * A crowd is deliberately randomised - every throat gets its own gain, start
+ * time and length - so one peak-hold reading is a sample of a distribution and
+ * not a measurement of the mix. Sampled eight times each, the roar varies by
+ * 1.8dB between firings and the murmur, being the thinnest of them, by over
+ * 4dB. Asserting an ordering between two single samples that overlap that far
+ * is a coin toss dressed as a check, and it duly failed in CI on a murmur that
+ * happened to come out 0.4dB above a jeer that happened to come out quiet.
+ *
+ * The median of three is the cheapest estimator that is actually about the
+ * mix. It is not a softer claim - the thresholds below are unchanged - it is
+ * the same claim measured with an instrument that can hold still.
+ */
+const median = (xs) => xs.slice().sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+const fireOften = async (what, n = 3) => {
+  const runs = []
+  for (let i = 0; i < n; i++) runs.push(await fire(what))
+  return {
+    db: median(runs.map((r) => r.db)),
+    bright: median(runs.map((r) => r.bright)),
+    spread: Math.max(...runs.map((r) => r.db)) - Math.min(...runs.map((r) => r.db)),
+  }
+}
+
 const heard = {}
-for (const kind of ['roar', 'cheer', 'gasp', 'sigh', 'murmur', 'jeer', 'coins', 'bell']) {
+for (const kind of ['roar', 'cheer', 'gasp', 'sigh', 'murmur', 'jeer']) {
+  heard[kind] = await fireOften(kind)
+}
+/* The machine's own two noises are not randomised, so one reading is the
+ * measurement rather than a sample of one. */
+for (const kind of ['coins', 'bell']) {
   heard[kind] = await fire(kind)
 }
 const over = (k) => `${heard[k].db.toFixed(1)} dBFS over a ${room.db.toFixed(1)} room`
@@ -233,6 +266,17 @@ expect(
   'a murmur is there, and is the least the room does',
   heard.murmur.db > room.db + 1 && heard.murmur.db < quietest - 1,
   `${heard.murmur.db.toFixed(1)} dBFS, between a ${room.db.toFixed(1)} room and a ${quietest.toFixed(1)} groan`,
+)
+/*
+ * And it holds still enough to be worth ordering. A murmur was five throats
+ * scattered over 300ms, which barely overlap, so peak-hold was reading one
+ * random voice and swinging 6.7dB; it is twelve inside 160ms now, at the same
+ * level, because the level was never the problem.
+ */
+expect(
+  'and no reaction is too erratic to compare',
+  Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)) < 6,
+  `widest spread over three firings ${Math.max(...['roar', 'cheer', 'gasp', 'sigh', 'jeer', 'murmur'].map((k) => heard[k].spread)).toFixed(1)}dB`,
 )
 
 /*

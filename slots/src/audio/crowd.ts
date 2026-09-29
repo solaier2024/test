@@ -167,9 +167,18 @@ const SHAPE: Record<Reaction, {
   /* Down, slow, and it takes a while to stop. Sits in the same octaves as the
    * bed, so it needs the room out of the way more than it needs volume. */
   sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.036, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12, bed: 0.85 },
-  /* Somebody says something to somebody else. Barely a reaction at all, and
-   * the one row here that is meant to stay close to the room. */
-  murmur: { voices: 5, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.1, gain: 0.024, breath: 0.45, tremor: 0, spread: 0.3, clap: [0, 0], duck: 0.06, bed: 0.25 },
+  /* Barely a reaction at all, and the one row here that is meant to stay close
+   * to the room.
+   *
+   * It has more throats than a cheer does, which looks wrong and is not: a
+   * murmur is not a few people reacting, it is most of the room CARRYING ON,
+   * and the per-voice gain is divided by the root of the count so more of them
+   * is a thicker sound rather than a louder one. It was five, and five voices
+   * scattered over 300ms barely overlap, so what came out was one throat with
+   * a random gain on it - 6.7dB of spread between firings, enough that a
+   * murmur could land louder than the jeer it is supposed to sit under. Twelve
+   * of them arriving inside 160ms average each other out instead. */
+  murmur: { voices: 12, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.1, gain: 0.019, breath: 0.45, tremor: 0, spread: 0.16, clap: [0, 0], duck: 0.06, bed: 0.25 },
   /* Laughter is the cruellest one in here, so it gets the tremor. */
   jeer: { voices: 8, f0: [155, 250], glide: 0.88, vowel: 'a', attack: 0.05, seconds: 1.45, gain: 0.034, breath: 0.25, tremor: 7.2, spread: 0.16, clap: [4, 1.1], duck: 0.26, bed: 0.75 },
 }

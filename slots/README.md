@@ -445,12 +445,13 @@ OK: within the delivery budget
 
 | | 之前 | 现在 | 1.2kHz 以上占比 |
 | --- | --- | --- | --- |
-| `roar` | -37.4 | **-25.0** | 0.72 |
-| `gasp` | -37.0 | **-29.0** | 0.79 ← 亮 |
-| `sigh` | -37.7 | **-28.1** | 0.43 ← 暗 |
-| 落币 | -30.1 | -31.1 | 1.40 |
-| 铃铛 | -28.4 | -28.6 | 0.98 |
-| 房间底噪 | -36 | -36.5 | |
+| `roar` | -37.4 | **-24.9** | 0.72 |
+| `gasp` | -37.0 | **-27.1** | 0.79 ← 亮 |
+| `sigh` | -37.7 | **-27.9** | 0.46 ← 暗 |
+| `murmur` | — | -33.6 | 0.73 |
+| 落币 | -30.1 | -31.4 | 1.40 |
+| 铃铛 | -28.4 | -29.8 | 0.98 |
+| 房间底噪 | -36 | -36.4 | |
 
 左边那一列就是整个问题：**三段量得到的反应全都比它们正在反应的那个房间还轻，
 而机器自己的两个声音比它们全都响。** 之前每一次"听到人群反应了"，
@@ -463,16 +464,31 @@ OK: within the delivery budget
 要求听到的那个声音就是字幕说的那一个；最后是 hush、静音、取消静音。
 
 ```
-ok    the room's roar is audible over it              -25.0 dBFS over a -36.5 room
-ok    a loss is answered within 6dB of a win          groan -28.1 against a roar of -25.0
-ok    and the room is louder than the money           roar -25.0, coins -31.1, bell -28.6
-ok    a gasp is a brighter sound than a groan         0.79 against 0.43 above 1.2kHz
+ok    the room's roar is audible over it              -24.9 dBFS over a -36.4 room
+ok    a murmur is there, and is the least the room does  -33.6, between a -36.4 room and a -28.7 groan
+ok    and no reaction is too erratic to compare       widest spread over three firings 2.2dB
+ok    a loss is answered within 6dB of a win          groan -27.9 against a roar of -24.9
+ok    and the room is louder than the money           roar -24.9, coins -31.4, bell -29.8
+ok    a gasp is a brighter sound than a groan         0.79 against 0.46 above 1.2kHz
 ok    pull 1: and it is the gasp it says it is        0.57 against 0.79 measured alone
-ok    calling the house stops the room dead           -77.2 dBFS, room was -36.5
+ok    calling the house stops the room dead           -58.4 dBFS, room was -36.4
 ```
 
 用**峰值保持 + 1.2kHz 上下的能量比**当元音判据，而不是用整体谱心——
 那架立式钢琴一走动就能把谱心搬一个八度。
+
+> **每个音都量三遍取中位数**，这一条也是被 CI 逼出来的。人群是故意随机的
+> ——每条嗓子各自的增益、起始时刻、长度都在抖——所以**一次峰值保持读到的是
+> 一个分布的抽样，不是这一版混音的量度**。抽样八次量出来：`roar` 的抖动是
+> 1.8dB，而当时最薄的 `murmur` 抖了 **6.7dB**，足以让"低语必须是这屋子人
+> 最小的动静"这句话在两个单次读数之间变成掷硬币。CI 上就是这么挂的：
+> 一次偏响的低语撞上一次偏轻的哄笑，差 0.4dB。
+>
+> 修的是两头。合成器那头：低语原本是 **5 条嗓子摊在 300ms 里**，几乎不重叠，
+> 峰值保持读到的其实是**其中最响的那一条**。现在是 12 条摊在 160ms 里——
+> 每条的增益除以根号条数，所以响度没变，变的是它们互相平均掉了，抖动降到
+> 2.2dB。**一个"低语"本来就该是大半屋子人继续在聊，而不是五个人在反应。**
+> 脚本那头：取三次的中位数，并且**额外检查抖动本身**，免得以后哪一版又薄回去。
 
 > 绑定是两头都钉的：`src/game/engine.test.ts` 穷举 `reactionTo()` 选得对不对，
 > `verify-audio.mjs` 量**传到扬声器的那个声音**是不是字幕点名的那一个。
