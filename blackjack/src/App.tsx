@@ -239,9 +239,15 @@ export default function App() {
       else say('push', { gap: 0 })
     }, 520)
 
+    /*
+     * Reading cool plays nothing: staying in the idle loop *is* her staying cool.
+     * It used to play a `cool` clip, which ran warm -> cool, so a cool read snapped
+     * her into a smile on the first frame and then eased out of it - a pose jump at
+     * the end of every hand she was not reacting to.
+     */
     const mood = reactionTo(s.net, Boolean(s.caught), s.falseCall)
     if (mood === 'caught') showFace('caught', 'caught')
-    else showFace(mood, mood === 'warm' ? 'warm' : mood === 'sharp' ? 'sharp' : 'cool')
+    else showFace(mood, mood === 'cool' ? undefined : mood)
     sync()
   }, [reduced, showFace, sync, t])
 
@@ -294,8 +300,8 @@ export default function App() {
       const mine = gref.current.hands[0]
       if (mine) window.setTimeout(() => sayTotal(total(mine.cards), 'you'), 260)
       setNote(t.yourMove)
-      showFace(readRef.current.shown === 'warm' ? 'warm' : readRef.current.shown === 'sharp' ? 'sharp' : 'cool',
-        readRef.current.shown === 'warm' ? 'warm' : readRef.current.shown === 'sharp' ? 'sharp' : undefined)
+      const shown = readRef.current.shown
+      showFace(shown, shown === 'cool' ? undefined : shown)
     } else {
       await finish()
     }
@@ -585,7 +591,15 @@ export default function App() {
         setCue('title')
       }}
       onClipEnded={(name) => {
-        if (name !== 'idle' && gref.current.phase !== 'over') idle()
+        if (name === 'idle' || gref.current.phase === 'over') return
+        /*
+         * Every clip in the vocabulary is a round trip now, so it hands back on the
+         * resting pose. The still underneath is only ever the fallback, and it has
+         * to match the frame the clip finished on rather than the one it held in the
+         * middle - otherwise losing a clip strands her mid-expression.
+         */
+        setFace('cool')
+        idle()
       }}
     />
   )

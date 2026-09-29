@@ -95,12 +95,33 @@
   opacity: 1;
 }
 
+/*
+ * The video stack. The idle loop is the bed: it runs the whole time the table is
+ * open at full opacity, and every other clip fades in on top of it. Because the
+ * layer underneath is always opaque, a crossfade here can never dip total coverage
+ * the way two fading plates can - there is no moment where the black behind them
+ * shows through.
+ *
+ * Both ends of every clip are the same resting pose, so 150ms is enough to take
+ * the edge off the switch without turning it into a dissolve of two poses.
+ */
 .clip {
-  transition: opacity 90ms linear;
+  opacity: 0;
+  z-index: 2;
+  transition: opacity 150ms linear;
+  /* Its own compositor layer, so fading it does not repaint the one below. */
+  will-change: opacity;
+  transform: translateZ(0);
 }
 
-.clip.gone {
-  opacity: 0;
+.clip.bed {
+  opacity: 1;
+  z-index: 1;
+  transition: none;
+}
+
+.clip.on {
+  opacity: 1;
 }
 
 /*
