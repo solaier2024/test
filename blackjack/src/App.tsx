@@ -54,6 +54,9 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang)
     setVoiceLang(lang)
+    // The document language decides which voice a screen reader uses, so it has
+    // to follow the toggle or Spanish is read aloud with English pronunciation.
+    document.documentElement.lang = lang
   }, [lang])
 
   // Speech synthesis is outside WebAudio, so the mute switch has to reach it by
@@ -631,8 +634,15 @@ function Table(p: TableProps) {
           chips. Centred over the picture there is no height that clears both the
           dealer and the hand labels at every window size, and in the control bar
           it costs vertical room the bar does not have. That corner is empty. */}
+      {/* The outcome reaches a screen reader through a node that never unmounts.
+          The visible banner is remounted on every hand so its entrance animation
+          replays, and a live region that appears together with its own text is
+          announced unreliably. */}
+      <p className="sr-live" role="status">
+        {p.banner ? [p.banner.head, p.banner.body].filter(Boolean).join('. ') : ''}
+      </p>
       {p.banner && (
-        <p className={`banner${p.banner.good ? ' good' : ''}`}>
+        <p className={`banner${p.banner.good ? ' good' : ''}`} aria-hidden="true">
           <strong>{p.banner.head}</strong>
           {p.banner.body && <span>{p.banner.body}</span>}
         </p>
@@ -652,7 +662,7 @@ function Table(p: TableProps) {
 
         {/* Narration, or the standing hint when there is nothing to narrate.
             Leaning wins over both, because that is the moment it is for. */}
-        <p className={`note-line${p.lean ? ' watching' : ''}`}>
+        <p className={`note-line${p.lean ? ' watching' : ''}`} aria-live="polite">
           {p.lean ? t.watching : p.note || t.hint}
         </p>
 
