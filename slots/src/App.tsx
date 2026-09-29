@@ -72,11 +72,51 @@ const SAID: Record<Reaction, keyof (typeof STRINGS)['en']> = {
 const ROOM_FOR: Record<Reaction, Room> = {
   roar: 'roar',
   cheer: 'roar',
-  gasp: 'in',
+  gasp: 'sigh',
   sigh: 'sigh',
   murmur: 'back',
   jeer: 'sigh',
 }
+
+/*
+ * The footage for each reaction, and which room it has to be starting from.
+ *
+ * Every crowd clip is conditioned on two approved plates, so it only joins up
+ * if the room is already on its first one. There are two entry points into a
+ * reaction and they are not interchangeable:
+ *
+ *   from 'back'  - an ordinary pull settles and the room responds from resting.
+ *   from 'in'    - the first two bands matched, the third hung, and the room
+ *                  came forward to watch. The reaction now has to break out of
+ *                  a held breath rather than out of nothing, which looks
+ *                  completely different and is the best moment in the game.
+ *
+ * Laid out this way the four footage clips are a 2x2 of loud against held, and
+ * the held pair are the bigger picture of the two every time - which is the
+ * whole reason the third band hangs at all.
+ *
+ * A near miss only ever arrives from 'in', because the engine cannot produce
+ * one without the first two bands agreeing first. Giving it sigh_held was a
+ * correction: it used to hold on the leaning clip, so at the exact moment the
+ * third band landed one stop off, nothing in the picture changed and the only
+ * thing that answered was a line of text. A capture run caught it by printing
+ * the same plate and the same clip at 2.5s and at 5.1s.
+ *
+ * A reaction with no clip is not a gap. The plate cross-fade in Scene.tsx
+ * covers it, which is the right reading for a murmur anyway: a room muttering
+ * is a room that did not really do anything.
+ */
+const CROWD_CLIP: Record<Reaction, { back?: string; in?: string }> = {
+  roar: { back: 'roar', in: 'roar_held' },
+  cheer: { back: 'roar', in: 'roar_held' },
+  gasp: { back: 'sigh', in: 'sigh_held' },
+  sigh: { back: 'sigh', in: 'sigh_held' },
+  jeer: { back: 'sigh', in: 'sigh_held' },
+  murmur: {},
+}
+
+/** How long the plates take to cross-fade, from App.css. */
+const FADE = 0.95
 
 export default function App() {
   const [lang, setLang] = useState<Lang>('en')
@@ -105,6 +145,10 @@ export default function App() {
    */
   const sessionRef = useRef(session)
   sessionRef.current = session
+  /* Which plate the room is on right now, so a reaction can pick the clip that
+   * actually starts from there rather than the one that starts from resting. */
+  const roomRef = useRef(room)
+  roomRef.current = room
   const queue = useRef<Beat[]>([])
   const random = useRef(rng((Date.now() ^ 0x9e3779b9) >>> 0))
   const token = useRef(0)
@@ -169,17 +213,46 @@ export default function App() {
     [],
   )
 
-  /** The room reacting: sound, plate and a line, always all three at once. */
+  /*
+   * The room reacting.
+   *
+   * Four channels fire on the same tick and every one of them is sufficient on
+   * its own: synthesised voices, the footage, the plate underneath it, and a
+   * line of text. That is not belt and braces - a reaction is information in
+   * this game, because what the room does tells you how close that pull came,
+   * and a muted player, a deaf player or a player whose browser will not decode
+   * VP9 has to be reading the same game as everybody else.
+   */
   const roomSays = useCallback(
     (kind: Reaction, density: number, hold = 2.1) => {
       react(kind, density)
+
+      const from = roomRef.current === 'in' ? 'in' : 'back'
+      const film = CROWD_CLIP[kind][from]
+      if (film) setClip({ name: film, token: ++token.current })
+
       setRoom(ROOM_FOR[kind])
       setSaid(STRINGS[lang][SAID[kind]])
+
       const mine = ++token.current
       push(now() + hold, () => {
         if (token.current !== mine) return
+        /*
+         * Drop the footage FIRST and let the plates dissolve back on their own,
+         * rather than cutting to the idle loop here. The idle clip opens on
+         * machine_rest, and cutting to it straight out of a roar would snap the
+         * room empty in one frame. Pulling the video away instead reveals the
+         * reaction plate it finished on, which then cross-fades out slowly -
+         * and a room going quiet again really is slow and gradual, so the
+         * dissolve is not standing in for anything, it IS the shot.
+         */
+        setClip(null)
         setRoom('back')
         setSaid(null)
+        push(now() + FADE, () => {
+          if (token.current !== mine) return
+          setClip({ name: 'idle', token: ++token.current, loop: true })
+        })
       })
     },
     [lang],
@@ -251,6 +324,7 @@ export default function App() {
       push(restAt[1] + 0.06, () => {
         setWanted(out.line[0])
         setRoom('in')
+        setClip({ name: 'lean', token: ++token.current })
         setIntensity(Math.min(1, attention + 0.45))
       })
     }
@@ -274,7 +348,10 @@ export default function App() {
     callOut()
     hush(1.7)
     pianoStops(2.4)
+    /* The room turns round to watch you accuse the house, which is the same
+     * shot as it turning round to watch a reel hang. */
     setRoom('in')
+    setClip({ name: 'lean', token: ++token.current })
     setSaid(STRINGS[lang].calledOut)
 
     push(now() + 1.5, () => {

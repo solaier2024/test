@@ -1,7 +1,16 @@
 import { clipKind, clipUrl, plateUrl } from './art'
 
-/** Only one encoding is ever fetched: the one this browser actually supports. */
-const CLIPS = ['idle', 'pull', 'release']
+/**
+ * Only one encoding is ever fetched: the one this browser actually supports.
+ *
+ * Ordered, and the order is the point. The three the table cannot start
+ * without come first and are counted against the first-screen budget in
+ * scripts/verify-budget.mjs. The crowd footage follows, because the earliest a
+ * reaction can possibly be needed is after a pull has been made and resolved -
+ * and if one has not arrived by then the plate cross-fade underneath covers
+ * it, which is the fallback layer doing its job rather than a hole.
+ */
+const CLIPS = ['idle', 'pull', 'release', 'roar', 'sigh', 'lean', 'roar_held', 'sigh_held']
 const PLATES = ['machine_rest', 'machine_lean', 'machine_roar', 'machine_sigh']
 
 let done = false

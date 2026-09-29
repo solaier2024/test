@@ -401,6 +401,27 @@ const CLIPS = {
     { use: 'sigh', from: 'machine_rest', to: 'machine_sigh', frames: 52, ease: 'easeInOut' },
     { hold: 'machine_sigh', frames: 6 },
   ],
+
+  /*
+   * The same two reactions again, but breaking out of a held breath instead of
+   * out of a resting room - the crowd has already come forward because the
+   * first two bands matched and the third is still running.
+   *
+   * These are not a luxury. It is the only moment in the game where the room
+   * knows something is coming before the player does, and a reaction that
+   * started from machine_rest would have to cut the leaning crowd away in one
+   * frame to play. They are also the two clips that most deserve the footage:
+   * a held breath letting go is a whole-body thing and there is no way to
+   * interpolate it out of two stills.
+   */
+  roar_held: [
+    { use: 'roar_held', from: 'machine_lean', to: 'machine_roar', frames: 40, ease: 'easeOut' },
+    { hold: 'machine_roar', frames: 8 },
+  ],
+  sigh_held: [
+    { use: 'sigh_held', from: 'machine_lean', to: 'machine_sigh', frames: 50, ease: 'easeInOut' },
+    { hold: 'machine_sigh', frames: 8 },
+  ],
 }
 
 /* ----------------------------------------------------------- the opening */
@@ -444,6 +465,45 @@ function intermediate(frames, tag) {
  */
 const DISSOLVE = [0.5, 0.5, 0]
 
+/**
+ * Frames for one opening shot: the generated take if there is one, and a
+ * zoompan move over the still if there is not.
+ *
+ * Nothing in here is registered or rim-pinned, unlike the table clips. The
+ * opening plays full frame with no DOM over it, so there is no hole to keep
+ * lined up - and these shots are supposed to have a moving camera, so holding
+ * them still would remove the only thing they are for.
+ *
+ * That is also why the opening was the worst thing in the build before this.
+ * zoompan resampling a still every frame produces a shimmer that is not in the
+ * picture and cannot be predicted from it, and VP9 pays for that shimmer in
+ * bits: the ten-second opening alone was 726 KB on the phone tier against a
+ * 400 KB budget for a whole clip. Real camera movement over real parallax
+ * compresses like a photograph of the world, because that is what it is.
+ */
+function shotFrames(tag, source, seconds, fallback) {
+  const mp4 = join(ROOT, 'clipsrc', 'generated', `intro_${tag}.mp4`)
+  const want = Math.round(seconds * FPS)
+  if (!existsSync(mp4)) return pushIn(source, seconds, fallback)
+
+  const dir = join(CACHE, `shot-${digest(mp4, seconds)}`)
+  if (!force && existsSync(dir) && readdirSync(dir).length === want) {
+    return readdirSync(dir).sort().map((f) => join(dir, f))
+  }
+  const stage = mkdtempSync(join(tmpdir(), 'shot-'))
+  ff(['-i', mp4, '-vf', `scale=${W}:${H}`, join(stage, '%05d.png')])
+  const dense = readdirSync(stage).sort().map((f) => join(stage, f))
+
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  for (let i = 0; i < want; i++) {
+    const at = Math.round((i / (want - 1)) * (dense.length - 1))
+    cpSync(dense[at], join(dir, `${String(i).padStart(5, '0')}.png`))
+  }
+  rmSync(stage, { recursive: true, force: true })
+  return readdirSync(dir).sort().map((f) => join(dir, f))
+}
+
 /*
  * Four shots, about eleven seconds. Shot four is the one the opening exists
  * for: a reel band lying on a bench with a bell cut out of it. With the last
@@ -453,13 +513,13 @@ const DISSOLVE = [0.5, 0.5, 0]
 function buildOpening() {
   const shots = [
     // Warm light out of a doorway, and a slow push toward it.
-    { tag: 'street', frames: pushIn('intro_street', 2.8, { from: 1.0, to: 1.13, panX: 0.02 }) },
+    { tag: 'street', frames: shotFrames('street', 'intro_street', 2.8, { from: 1.0, to: 1.13, panX: 0.02 }) },
     // Down the room, past the empty faro layout, to the one lit thing in it.
-    { tag: 'room', frames: pushIn('intro_room', 3.0, { from: 1.14, to: 1.02, panY: -0.01 }) },
+    { tag: 'room', frames: shotFrames('room', 'intro_room', 3.0, { from: 1.14, to: 1.02, panY: -0.01 }) },
     // The machine, and your hand already on the arm.
-    { tag: 'machine', frames: pushIn('machine_rest', 2.4, { from: 1.1, to: 1.0 }) },
+    { tag: 'machine', frames: shotFrames('machine', 'machine_rest', 2.4, { from: 1.1, to: 1.0 }) },
     // And the thing you are not allowed to see, on a bench in the back room.
-    { tag: 'band', frames: pushIn('intro_band', 3.0, { from: 1.0, to: 1.12, panX: -0.03 }) },
+    { tag: 'band', frames: shotFrames('band', 'intro_band', 3.0, { from: 1.0, to: 1.12, panX: -0.03 }) },
   ]
 
   const segs = shots.map((s) => intermediate(s.frames, s.tag))

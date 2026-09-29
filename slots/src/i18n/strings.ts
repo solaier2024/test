@@ -47,7 +47,10 @@ const en = {
 
   crowdRoar: 'The room comes off the floor.',
   crowdCheer: 'Somebody slaps the bar.',
-  crowdGasp: 'The whole room breathes in at once.',
+  /* A near miss is read at the moment the room lets the breath go, not at the
+   * moment it takes it, so the line says how close it came rather than how it
+   * felt. A muted player has nothing else to read it from. */
+  crowdGasp: 'One stop short. The air goes out of the room.',
   crowdSigh: 'A groan, and two of them turn away.',
   crowdMurmur: 'A murmur, and nobody moves.',
   crowdJeer: 'Laughter. Not the kind you want.',
@@ -123,7 +126,7 @@ const es: Record<keyof Strings, string> = {
 
   crowdRoar: 'La sala se levanta del suelo.',
   crowdCheer: 'Alguien da un palmazo en la barra.',
-  crowdGasp: 'Toda la sala jala aire al mismo tiempo.',
+  crowdGasp: 'Por un lugar. A la sala se le va el aire.',
   crowdSigh: 'Un quejido, y dos se dan la vuelta.',
   crowdMurmur: 'Un murmullo, y nadie se mueve.',
   crowdJeer: 'Risas. No de las que uno quiere.',
