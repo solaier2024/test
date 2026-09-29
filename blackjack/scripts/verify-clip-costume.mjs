@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { REGIONS, boxDiff, core } from './lock-costume.mjs'
+import { REGIONS, core } from './lock-costume.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLIPS = join(HERE, '..', 'public', 'clips')
@@ -34,9 +34,21 @@ const WORK = '/tmp/dc-clip-costume'
 const BUDGET = {
   warm: 10,
   sharp: 10,
-  cool: 10,
   caught: 14,
-  idle: 16,
+  /*
+   * Idle's budget went up from 16 to 26 when the breathing stopped being a morph
+   * towards a second generated plate and became warps of the master. That is not
+   * this check getting more relaxed, it is this check being the wrong question for
+   * this clip now: travel used to mean drift, because the costume was pinned by a
+   * pasted rectangle and anything that moved in the box was the generator drawing
+   * different clothes. The breath displaces the master's own pixels by up to 6.5px,
+   * so she moves while wearing them, and the number is that movement.
+   *
+   * The guarantee did not go away, it went somewhere stronger: verify-seam.mjs
+   * fits every frame of this clip against the breath field and requires the
+   * residual to be nothing. A different garment could not fit at any amplitude.
+   */
+  idle: 26,
   deal: 150,
   shuffle: 170,
 }

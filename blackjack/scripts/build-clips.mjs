@@ -40,6 +40,7 @@ import {
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { BREATH, MASTER, readRgb, warp } from './lock-costume.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -118,6 +119,40 @@ function morph(a, b, steps) {
   return frames
 }
 
+/**
+ * The breath, as `steps + 1` amplitudes of one displacement field applied to the
+ * master - not as optical flow towards a second generated plate.
+ *
+ * This is the clip that is on screen for most of a session, and as a morph it was
+ * the worst thing in the build: the two plates differed across the entire frame,
+ * so every breath warped the bar, the bottles and the baize, and the costume had
+ * to be pinned with a rectangle that then sat frozen in the middle of all that
+ * drift. As warps of one image there is nothing to drift - the room is untouched
+ * by construction, the costume is the same pixels, and amplitude 0 is the master
+ * exactly, so the loop closes on itself.
+ */
+function breathSeries(steps = 48) {
+  const dir = join(CACHE, `breath-${digest(plate(MASTER), steps, JSON.stringify(BREATH))}`)
+  if (!force && existsSync(dir) && readdirSync(dir).length === steps + 1) {
+    return readdirSync(dir).sort().map((f) => join(dir, f))
+  }
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+
+  const master = readRgb(plate(MASTER))
+  for (let i = 0; i <= steps; i++) {
+    execFileSync(
+      'ffmpeg',
+      ['-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-i', '-',
+        join(dir, `${String(i).padStart(4, '0')}.png`)],
+      { input: warp(master, BREATH, i / steps) },
+    )
+  }
+  const frames = readdirSync(dir).sort().map((f) => join(dir, f))
+  if (frames.length !== steps + 1) throw new Error(`breath series produced ${frames.length} frames`)
+  return frames
+}
+
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2)
 const easeOut = (t) => 1 - (1 - t) ** 3
 const linear = (t) => t
@@ -136,11 +171,16 @@ function timeline(steps) {
       for (let i = 0; i < step.frames; i++) frames.push(at)
       continue
     }
-    const dense = morph(plate(step.from), plate(step.to), 48)
     const ease = EASES[step.ease ?? 'easeInOut']
+    // A breathe step rides the warp series between two amplitudes; a from/to step
+    // rides the dense morph between two plates. Both are a curve sampled by index.
+    const [series, a, b] = step.breathe
+      ? [breathSeries(48), step.breathe[0], step.breathe[1]]
+      : [morph(plate(step.from), plate(step.to), 48), 0, 1]
+    const last = series.length - 1
     for (let i = 0; i < step.frames; i++) {
       const t = step.frames === 1 ? 1 : i / (step.frames - 1)
-      frames.push(dense[Math.round(ease(t) * (dense.length - 1))])
+      frames.push(series[Math.round((a + (b - a) * ease(t)) * last)])
     }
   }
   return frames
@@ -208,37 +248,58 @@ const CLIPS = {
     { from: 'dealer_shuffle', to: 'dealer_cool', frames: 14, ease: 'easeInOut' },
     { hold: 'dealer_cool', frames: 3 },
   ],
+  /*
+   * The moods are ROUND TRIPS, and that is a fix rather than a flourish.
+   *
+   * They used to end held on the warm, sharp or caught plate, and the idle loop
+   * that follows starts on the resting one - so at the end of every single hand
+   * her head and shoulders jumped from the expression straight back to neutral, in
+   * one frame, on the clip change. Taking the expression back out inside the clip
+   * costs a few frames and means every clip in the table's vocabulary now really
+   * does begin and end on the same pose, which is what the star topology below has
+   * always claimed.
+   *
+   * There is no `cool` clip any more. It ran warm -> cool, so playing it from the
+   * resting pose - which is what the settlement did whenever she was reading cool -
+   * snapped her into a smile on frame one and then eased out of it.
+   */
   warm: [
     { from: 'dealer_cool', to: 'dealer_warm', frames: 18, ease: 'easeOut' },
-    { hold: 'dealer_warm', frames: 6 },
+    { hold: 'dealer_warm', frames: 10 },
+    { from: 'dealer_warm', to: 'dealer_cool', frames: 16, ease: 'easeInOut' },
   ],
   sharp: [
     { from: 'dealer_cool', to: 'dealer_sharp', frames: 14, ease: 'easeOut' },
-    { hold: 'dealer_sharp', frames: 6 },
-  ],
-  cool: [
-    { from: 'dealer_warm', to: 'dealer_cool', frames: 16, ease: 'easeInOut' },
+    { hold: 'dealer_sharp', frames: 10 },
+    { from: 'dealer_sharp', to: 'dealer_cool', frames: 14, ease: 'easeInOut' },
   ],
   /* Not a dissolve. Caught is a cut hidden under the room going quiet. */
   caught: [
     { from: 'dealer_cool', to: 'dealer_caught', frames: 5, ease: 'easeOut' },
     { hold: 'dealer_caught', frames: 22 },
+    { from: 'dealer_caught', to: 'dealer_cool', frames: 12, ease: 'easeInOut' },
   ],
   /*
    * The hardest clip to do without: the one the table sits on between hands.
    *
    * The first cut of this held a single plate for four and a half of its five
    * seconds and only blinked, and on a recording it read as a photograph. It now
-   * breathes the whole way through - an inhale plate morphed in and back out, so
-   * something is moving in every frame - with the blinks landing inside it.
+   * breathes the whole way through, so something is moving in every frame, with
+   * the blinks landing inside it.
+   *
+   * The breathing is a warp series rather than a morph towards a second generated
+   * plate - see breathSeries. The blinks stay a morph because a blink really is a
+   * change of content rather than a displacement, but they are the only optical
+   * flow left in the clip, they last seven frames, and they are confined to her
+   * eyes. Amplitude 0 is the master exactly, so the loop closes perfectly.
    */
   idle: [
-    { from: 'dealer_cool', to: 'dealer_breath', frames: 44, ease: 'easeInOut' },
-    { from: 'dealer_breath', to: 'dealer_cool', frames: 50, ease: 'easeInOut' },
+    { breathe: [0, 1], frames: 44, ease: 'easeInOut' },
+    { breathe: [1, 0], frames: 50, ease: 'easeInOut' },
     { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
     { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
-    { from: 'dealer_cool', to: 'dealer_breath', frames: 46, ease: 'easeInOut' },
-    { from: 'dealer_breath', to: 'dealer_cool', frames: 52, ease: 'easeInOut' },
+    { breathe: [0, 1], frames: 46, ease: 'easeInOut' },
+    { breathe: [1, 0], frames: 52, ease: 'easeInOut' },
     { from: 'dealer_cool', to: 'dealer_cool_blink', frames: 3, ease: 'linear' },
     { from: 'dealer_cool_blink', to: 'dealer_cool', frames: 4, ease: 'linear' },
   ],
