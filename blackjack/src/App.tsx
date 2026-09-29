@@ -95,9 +95,17 @@ export default function App() {
   const leaningRef = useRef(false)
   const tokenRef = useRef(0)
 
+  /*
+   * The fallback plates are warmed as soon as the opening is out of the way, and
+   * deliberately not before it. Four full-frame JPEGs is about 650 KB, and firing
+   * them on mount put that in front of the film on the same connection: throttled
+   * to 3 Mbps the opening stalled four times, for bytes it would not need for
+   * another thirteen seconds. Clip.tsx already works this way with the idle bed -
+   * whatever the player is looking at gets the pipe first.
+   */
   useEffect(() => {
-    prefetchClips(narrow)
-  }, [narrow])
+    if (screen !== 'intro') prefetchClips()
+  }, [screen])
 
   /* ------------------------------------------------------------- the score */
 
