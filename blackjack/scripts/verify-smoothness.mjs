@@ -29,8 +29,7 @@ import { skipIntro } from './lib/skip-intro.mjs'
 const url = process.argv[2] ?? 'http://127.0.0.1:5180/'
 
 /*
- * Budgets. These are not aspirational: they are what the fixed build measures,
- * with enough room that a loaded CI box does not fail on noise.
+ * Budgets. These are not aspirational: they are what the fixed build measures.
  */
 const BUDGET = {
   dropRatio: 0.04,
@@ -39,6 +38,29 @@ const BUDGET = {
   blindMs: 120,
 }
 
+/*
+ * How many times the whole hand-playing pass is run, and why more than once.
+ *
+ * Three of the four numbers below are main-thread measurements and they are
+ * steady: the page holds 60fps rAF with a 17ms worst gap even with the CPU
+ * throttled six times over, which is well past any phone. The drop ratio is
+ * different in kind. It is the decoder's own count, and the decoder lives in
+ * another process competing with everything else on the host - so it measures the
+ * machine at least as much as the page. On this four-core box at load average 3
+ * the same unchanged build measured 2.41%, 3.31%, 4.02% and 5.07% against a 4%
+ * limit, which is a gate that fails for reasons the code cannot fix.
+ *
+ * So the drop ratio is asserted on the MEDIAN of the passes. That is robust to one
+ * contended sample while still moving if decoding genuinely gets more expensive -
+ * which a best-of-N would not be. Every sample is printed, because the spread is
+ * the interesting part and hiding it would be how this goes wrong again.
+ *
+ * The other three are asserted on the WORST pass. They are cheap to satisfy when
+ * the code is right and a single genuine stall is worth failing for.
+ */
+const PASSES = 3
+
+async function measure() {
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
 await skipIntro(page, url)
@@ -123,21 +145,46 @@ for (let hand = 0; hand < 3; hand++) {
 const { gaps, blind, total, dropped } = await page.evaluate(() => window.__pace.finish())
 await browser.close()
 
-const long = gaps.filter((g) => g > 50)
-const worstGap = Math.max(0, ...gaps)
-const worstBlind = Math.max(0, ...blind)
-const dropRatio = total ? dropped / total : 0
+return {
+  seconds: gaps.length / 60,
+  frames: gaps.length,
+  total,
+  dropped,
+  dropRatio: total ? dropped / total : 0,
+  longGaps: gaps.filter((g) => g > 50).length,
+  worstGap: Math.max(0, ...gaps),
+  worstBlind: Math.max(0, ...blind),
+}
+}
 
-console.log(`over ${(gaps.length / 60).toFixed(0)}s of play, ${gaps.length} animation frames\n`)
-console.log(`  decoded frames           ${total}`)
-console.log(`  dropped by the decoder   ${dropped}  (${(dropRatio * 100).toFixed(2)}%, limit ${BUDGET.dropRatio * 100}%)`)
-console.log(`  frame gaps over 50ms     ${long.length}  (limit ${BUDGET.longGaps})`)
+const runs = []
+for (let i = 0; i < PASSES; i++) runs.push(await measure())
+
+const median = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+const dropRatio = median(runs.map((r) => r.dropRatio))
+const longGaps = Math.max(...runs.map((r) => r.longGaps))
+const worstGap = Math.max(...runs.map((r) => r.worstGap))
+const worstBlind = Math.max(...runs.map((r) => r.worstBlind))
+
+console.log(`${PASSES} passes of three hands each\n`)
+for (const [i, r] of runs.entries()) {
+  console.log(
+    `  pass ${i + 1}  ${r.seconds.toFixed(0).padStart(2)}s  ` +
+      `decoded ${String(r.total).padStart(4)}  dropped ${String(r.dropped).padStart(3)} ` +
+      `(${(r.dropRatio * 100).toFixed(2).padStart(5)}%)  gaps>50ms ${r.longGaps}  ` +
+      `worst gap ${r.worstGap.toFixed(0)}ms  blind ${r.worstBlind.toFixed(0)}ms`,
+  )
+}
+
+console.log('')
+console.log(`  dropped by the decoder   ${(dropRatio * 100).toFixed(2)}%  median of ${PASSES}  (limit ${BUDGET.dropRatio * 100}%)`)
+console.log(`  frame gaps over 50ms     ${longGaps}  worst pass  (limit ${BUDGET.longGaps})`)
 console.log(`  worst frame gap          ${worstGap.toFixed(0)}ms  (limit ${BUDGET.worstGapMs}ms)`)
 console.log(`  longest blind stretch    ${worstBlind.toFixed(0)}ms  (limit ${BUDGET.blindMs}ms)`)
 
 const fail = []
 if (dropRatio > BUDGET.dropRatio) fail.push(`the decoder dropped ${(dropRatio * 100).toFixed(2)}% of frames`)
-if (long.length > BUDGET.longGaps) fail.push(`${long.length} main-thread stalls over 50ms`)
+if (longGaps > BUDGET.longGaps) fail.push(`${longGaps} main-thread stalls over 50ms`)
 if (worstGap > BUDGET.worstGapMs) fail.push(`worst main-thread stall was ${worstGap.toFixed(0)}ms`)
 if (worstBlind > BUDGET.blindMs) fail.push(`the dealer layer went blank for ${worstBlind.toFixed(0)}ms`)
 
