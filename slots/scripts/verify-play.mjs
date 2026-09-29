@@ -112,6 +112,33 @@ const hud = () =>
 
 const idle = () => page.waitForSelector('button.lever:not([disabled])', { timeout: 40000 })
 
+/**
+ * Waits for a pull to have actually happened, and then for the table to be
+ * ready for the next one.
+ *
+ * Waiting only for the lever to come back is not enough, and the way it fails
+ * is worth knowing because it looks exactly like a bug in the game. For a
+ * frame after the press the lever is still enabled, so the wait is satisfied
+ * by the state from BEFORE the pull started; the next press then arrives
+ * while the reels are running and is correctly ignored. Nothing is broken and
+ * the run is simply one pull short, which showed up as a night played
+ * entirely at two coins settling against an average stake of 2.10.
+ */
+async function landed(before) {
+  try {
+    await page.waitForFunction(
+      (n) => Number((document.querySelectorAll('.hud span')[1]?.textContent ?? '').replace(/\D+/g, '')) > n,
+      before,
+      { timeout: 40000 },
+    )
+  } catch {
+    /* A timeout here says only "no pull happened", which is the least useful
+     * sentence available. Say what the table looks like instead. */
+    throw new Error(`no pull after pressing at ${before}: ${JSON.stringify(await hud())}`)
+  }
+  await idle()
+}
+
 /** Sits down at one of the three machines, from a clean sitting. */
 async function sit(which, seed) {
   await skipIntro(page, `${BASE}${BASE.includes('?') ? '&' : '?'}seed=${seed}`)
@@ -207,7 +234,7 @@ expect('and the grip follows the hand down the arm', swing.down > 8 && swing.out
   `${swing.down.toFixed(0)}px down and ${swing.out.toFixed(0)}px out, on an arc`)
 
 await haul()
-await idle()
+await landed(before.pulls)
 const hauled = await hud()
 expect('hauling it past the clutch plays a pull', hauled.pulls === before.pulls + 1, `${before.pulls} to ${hauled.pulls} pulls`)
 expect('and the grip springs back to the top', Math.abs((await page.locator('button.lever-knob').boundingBox()).y - nudge.start.y) < 3, 'the arm is where it started')
@@ -235,8 +262,9 @@ async function fourPulls(stake) {
   const showing = (await hud()).stake
   const open = (await hud()).bank
   for (let i = 0; i < SAMPLE; i++) {
+    const n = (await hud()).pulls
     await page.locator('button.lever').click()
-    await idle()
+    await landed(n)
   }
   const close = await hud()
   return { showing, paid: close.bank - open + stake * SAMPLE, pulls: close.pulls }
@@ -263,7 +291,7 @@ expect('and the stake comes back down again', (await hud()).stake === 1, 'back t
  * held upright, so it has to do the same thing the knob does. */
 const beforeKey = await hud()
 await page.keyboard.press('Space')
-await idle()
+await landed(beforeKey.pulls)
 expect('space bar pulls it too', (await hud()).pulls === beforeKey.pulls + 1, 'the lever is never the only way')
 
 /* ---- 3. the settlement --------------------------------------------------- */
@@ -280,12 +308,10 @@ async function night(stake, yankTo) {
   for (let i = 0; i < PATIENCE && !last.ready && !last.over; i++) {
     const s = last.stake
     await page.locator('button.lever').click()
-    await idle()
+    await landed(last.pulls)
     const now = await hud()
-    /* Counted off the pull counter rather than off the loop. Against a remote
-     * deployment a press occasionally lands between renders and does nothing,
-     * and a night that silently books one more coin than it spent reports an
-     * average stake of 1.05 for a night played entirely at one. */
+    /* Counted off the pull counter and not off the loop, which is belt and
+     * braces now that landed() waits for the pull rather than for the lever. */
     staked += s * (now.pulls - last.pulls)
     last = now
   }
