@@ -63,20 +63,41 @@ if (await notice.count()) {
 async function grabIntro(at, name) {
   const ok = await page.evaluate(async (t) => {
     const v = document.querySelector('.intro-video')
-    if (!v) return false
+    if (!v) return 'no video element'
     v.pause()
-    v.currentTime = t
-    await new Promise((r) => {
+    /*
+     * Both promises are armed before the seek starts. 'seeked' says the decoder has
+     * moved; requestVideoFrameCallback says a frame has actually been handed to the
+     * compositor, which is the thing about to be photographed. Screenshotting on
+     * 'seeked' alone captured a black rectangle whenever the machine was busy, and
+     * because a black crop scores about the reference's own mean luma, the gate
+     * then reported a costume mismatch of 31.67 with nothing wrong with the build.
+     * Arming first matters: the frame can be presented before a callback
+     * registered afterwards would ever be attached.
+     */
+    const shown = v.requestVideoFrameCallback
+      ? new Promise((r) => {
+          v.requestVideoFrameCallback(() => r(true))
+          setTimeout(() => r(false), 12000)
+        })
+      : Promise.resolve(true)
+    const seeked = new Promise((r) => {
       const done = () => {
         v.removeEventListener('seeked', done)
-        r()
+        r(true)
       }
       v.addEventListener('seeked', done)
-      setTimeout(r, 2500)
+      setTimeout(() => r(false), 12000)
     })
-    return true
+    v.currentTime = t
+    if (!(await seeked)) return `the seek to ${t}s never completed`
+    if (!(await shown)) return `the frame at ${t}s was never presented`
+    return null
   }, at)
-  if (!ok) return null
+  if (ok) {
+    fail.push(`${name}: ${ok}`)
+    return null
+  }
   const path = join(DIR, `${name}.png`)
   // Only her half of the frame: the room behind her is identical in both
   // versions, so including it would wash the comparison out.
@@ -137,6 +158,28 @@ await browser.close()
  */
 const COSTUME_LIMIT = 5
 
+/** Mean luma of an image, used only to tell a picture from a blank rectangle. */
+function brightness(path) {
+  const out = execFileSync('ffmpeg', ['-v', 'error', '-i', path, '-lavfi',
+    'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const m = /YAVG=([0-9.]+)/.exec(out)
+  return m ? Number(m[1]) : NaN
+}
+
+/*
+ * A frame that never arrived photographs as black, and signalstats reports black as
+ * YAVG 16 rather than 0 because it reads limited-range luma - a threshold near zero
+ * would never fire, which is how this was nearly written. Measured on this build:
+ * a synthetic black frame reads 16.00, and the three real samples read 40.3, 42.2
+ * and 42.5. 26 sits between them.
+ *
+ * This is worth its own assertion because the arithmetic hides the failure rather
+ * than showing it: a black costume crop differs from the real one by about the real
+ * one's own mean luma, which is where the 31.67 "the costume differs" came from.
+ */
+const LIT = 26
+
 /** Mean absolute luma difference against the same crop of a reference plate. */
 function score(shot, ref) {
   let against = ref
@@ -158,6 +201,11 @@ console.log('')
 for (const [name, shot] of Object.entries(shots)) {
   if (!shot) {
     fail.push(`could not sample ${name}`)
+    continue
+  }
+  const lit = brightness(shot)
+  if (!(lit > LIT)) {
+    fail.push(`${name} came out blank (mean luma ${lit.toFixed(2)}), so nothing was compared`)
     continue
   }
   const now = score(shot, reference)
@@ -188,11 +236,16 @@ for (const [name, shot] of Object.entries(shots)) {
  * that alone scored 8.2 while the costume underneath it was correct to 1.7.
  */
 if (costume.intro_look && costume.table) {
-  const d = score(costume.table, costume.intro_look)
-  console.log('')
-  console.log(`costume, opening vs table: ${d.toFixed(2)} (limit ${COSTUME_LIMIT})`)
-  if (d > COSTUME_LIMIT) {
-    fail.push(`the costume differs between the opening and the table (${d.toFixed(2)})`)
+  const blank = [costume.intro_look, costume.table].filter((p) => !(brightness(p) > LIT))
+  if (blank.length) {
+    fail.push(`a costume crop came out blank, so the two were never compared: ${blank.join(' ')}`)
+  } else {
+    const d = score(costume.table, costume.intro_look)
+    console.log('')
+    console.log(`costume, opening vs table: ${d.toFixed(2)} (limit ${COSTUME_LIMIT})`)
+    if (d > COSTUME_LIMIT) {
+      fail.push(`the costume differs between the opening and the table (${d.toFixed(2)})`)
+    }
   }
 }
 
