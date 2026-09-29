@@ -123,11 +123,31 @@
     inset 0 -0.5em 0.9em rgba(0, 0, 0, 0.55);
 }
 
+/*
+ * The strip has to have a DEFINITE height, and the reason is worth writing
+ * down because the bug it caused looked like a completely different bug.
+ *
+ * This was `inset: 0 0 auto 0` with `grid-auto-rows: 33.3333%`, the intent
+ * being "three stops fill the window". Both percentages resolved against the
+ * strip's own height, which was auto, so the rows fell back to their content
+ * size and - worse - the percentage in the translate3d that Reels.tsx writes
+ * every frame was measured against all twenty-three rows instead of three. One
+ * stop of travel moved the band by seven and a half stops, and at rest the
+ * band sat so far below the window that the window showed bare paper. It read
+ * as "the symbols do not render", which is why it took a while to find.
+ *
+ * So: the strip is --cells rows tall where the window is three, its rows are
+ * an exact fraction of that, and Reels.tsx moves it by 100/--cells per stop.
+ * The component sets --cells from the same constant it does that arithmetic
+ * with, so the stylesheet and the clock cannot disagree about how tall a stop
+ * is.
+ */
 .strip {
   position: absolute;
   inset: 0 0 auto 0;
+  height: calc(var(--cells) / 3 * 100%);
   display: grid;
-  grid-auto-rows: 33.3333%;
+  grid-auto-rows: calc(100% / var(--cells));
   will-change: transform;
 }
 
