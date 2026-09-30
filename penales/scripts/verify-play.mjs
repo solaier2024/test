@@ -125,6 +125,57 @@ for (let attempt = 0; attempt < 12 && banked === null; attempt++) {
 
 check(banked !== null, 'a goal was scored and banked inside twelve rounds')
 
+/*
+ * He cheats, and so can you. Both halves have to be reachable with a pointer, because
+ * both of them are the reason this table belongs in the series and neither of them is
+ * checkable from a unit test: the call button only exists on a save, and buying him only
+ * exists while a round is open.
+ */
+console.log('\nhe cheats, and so can you')
+
+check((await page.locator('.standing .heat .bar').count()) === 1, 'standing is on screen')
+check((await page.locator('.standing .words strong').count()) === 1, 'so is how many words he will take')
+
+let calledOne = false
+let boughtOne = false
+
+for (let attempt = 0; attempt < 40 && !(calledOne && boughtOne); attempt++) {
+  if ((await page.locator('.during').count()) === 0) {
+    if ((await page.locator('.go').count()) === 0 || !(await page.locator('.go').isEnabled())) break
+    await page.locator('.go').click()
+    await page.waitForSelector('.during', { timeout: 10_000 })
+  }
+
+  /* Arm the money on the first kick of a round while there are words left. */
+  if (!boughtOne && (await page.locator('.buy').isEnabled())) {
+    const before = Number((await page.locator('.standing .words strong').innerText()).trim())
+    await page.locator('.buy').click()
+    check(await page.locator('.tell.bought').isVisible(), 'arming the money says so on screen')
+    await page.locator('.zone').nth(4).click()
+    await page.waitForSelector('.verdict.goal, .verdict.saved, .verdict.missed', { timeout: 10_000 })
+    const after = Number((await page.locator('.standing .words strong').innerText()).trim())
+    check(after === before - 1, `buying him spends a word (${before} -> ${after})`)
+    boughtOne = true
+    await page.waitForTimeout(900)
+    continue
+  }
+
+  await page.locator('.zone').nth(3).click()
+  await page.waitForSelector('.verdict.goal, .verdict.saved, .verdict.missed', { timeout: 10_000 })
+  await page.waitForTimeout(1_400)
+
+  if (!calledOne && (await page.locator('.callhim').count()) === 1) {
+    await page.locator('.callhim').click()
+    await page.waitForSelector('.outcome.voided, .outcome.busted', { timeout: 10_000 })
+    const right = (await page.locator('.outcome.voided').count()) === 1
+    check(true, `calling him resolved one way or the other (${right ? 'he was off his line' : 'his feet were down'})`)
+    calledOne = true
+  }
+}
+
+check(boughtOne, 'the money can be put down with a pointer')
+check(calledOne, 'a save can be called with a pointer')
+
 console.log('\nthe player can check the house')
 await page.locator('.disclose').click()
 await page.locator('.seedform button.primary').click()

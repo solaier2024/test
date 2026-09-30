@@ -173,6 +173,133 @@ export const MAX_WIN_MULTIPLIER = 5_000
  */
 export const TELL_RATE = 0.18
 
+/* --------------------------------------------------- the crooked keeper */
+
+/*
+ * HE CHEATS, AND CATCHING HIM IS THE POINT.
+ *
+ * SERIES.md puts one thing through every table in the house: you are not betting on
+ * the cards, you are betting on whether his hands are clean. Heat carries across
+ * tables, and the back room is where it ends.
+ *
+ * An earlier version of this file wrote this table OUT of that - it argued that a lot
+ * in front of everybody is the one place nobody can cheat, so this is the table with
+ * no cheating in it. That was wrong twice over. It threw away the only thing the
+ * series has that runs through everything, and it is not even true: the most
+ * commonplace cheat in football is a goalkeeper coming off his line early, it happens
+ * in front of eighty thousand people every week, and the reason it works is precisely
+ * that everybody is watching the ball instead of his feet.
+ *
+ * So: he steals a step. His reach goes up, the odds on the board do not, and he is
+ * taking the difference. You can call it, and the call costs you.
+ *
+ * WHAT THIS DOES TO THE RETURN, SAID PLAINLY
+ *
+ * It makes the return depend on whether you catch him. That is a deliberate break
+ * with the rest of the paytable, where no way of playing beats any other - and it is
+ * the same break EL BANDIDO MANCO makes, where the three machines return 88.7%, 78.3%
+ * and 67.9% off an identical pay card and the player's whole job is working out which
+ * one they are sitting at.
+ *
+ * Three numbers, all computed exactly in exact.ts rather than estimated:
+ *
+ *   he never cheats          97.00%   the clean game, and what the board quotes
+ *   he cheats, you never call  lower  he keeps the difference
+ *   he cheats, you always call ~97%   the ante back on a called save, which is tuned
+ *                                     to bring it back without overshooting
+ *
+ * The middle number is the one the player is being invited to do something about.
+ */
+
+/** How often he steals a step off his line, while he thinks he is getting away with it. */
+export const STEAL_RATE = 0.12
+
+/**
+ * How much further he gets for it. Added to his reach, and it is the entire
+ * mechanical effect - his dive distribution is untouched, so he is not guessing any
+ * better, just arriving sooner.
+ */
+export const STEAL_REACH = 0.12
+
+/**
+ * What calling him correctly buys: he plays straight for this many rounds.
+ *
+ * NOT A REFUND, AND THAT TOOK TWO WRONG ANSWERS TO ARRIVE AT.
+ *
+ * The obvious remedy is to hand something back. Every version of that overshoots, and
+ * the exact figures say so without any room for argument:
+ *
+ *   Void the round and let the player keep the ladder. The value of a position in this
+ *   ladder IS its cash-out figure, so on a five-kick ladder this hands back about five
+ *   times what the theft was worth. "Always call" came out over 100%.
+ *
+ *   Refund a flat fraction of the ante. Wrong shape: what he steals grows with the
+ *   multiplier, a flat ante does not. Solving for the fraction that just avoids
+ *   overshoot gives about a tenth of the ante, which is both an unexplainable number
+ *   and a pathetic reward for catching somebody cheating.
+ *
+ * So the remedy is not a payment. It is that the game becomes fair - he keeps his feet
+ * on the line for a while, because he has been seen. That cannot overshoot BY
+ * CONSTRUCTION, because the best it can do is the clean game, and the clean game is
+ * 97.00%. No knife-edge constant, nothing to tune, and one sentence to explain.
+ *
+ * It also puts the skill in the right place. The reward for reading him is not a
+ * consolation payment on a round you already lost; it is the next five rounds being
+ * the game the board is advertising.
+ */
+export const STRAIGHT_ROUNDS = 5
+
+/* ------------------------------------------------------------ buying him */
+
+/*
+ * THE OTHER HALF: YOU CAN DO IT TOO.
+ *
+ * SERIES.md again - the system has to be two-way, and the back half of the series is
+ * learning to do it without being caught. Here it is the simplest transaction on the
+ * lot: you pay him to go the wrong way.
+ *
+ * It does NOT buy edge, and it is priced so that it cannot. If the money takes, his
+ * dive is redirected away from the corner you named - so the only thing left between
+ * you and the goal is your own aim, the probability goes up, and the multiplier comes
+ * down by exactly as much. What you are buying is survival on a ladder you do not want
+ * to lose, at the price of the ladder growing more slowly.
+ *
+ * What it costs is heat, one of a handful of chances in a night, and the risk it does
+ * not take - in which case he plays straight and mentions it to the man running the
+ * lot.
+ *
+ * Nothing about it breaks the commitment. Whether the money takes is a committed roll
+ * like everything else, and where he goes instead is derived from the same dive float
+ * with your corner removed from the distribution. The player names a corner, the seed
+ * does the rest, and a reveal reproduces all of it.
+ */
+
+/** How often the money takes. Published, because it is priced into the payout. */
+export const BRIBE_TAKES = 0.7
+
+/** Chances in a night. */
+export const BRIBES_PER_SESSION = 3
+
+/** Heat from buying him, and from being seen trying. */
+export const HEAT_BRIBE = 0.16
+export const HEAT_BRIBE_FAILED = 0.3
+/**
+ * Heat from calling him wrong. Calling him RIGHT costs nothing - he is the one who was
+ * cheating, and charging the player for noticing would be an odd thing for the game to
+ * think.
+ */
+export const HEAT_CALL_WRONG = 0.22
+/**
+ * What a clean round gives back. Playing straight is how you cool off.
+ *
+ * Small on purpose, and it was three times this at first, which made standing a
+ * resource that could not run out: one wrong call cost 0.22 and two and a half honest
+ * rounds paid it straight back, so the ceiling was unreachable and "run off the lot" was
+ * a state no player would ever see. At this rate a wrong call takes seven honest rounds
+ * to work off, which makes the call a decision instead of a free action.
+ */
+export const HEAT_CLEAN_ROUND = -0.03
+
 /**
  * Floats consumed per kick, in cursor order: the tell, his dive, his reach, and
  * the shooter's accuracy.
@@ -183,9 +310,10 @@ export const TELL_RATE = 0.18
  * uses: the randomness is fixed in advance, the player decides what it gets
  * compared against. Nothing adapts to the shot, and the shot still matters.
  */
-export const FLOATS_PER_KICK = 4
+export const FLOATS_PER_KICK = 6
 
-export type Roll = 0 | 1 | 2 | 3
+/** tell, dive, reach, accuracy, steal, bribe. */
+export type Roll = 0 | 1 | 2 | 3 | 4 | 5
 
 export const cursorFor = (kickIndex: number, which: Roll): number => kickIndex * FLOATS_PER_KICK + which
 
@@ -210,40 +338,97 @@ export function diveFor(f: number): Dive {
 }
 
 /**
+ * Where he goes when he has been paid to avoid a corner.
+ *
+ * The same dive column with one row struck out and the rest renormalised, walked with
+ * the same float. So it is still a function of the seed and the player's choice and
+ * nothing else - a reveal reproduces it, and he is not being steered by anything the
+ * house does after the fact.
+ */
+export function diveAvoiding(f: number, avoid: Zone): Dive {
+  const total = 1 - TABLE[avoid].dive
+  let acc = 0
+  for (const z of ZONES) {
+    if (z === avoid) continue
+    acc += TABLE[z].dive / total
+    if (f < acc) return z
+  }
+  return ZONES.find((z) => z !== avoid)!
+}
+
+/**
  * Everything one kick's four floats decide. All of it fixed before the player
  * picks, none of it a function of what the player picks.
  */
 export interface KickRolls {
   /** Did he commit early. */
   tell: boolean
+  /** Where he goes if nobody has paid him. */
   dive: Dive
-  /** Pre-rolled: would he hold it, if the ball came to where he went. */
-  reaches: boolean
+  /** Raw, so a redirected dive can be walked from the same number. */
+  diveRoll: number
+  /** He stole a step off his line. Worth reach, and worth calling. */
+  steals: boolean
+  /** Raw. Compared against his reach once it is known whether he stole. */
+  reachRoll: number
   /** Raw. Compared against onTarget[zone] once the player has chosen. */
   accuracy: number
+  /** If he is paid, does the money take. */
+  bribeTakes: boolean
 }
 
-export function rollsFor(at: Floats, kickIndex: number): KickRolls {
-  const dive = diveFor(at(cursorFor(kickIndex, 1)))
+/**
+ * @param straight he has been called out recently and is keeping his feet on the line.
+ *        Suppressing the steal here rather than at the roll keeps the derivation
+ *        untouched - the float is the same float, and the reveal records whether he was
+ *        on his best behaviour, so a player can reproduce every kick either way.
+ */
+export function rollsFor(at: Floats, kickIndex: number, straight = false): KickRolls {
   return {
     tell: at(cursorFor(kickIndex, 0)) < TELL_RATE,
-    dive,
-    reaches: at(cursorFor(kickIndex, 2)) < TABLE[dive].reach,
+    dive: diveFor(at(cursorFor(kickIndex, 1))),
+    diveRoll: at(cursorFor(kickIndex, 1)),
+    reachRoll: at(cursorFor(kickIndex, 2)),
     accuracy: at(cursorFor(kickIndex, 3)),
+    steals: !straight && at(cursorFor(kickIndex, 4)) < STEAL_RATE,
+    bribeTakes: at(cursorFor(kickIndex, 5)) < BRIBE_TAKES,
   }
 }
+
+/** How far he actually gets, given whether he stole a step. */
+export const reachOf = (dive: Dive, steals: boolean): number =>
+  Math.min(1, TABLE[dive].reach + (steals ? STEAL_REACH : 0))
 
 /** How a kick ended, which is the only thing the player is shown afterwards. */
 export type KickResult = 'goal' | 'saved' | 'missed'
 
+/** Everything one kick turned into, including the parts that are only for the audit. */
+export interface Played {
+  result: KickResult
+  /** Where he actually went, after any money changed hands. */
+  dive: Dive
+  /** He was off his line. True whether or not the player noticed. */
+  stole: boolean
+  /** The player paid him and the money took. */
+  bought: boolean
+}
+
 /**
- * The outcome. Reads like the sentence it is: you have to hit the goal, and he
- * has to not be there.
+ * The outcome. Reads like the sentence it is: you have to hit the goal, and he has to
+ * not be there.
+ *
+ * @param bribed the player paid him to avoid this corner. Whether it took is a
+ *        committed roll, so this is a request rather than an instruction.
  */
-export function resolveKick(rolls: KickRolls, zone: Zone): KickResult {
-  if (rolls.accuracy >= TABLE[zone].onTarget) return 'missed'
-  if (rolls.dive === zone && rolls.reaches) return 'saved'
-  return 'goal'
+export function resolveKick(rolls: KickRolls, zone: Zone, bribed = false): Played {
+  const bought = bribed && rolls.bribeTakes
+  const dive = bought ? diveAvoiding(rolls.diveRoll, zone) : rolls.dive
+  const stole = rolls.steals
+  const reaches = rolls.reachRoll < reachOf(dive, stole)
+
+  if (rolls.accuracy >= TABLE[zone].onTarget) return { result: 'missed', dive, stole, bought }
+  if (dive === zone && reaches) return { result: 'saved', dive, stole, bought }
+  return { result: 'goal', dive, stole, bought }
 }
 
 /* ------------------------------------------------------- the probabilities */
@@ -290,6 +475,32 @@ export const onTargetOf = (z: Zone): number => TABLE[z].onTarget
  */
 export const pGoal = (z: Zone, shown: Dive | null): number =>
   shown === null ? pGoalBlind(z) : pGoalKnowing(z, shown)
+
+/**
+ * P(goal | shooting here, having paid him to go somewhere else).
+ *
+ * If the money takes he is not in this corner at all, so the only thing left is aim.
+ * If it does not, nothing has changed. Published, because the payout is priced against
+ * it - buying him raises the probability and lowers the multiplier by exactly as much,
+ * so it buys survival and not edge.
+ */
+export const pGoalBought = (z: Zone, shown: Dive | null): number =>
+  BRIBE_TAKES * onTargetOf(z) + (1 - BRIBE_TAKES) * pGoal(z, shown)
+
+/** The probability a kick is priced against, given everything the player knows and did. */
+export const pGoalFor = (z: Zone, shown: Dive | null, bribed: boolean): number =>
+  bribed ? pGoalBought(z, shown) : pGoal(z, shown)
+
+/**
+ * What he is taking when he steals a step, as a probability, for one corner.
+ *
+ * Positive: the board quotes the clean number and he arrives sooner than that. This is
+ * the whole of the theft, and exact.ts turns it into the return figures.
+ */
+export const stolenFrom = (z: Zone): number => {
+  const m = TABLE[z]
+  return m.onTarget * m.dive * (Math.min(1, m.reach + STEAL_REACH) - m.reach) * STEAL_RATE
+}
 
 /* -------------------------------------------------------- the multipliers */
 

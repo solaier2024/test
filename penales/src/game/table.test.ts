@@ -290,21 +290,21 @@ describe('resolving a kick', () => {
      * right order: a ball over the bar is not a save, and a player who watched
      * it go over the bar must not be told it was saved. */
     const rolls = rollsFor(floatsOf(floats(0.9, 0.0, 0.0, 0.99)), 0)
-    expect(resolveKick(rolls, 'tl')).toBe('missed')
+    expect(resolveKick(rolls, 'tl').result).toBe('missed')
   })
 
   it('is saved only where he went', () => {
     const rolls = rollsFor(floatsOf(floats(0.9, 0.0, 0.0, 0.0)), 0)
     expect(rolls.dive).toBe('tl')
-    expect(resolveKick(rolls, 'tl')).toBe('saved')
-    expect(resolveKick(rolls, 'tr')).toBe('goal')
+    expect(resolveKick(rolls, 'tl').result).toBe('saved')
+    expect(resolveKick(rolls, 'tr').result).toBe('goal')
   })
 
   it('is a goal where he went, if he could not get there', () => {
     const rolls = rollsFor(floatsOf(floats(0.9, 0.0, 0.999, 0.0)), 0)
     expect(rolls.dive).toBe('tl')
-    expect(rolls.reaches).toBe(false)
-    expect(resolveKick(rolls, 'tl')).toBe('goal')
+    expect(rolls.reachRoll).toBeGreaterThan(TABLE.tl.reach)
+    expect(resolveKick(rolls, 'tl').result).toBe('goal')
   })
 
   it('scores as often as the paytable promises', () => {
@@ -336,12 +336,14 @@ describe('resolving a kick', () => {
       roll[cursorFor(0, 3)] = accuracy
     }
 
+    /* straight = true, because what is being checked is the CLEAN paytable - the number
+     * on the board. He steals separately and the next test is what measures that. */
     for (const z of ZONES) {
       let beaten = 0
       for (let d = 0; d < steps; d++) {
         for (let r = 0; r < steps; r++) {
           set(0.5, (d + 0.5) / steps, (r + 0.5) / steps, 0)
-          if (resolveKick(rollsFor(floatsOf(roll), 0), z) === 'goal') beaten++
+          if (resolveKick(rollsFor(floatsOf(roll), 0, true), z).result === 'goal') beaten++
         }
       }
 
@@ -353,7 +355,7 @@ describe('resolving a kick', () => {
       let onTarget = 0
       for (let a = 0; a < steps; a++) {
         set(0.5, elsewhere, 0, (a + 0.5) / steps)
-        if (resolveKick(rollsFor(floatsOf(roll), 0), z) === 'goal') onTarget++
+        if (resolveKick(rollsFor(floatsOf(roll), 0, true), z).result === 'goal') onTarget++
       }
 
       const measured = (beaten / (steps * steps)) * (onTarget / steps)

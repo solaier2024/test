@@ -85,11 +85,39 @@ export interface SeedRecord {
 export interface KickRecord {
   readonly zone: string
   readonly result: 'goal' | 'saved' | 'missed'
+  /** Where he actually went, after any money changed hands. */
   readonly dive: string
   /** The dive the player was shown before choosing, when he tipped his hand. */
   readonly shown: string | null
+  /** He was off his line. Recorded whether or not the player noticed. */
+  readonly stole: boolean
+  /** He was on his best behaviour, so the steal was never rolled against. */
+  readonly straight: boolean
+  /** The player paid him. */
+  readonly bribed: boolean
+  /** The money took. Only meaningful when bribed. */
+  readonly bought: boolean
   /** The probability this kick was priced against. Kept for audit and replay. */
   readonly p: number
+}
+
+/**
+ * Heat, chances to buy him, and whether the man running the lot has had enough.
+ *
+ * Deliberately NOT in the ledger, and that is the design decision that lets a cheating
+ * system exist at all without touching the return. Heat is session length. It buys
+ * nothing and it costs no chips, so nothing in this record can move the house edge -
+ * it only decides how much longer the evening goes on.
+ */
+export interface PlayerRecord {
+  readonly id: string
+  /** 0 to 1. At 1 he is run off the lot. */
+  readonly heat: number
+  readonly bribesLeft: number
+  /** Rounds he will keep his feet on the line for, because he has been called out. */
+  readonly straightRounds: number
+  /** One way. Chips are kept; the night is over. */
+  readonly runOff: boolean
 }
 
 export interface RoundRecord {
@@ -101,7 +129,13 @@ export interface RoundRecord {
   readonly clientSeed: string
   readonly nonce: number
   readonly kicks: readonly KickRecord[]
-  readonly status: 'open' | 'cashed' | 'busted'
+  /**
+   * 'voided' is a save that was called and he really was off his line: the round is
+   * over, and the ante comes back.
+   */
+  readonly status: 'open' | 'cashed' | 'busted' | 'voided'
+  /** Whether the player called him, and whether they were right. One call per round. */
+  readonly called: 'right' | 'wrong' | null
   readonly payout: Chips
   readonly openedAt: number
   readonly closedAt: number | null
@@ -127,6 +161,8 @@ export interface Db {
    * and a player could no longer tell which reveal explains which round.
    */
   readonly openRounds: Map<string, string>
+  /** Heat and bribes. Session state, and nowhere near the money. */
+  readonly players: Map<string, PlayerRecord>
   /**
    * playerId -> their round ids, oldest first. Closed rounds stay: a player has
    * to be able to look at the round they just lost, and at the one from last
@@ -145,6 +181,7 @@ const empty = (): Db => ({
   seeds: new Map(),
   live: new Map(),
   openRounds: new Map(),
+  players: new Map(),
   byPlayer: new Map(),
   seq: 0,
 })
@@ -171,6 +208,7 @@ const draftOf = (db: Db): Db => ({
   seeds: new Map(db.seeds),
   live: new Map(db.live),
   openRounds: new Map(db.openRounds),
+  players: new Map(db.players),
   /* The inner arrays are appended to, so they are copied too - a shallow Map
    * copy would share them with committed state. */
   byPlayer: new Map([...db.byPlayer].map(([k, v]) => [k, [...v]])),

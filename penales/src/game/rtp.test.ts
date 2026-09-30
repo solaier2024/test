@@ -35,6 +35,11 @@ const ROUNDS = 25_000
  * Fixed seeds, so a number quoted anywhere can be reproduced exactly.
  */
 const MEASURED = STRATEGIES.map((s) => measure(s, ROUNDS, STAKE, 0x51d0 + s.id.length))
+
+/* The same strategies against a keeper who comes off his line and is never called on it.
+ * Fewer rounds, because what is being checked is a direction and not a third decimal. */
+const CROOKED = STRATEGIES.map((s) => measure(s, 12_000, STAKE, 0x51d0 + s.id.length, false))
+const crooked = (id: string) => CROOKED.find((m) => m.strategy.id === id)!
 const of = (id: string) => MEASURED.find((m) => m.strategy.id === id)!
 
 describe('no way of playing beats the house edge, and none is punished by it', () => {
@@ -77,6 +82,30 @@ describe('no way of playing beats the house edge, and none is punished by it', (
     expect(brave.cashed / brave.rounds).toBeLessThan(safe.cashed / safe.rounds / 10)
     expect(safe.stderr).toBeLessThan(brave.stderr)
     expect(brave.meanGoals).toBeLessThan(safe.meanGoals * 2)
+  })
+})
+
+describe('he takes a cut when nobody is watching', () => {
+  it('returns less than the board quotes, across the board', () => {
+    /* Not a bug and not noise: the board quotes the clean odds and he is not always
+     * clean. exact.ts prices it to the decimal; this only has to show it is there and
+     * pointing down. */
+    const clean = MEASURED.reduce((a, m) => a + m.rtp, 0) / MEASURED.length
+    const crookedMean = CROOKED.reduce((a, m) => a + m.rtp, 0) / CROOKED.length
+    expect(crookedMean).toBeLessThan(clean)
+  })
+
+  it('takes more from a longer ladder', () => {
+    /*
+     * The shape that matters, and the one that killed every refund-shaped remedy for
+     * catching him: he is stealing a share of a compounding multiplier, so a player who
+     * banks after one goal barely notices and one who runs a ladder loses several points.
+     * Compared as a ratio to each strategy's own clean figure, because the strategies have
+     * wildly different variance and comparing them to each other would measure that
+     * instead.
+     */
+    const kept = (id: string) => crooked(id).rtp / of(id).rtp
+    expect(kept('safe-3')).toBeLessThan(kept('safe-1'))
   })
 })
 

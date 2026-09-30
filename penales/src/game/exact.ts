@@ -44,6 +44,8 @@ import {
   pGoalBlind,
   pGoalKnowing,
   RTP,
+  STEAL_RATE,
+  STEAL_REACH,
   TABLE,
   TELL_RATE,
   type Zone,
@@ -112,6 +114,81 @@ export function exactReturn(zone: Zone, bank: number, cap = MAX_WIN_MULTIPLIER):
   walk(0, 1, [])
 
   return { rtp: capped, uncapped, costOfCap: uncapped - capped, peak, clipped }
+}
+
+/* ------------------------------------------------- what he steals, exactly */
+
+/**
+ * The three return figures, and the only honest way to quote this table.
+ *
+ * The clean game is 97.00% and no corner or stopping rule beats another - that is
+ * exactly true and it is what `exactReturn` above measures. Then he starts coming off
+ * his line, and the board keeps quoting the clean odds, and the difference is his.
+ *
+ * So the return is no longer one number. It is a range whose position depends on
+ * whether the player catches him, which is a deliberate break with the rest of the
+ * paytable and is the same break EL BANDIDO MANCO makes: three machines, one pay card,
+ * returns of 88.7%, 78.3% and 67.9%, and the player's whole job is working out which
+ * one they are sitting at.
+ *
+ * Quoting the top of that range and staying quiet about the rest would be the dishonest
+ * move, so all three numbers get computed here and printed by `npm run rtp`.
+ */
+export interface Honest {
+  /** He keeps his feet on the line. The board's number. */
+  clean: number
+  /** He steals a step and the player never says anything. */
+  robbed: number
+}
+
+/**
+ * @param bank how many goals the player banks before walking.
+ *
+ * Two figures and no third, because the remedy for catching him is that he stops rather
+ * than that he pays: a player who calls him promptly is playing the clean game, and the
+ * clean game is the first figure. There is nothing in between to compute.
+ */
+export function honestReturn(zone: Zone, bank: number): Honest {
+  const m = TABLE[zone]
+  const rB = Math.min(1, m.reach + STEAL_REACH)
+
+  /* Per-kick probabilities, split by whether he stole the step. */
+  const gClean = m.onTarget * (1 - m.dive * m.reach)
+  const gStolen = m.onTarget * (1 - m.dive * rB)
+  /* Saved BECAUSE he stole - the only saves a call can touch. */
+  const sStolen = m.onTarget * m.dive * rB
+
+  const gActual = (1 - STEAL_RATE) * gClean + STEAL_RATE * gStolen
+
+  /* The board prices every kick against gClean, so the multiplier after k goals is
+   * RTP / gClean^k whatever he has been doing. */
+  const payAt = (k: number) => Math.min(RTP / gClean ** k, MAX_WIN_MULTIPLIER)
+
+  /* Unused here, but it is the quantity a refund-shaped remedy would have had to be
+   * priced against, and leaving it named is cheaper than rederiving it if anybody tries
+   * that again. */
+  void sStolen
+
+  return {
+    clean: exactReturn(zone, bank, MAX_WIN_MULTIPLIER).rtp,
+    robbed: gActual ** bank * payAt(bank),
+  }
+}
+
+/** The worst a fixed-zone ladder does while he is at it, and the clean figure. */
+export function honestRange(): { robbed: number; clean: number } {
+  let robbed = Infinity
+  let clean = 0
+
+  for (const zone of Object.keys(TABLE) as Zone[]) {
+    for (let bank = 1; bank <= 10; bank++) {
+      const h = honestReturn(zone, bank)
+      robbed = Math.min(robbed, h.robbed)
+      clean = Math.max(clean, h.clean)
+    }
+  }
+
+  return { robbed, clean }
 }
 
 /** Every fixed-zone ladder there is, which is where the cap bites hardest. */

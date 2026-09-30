@@ -12,7 +12,7 @@
  * notice in a log.
  */
 
-import { uncappedIsExact, worstCase } from '../src/game/exact.ts'
+import { honestRange, honestReturn, uncappedIsExact, worstCase } from '../src/game/exact.ts'
 import { measure, STRATEGIES } from '../src/game/strategies.ts'
 import {
   HOUSE_EDGE,
@@ -20,6 +20,8 @@ import {
   MAX_WIN_MULTIPLIER,
   pGoalBlind,
   RTP,
+  STEAL_RATE,
+  STRAIGHT_ROUNDS,
   TABLE,
   TELL_RATE,
   ZONES,
@@ -90,7 +92,29 @@ for (const cap of [500, 1_000, 5_000, 50_000]) {
   console.log(`    ${padL(cap.toLocaleString('en-US') + 'x', 9)}   ${(w.exact.costOfCap * 100).toFixed(4).padStart(7)} pp${here}`)
 }
 
-console.log(`\n${pad('strategy', 15)}${padL('RTP', 9)}${padL('+/-', 8)}${padL('paid', 8)}${padL('goals', 8)}${padL('best', 10)}  what it does`)
+/*
+ * The part that must not be buried. The clean game is 97.00% and no corner or stopping
+ * rule beats another - but he does not always keep his feet on the line, and while he is
+ * at it the board is still quoting the clean number. Quoting only the top of that range
+ * would be the dishonest move, so both ends get printed.
+ */
+{
+  const h = honestRange()
+  console.log(`\nwhat he is worth, and what he takes (steals a step ${pct(STEAL_RATE)} of the time):`)
+  console.log(`  he keeps his feet on the line                ${pct(h.clean)}   <- what the board quotes`)
+  console.log(`  he steals a step and nobody calls it         ${pct(h.robbed)}   <- worst ladder`)
+  console.log(`  called out, so he behaves for ${STRAIGHT_ROUNDS} rounds        ${pct(h.clean)}   <- back to clean, and it cannot exceed it`)
+  console.log('\n  what he takes, by how long the ladder is:')
+  console.log(`    ${padL('corner', 14)}${padL('bank 1', 10)}${padL('bank 5', 10)}${padL('bank 10', 10)}`)
+  for (const z of ZONES) {
+    const v = [1, 5, 10].map((b) => pct(honestReturn(z, b).robbed))
+    console.log(`    ${padL(NAMES[z], 14)}${padL(v[0], 10)}${padL(v[1], 10)}${padL(v[2], 10)}`)
+  }
+  console.log('\n  he takes a share of a multiplier, so the longer the ladder the bigger his cut.')
+}
+
+console.log(`\nsimulated, with him keeping his feet on the line - the game the board quotes:`)
+console.log(`${pad('strategy', 15)}${padL('RTP', 9)}${padL('+/-', 8)}${padL('paid', 8)}${padL('goals', 8)}${padL('best', 10)}  what it does`)
 console.log('-'.repeat(118))
 
 let worst = 0
@@ -165,5 +189,14 @@ if (worstCase().exact.costOfCap > 0.0001) {
   fail(`the ${MAX_WIN_MULTIPLIER}x cap costs ${(worstCase().exact.costOfCap * 100).toFixed(4)} pp, which is too much`)
 }
 
+{
+  const h = honestRange()
+  /* The clean game has to stay exactly what it says, and the theft has to stay a gap
+   * worth learning about without becoming a different game. */
+  if (Math.abs(h.clean - RTP) > 1e-10) fail(`the clean return is ${pct(h.clean)}, not ${pct(RTP)}`)
+  if (h.robbed > RTP - 0.02) fail(`he only takes ${pct(RTP - h.robbed)}, which is not worth noticing`)
+  if (h.robbed < RTP - 0.08) fail(`he takes ${pct(RTP - h.robbed)}, which is a different game rather than a tell`)
+}
+
 if (failed) process.exit(1)
-console.log('exactly 97.00% uncapped, 96.99% with the cap, and no measurable strategy departs from it.\n')
+console.log('clean game exactly 97.00%. He takes up to five points of it, and you can stop him.\n')

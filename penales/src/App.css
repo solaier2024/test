@@ -20,9 +20,10 @@
 
 :root {
   --ink: #0d0b07;
-  --sky-hi: #2b2a33;
-  --sky-mid: #6d5138;
-  --sky-lo: #c98a45;
+  --sky-hi: #26262f;
+  --sky-mid: #5d4433;
+  --sky-lo: #b8783c;
+  --headlight: #fff3d0;
   --dirt: #6a5134;
   --dirt-dark: #3a2c1c;
   --timber: #6b5638;
@@ -204,37 +205,52 @@
 
 .horizon {
   position: absolute;
-  inset: 28% 0 38% 0;
+  inset: 14% 0 38% 0;
   opacity: 0.95;
 }
 
-.wire {
+.fence {
   position: absolute;
-  inset: 50% 0 34% 0;
+  inset: 46% 0 30% 0;
   /*
-   * Four strands of barbed wire and the posts holding them, as gradients.
+   * Chain link, as two crossed gradients plus the posts. Two hundred DOM nodes of
+   * fence is a phone performance bug and a gradient is free.
    *
-   * Barbed wire and not chain link, and the date is the reason: wire is patented in
-   * 1874 and is why the open range was closing in exactly these years. Chain link is
-   * a twentieth century product and would be the fence equivalent of a slot machine
-   * in 1884.
+   * It used to be barbed wire, because the scene used to be dated to 1884 and wire is
+   * the period-correct fence. The scene is not dated any more - western as a look and a
+   * place, not as a calendar - so this is the fence a dirt pitch behind a bar actually
+   * has.
    */
-  /* Four strands and the posts, and the periods are wide on purpose: the first pass
-     used a 9px period and read as a fine mesh, which is chain link by another route. */
   background-image:
-    repeating-linear-gradient(90deg, rgba(30, 24, 16, 0.95) 0 2px, transparent 2px 46px),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0 2px,
-      rgba(226, 206, 168, 0.4) 2px 3px,
-      transparent 3px 15px
-    ),
-    repeating-linear-gradient(
-      68deg,
-      transparent 0 21px,
-      rgba(226, 206, 168, 0.3) 21px 23px,
-      transparent 23px 44px
-    );
+    repeating-linear-gradient(90deg, rgba(24, 28, 32, 0.95) 0 3px, transparent 3px 62px),
+    repeating-linear-gradient(46deg, rgba(214, 222, 230, 0.16) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(-46deg, rgba(214, 222, 230, 0.16) 0 1px, transparent 1px 9px);
+  mask-image: linear-gradient(transparent, #000 34%);
+}
+
+/* Two pickups parked nose-in behind the fence. */
+.trucks {
+  position: absolute;
+  inset: 48% 0 32% 0;
+}
+
+/*
+ * The headlight beams, and they are the lighting design rather than a flourish.
+ *
+ * A flat pitch needs real art to look like anything. A pitch raked from one side by a
+ * pair of headlights has a direction of light at grey-box fidelity - which is what
+ * lets the keeper be a silhouette, the ball have a hot edge, and the dirt have
+ * anything happening on it at all.
+ */
+.beams {
+  position: absolute;
+  inset: 48% 0 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(101deg, rgba(255, 243, 208, 0.24) 0%, transparent 36%),
+    linear-gradient(88deg, rgba(255, 243, 208, 0.14) 0%, transparent 28%),
+    radial-gradient(70% 46% at 12% 26%, rgba(255, 243, 208, 0.22), transparent 72%);
+  mix-blend-mode: screen;
 }
 
 .dirt {
@@ -292,88 +308,102 @@
 }
 
 /*
- * Rope, strung by hand.
+ * The net. Square, machine-made, and a bit slack - which is what is actually strung on
+ * a pipe goal behind a bar.
  *
- * Four gradients at periods that do not divide into each other, which is a cheap way
- * to stop it reading as a ruled grid - and it has to not read as one, because a
- * manufactured net is a machine-made object that arrives in 1891. This is somebody's
- * lash-up.
- *
- * Kept dim on purpose. It sits behind the keeper and under the numbers, and it is
- * the only thing on screen nobody needs to read.
+ * Two periods laid over each other so the mesh does not read as a perfect ruled grid,
+ * and see-through on purpose: at higher opacity the goal became a black rectangle with
+ * no fence or buttes behind it, so it read as a hole cut in the picture rather than as
+ * something standing in a lot. Half-dark keeps the numbers legible and keeps the depth.
  */
 .net {
   position: absolute;
   inset: 0;
   background-image:
-    repeating-linear-gradient(0deg, rgba(222, 205, 172, 0.13) 0 1px, transparent 1px 11px),
-    repeating-linear-gradient(90deg, rgba(222, 205, 172, 0.13) 0 1px, transparent 1px 13px),
-    repeating-linear-gradient(0deg, rgba(222, 205, 172, 0.07) 0 1px, transparent 1px 27px),
-    repeating-linear-gradient(90deg, rgba(222, 205, 172, 0.07) 0 1px, transparent 1px 31px);
-  /*
-   * See-through, and it matters more than it sounds. At 0.8 the goal was an opaque
-   * black rectangle: the wire and the mesas behind it vanished, so the goal read as a
-   * hole cut in the picture rather than as something standing in a lot. Half-dark
-   * keeps the brass numbers legible and lets the fence show through behind him, which
-   * is the only depth cue a fixed camera gets.
-   */
-  background-color: rgba(10, 8, 5, 0.52);
+    repeating-linear-gradient(0deg, rgba(226, 232, 238, 0.16) 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(90deg, rgba(226, 232, 238, 0.16) 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(0deg, rgba(226, 232, 238, 0.08) 0 1px, transparent 1px 31px);
+  background-color: rgba(10, 12, 15, 0.42);
 }
 
-/* Two posts and a bar, rough-sawn, lashed at the corners. Tapered, because a milled
-   upright is a different century's object and the taper is what says "cut it and
-   stood it up". */
+/* Galvanised pipe, lit from the left because that is where the trucks are. */
 .post {
   position: absolute;
-  top: -3%;
+  top: -2%;
   bottom: 0;
-  width: 13px;
-  background: linear-gradient(90deg, #4a3a25, var(--timber-lit) 45%, var(--timber) 70%, #3c2f1f);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  width: 11px;
+  background: linear-gradient(90deg, #f2efe6 8%, #cfcabb 46%, #8d887c 82%, #5d594f);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.55);
 }
 
 .post.left {
-  left: -9px;
-  clip-path: polygon(22% 0, 100% 0, 88% 100%, 0 100%);
+  left: -7px;
 }
 
 .post.right {
-  right: -9px;
-  clip-path: polygon(0 0, 78% 0, 100% 100%, 12% 100%);
+  right: -7px;
 }
 
 .bar {
   position: absolute;
-  left: -9px;
-  right: -9px;
-  top: -3%;
-  height: 11px;
-  background: linear-gradient(#8f7549, var(--timber) 55%, #3f3220);
-  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.45);
+  left: -7px;
+  right: -7px;
+  top: -2%;
+  height: 9px;
+  background: linear-gradient(#f4f1e8, #ccc7b9 55%, #77736a);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
 }
 
-/* The lashings. Two wraps of rope at each corner, which is the detail that turns
-   three sticks into something somebody built. */
-.bar::before,
-.bar::after {
-  content: '';
+/*
+ * The net takes the ball. A goal has to land somewhere, and a ripple where it landed
+ * is the cheapest confirmation a player can get that the thing they aimed at is the
+ * thing that happened.
+ */
+.ripple {
   position: absolute;
-  top: -2px;
-  width: 15px;
-  height: 15px;
-  background-image: repeating-linear-gradient(
-    12deg,
-    rgba(214, 192, 152, 0.85) 0 2px,
-    transparent 2px 4px
-  );
+  width: 34%;
+  height: 46%;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 248, 226, 0.5), transparent 72%);
+  animation: ripple 460ms ease-out forwards;
 }
 
-.bar::before {
-  left: 4px;
+@keyframes ripple {
+  from {
+    transform: scale(0.3);
+    opacity: 0.95;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 
-.bar::after {
-  right: 4px;
+.ripple.at-tl {
+  left: 0;
+  top: 0;
+}
+.ripple.at-tc {
+  left: 33%;
+  top: 0;
+}
+.ripple.at-tr {
+  right: 0;
+  top: 0;
+}
+.ripple.at-bl {
+  left: 0;
+  bottom: 0;
+}
+.ripple.at-bc {
+  left: 33%;
+  bottom: 0;
+}
+.ripple.at-br {
+  right: 0;
+  bottom: 0;
 }
 
 /* ------------------------------------------------------------------ keeper */
@@ -536,6 +566,66 @@
   opacity: 0;
 }
 
+/*
+ * Dust off the mark. The one thing that sells the ball having been HIT rather than
+ * having started moving on its own, which is what a pure translate looks like.
+ */
+.dust {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: 26%;
+  aspect-ratio: 2.4;
+  margin-left: -13%;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(226, 206, 170, 0.5), transparent 70%);
+  animation: dust 620ms ease-out forwards;
+}
+
+@keyframes dust {
+  from {
+    transform: scale(0.35) translateY(4%);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.7) translateY(-32%);
+    opacity: 0;
+  }
+}
+
+/*
+ * He came off his line. A cold flash across the whole frame, because this is the one
+ * thing in the game the player is being invited to notice and it has to be noticeable
+ * without being explained. It is a picture of something the engine already decided -
+ * the call itself is the player's, and it costs them.
+ */
+.pitch.stolen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px var(--rust);
+  background: linear-gradient(rgba(168, 69, 47, 0.16), transparent 40%);
+  animation: flash 520ms ease-out forwards;
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* Bought. He is not trying, and it should look like he is not trying. */
+.keeper.bought {
+  filter: drop-shadow(0 0 7px rgba(217, 180, 94, 0.55));
+}
+
 /* ------------------------------------------------------------------ verdict */
 
 .verdict {
@@ -593,6 +683,125 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-right: 6px;
+}
+
+/* ------------------------------------------------------------- standing */
+
+/*
+ * Standing and the words he will still take. Both are session resources - neither can
+ * move a chip - which is what lets a two-sided cheating system hang off them without
+ * touching the house edge.
+ */
+.standing {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.heat {
+  flex: 1 1 auto;
+}
+
+.heat .bar {
+  position: relative;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 3px;
+  background: rgba(168, 69, 47, 0.3);
+  overflow: hidden;
+}
+
+.heat .bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--rust), var(--brass));
+  transition: width 320ms ease-out;
+}
+
+.words strong,
+.straight strong {
+  display: block;
+  font-size: 18px;
+  color: var(--brass);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.straight strong {
+  color: var(--sage);
+}
+
+/* -------------------------------------------------------------- the call */
+
+.callbar {
+  margin-top: 10px;
+}
+
+/*
+ * The button appears on every save, not only the crooked ones. The house telling you
+ * which saves are worth calling would be the house doing the reading for you, and the
+ * read is the entire mechanic.
+ */
+.callhim {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--rust);
+  border-radius: 12px;
+  background: rgba(168, 69, 47, 0.14);
+  color: #f0b8a8;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.callhim:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tell.bought {
+  border-left-color: var(--brass);
+  background: rgba(217, 180, 94, 0.1);
+}
+
+.tell.bought strong {
+  color: var(--brass);
+}
+
+.buy {
+  flex: 1 1 120px;
+  min-height: 56px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(239, 230, 210, 0.75);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.buy.armed {
+  border-color: var(--brass);
+  color: var(--ink);
+  background: linear-gradient(var(--brass), #b8963f);
+}
+
+.buy:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.outcome.voided {
+  color: var(--sage);
+}
+
+.stolemark {
+  color: var(--rust);
+  font-weight: 700;
 }
 
 /* --------------------------------------------------------------- controls */

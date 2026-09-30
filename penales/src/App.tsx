@@ -75,6 +75,9 @@ export default function App() {
   const [shot, setShot] = useState<Shot | null>(null)
   /* Remounts the ball between kicks. See Pitch's `ballKey`. */
   const [ballKey, setBallKey] = useState(0)
+  /* Armed for the next kick only. It has to be a deliberate act each time rather than a
+   * mode you can forget you are in, because it spends something you cannot get back. */
+  const [buying, setBuying] = useState(false)
   const [stake, setStake] = useState(1_000)
   const [busy, setBusy] = useState(false)
   const [refused, setRefused] = useState<string | null>(null)
@@ -136,7 +139,10 @@ export default function App() {
       setShot({ zone, phase: 'flight' })
       const started = performance.now()
 
-      const next = await run(() => api.kick(round.id, zone))
+      const paying = buying
+      setBuying(false)
+
+      const next = await run(() => api.kick(round.id, zone, paying))
       if (next === null) {
         setShot(null)
         return
@@ -144,12 +150,21 @@ export default function App() {
 
       const played = next.round?.kicks.at(-1)
       await sleep(Math.max(0, FLIGHT_MS - (performance.now() - started)))
-      setShot({ zone, phase: 'resolved', result: played?.result, dive: played?.dive as Zone | undefined })
-      await sleep(VERDICT_MS)
+      setShot({
+        zone,
+        phase: 'resolved',
+        result: played?.result,
+        dive: played?.dive as Zone | undefined,
+        /* Shown, and not explained. Reading it is the whole mechanic; the call is the
+         * player's and a wrong one costs them standing. */
+        stole: played?.stole,
+        bought: played?.bought,
+      })
+      await sleep(played?.stole === true ? VERDICT_MS + 420 : VERDICT_MS)
       setShot(null)
       setBallKey((k) => k + 1)
     },
-    [api, open, round, run],
+    [api, buying, open, round, run],
   )
 
   if (view === null) {
@@ -193,6 +208,7 @@ export default function App() {
         shown={open ? round?.shown ?? null : null}
         shot={shot}
         live={live}
+        buying={buying}
         ballKey={ballKey}
         onKick={takeKick}
       />
@@ -201,6 +217,57 @@ export default function App() {
         <div className="tell" role="status">
           <strong>{t.tell}</strong> {t.tellHelp}
         </div>
+      )}
+
+      {buying && (
+        <div className="tell bought" role="status">
+          <strong>{t.buyHim}</strong> {t.buyingNow}
+        </div>
+      )}
+
+      {/*
+        The call. It appears on a save whether or not he was off his line, because the
+        house telling you which saves are worth calling would be the house doing the
+        reading for you.
+      */}
+      {round?.callable === true && shot === null && (
+        <div className="callbar">
+          <button type="button" className="callhim" disabled={busy} onClick={() => void run(() => api.call(round.id))}>
+            {t.callHim}
+          </button>
+          <p className="note">{t.callHelp}</p>
+        </div>
+      )}
+
+      {round?.called === 'right' && <p className="outcome voided">{t.calledRight}</p>}
+      {round?.called === 'wrong' && <p className="outcome busted">{t.calledWrong}</p>}
+
+      {/* Standing and the words he will still take. Both are session resources: neither
+          can move a chip, which is what lets a whole cheating system hang off them
+          without touching the house edge. */}
+      <div className="standing">
+        <div className="heat">
+          <span className="label">{t.heat}</span>
+          <div className="bar" role="img" aria-label={`${t.heat} ${Math.round((1 - view.heat) * 100)}%`}>
+            <span style={{ width: `${Math.max(0, 1 - view.heat) * 100}%` }} />
+          </div>
+        </div>
+        <div className="words">
+          <span className="label">{t.wordsLeft}</span>
+          <strong>{view.bribesLeft}</strong>
+        </div>
+        {view.straightRounds > 0 && (
+          <div className="straight" title={t.keptStraight}>
+            <span className="label">{t.keptStraight}</span>
+            <strong>{view.straightRounds}</strong>
+          </div>
+        )}
+      </div>
+
+      {view.runOff && (
+        <p className="refused" role="alert">
+          {t.runOff}
+        </p>
       )}
 
       <section className="controls">
@@ -222,7 +289,7 @@ export default function App() {
             <button
               type="button"
               className="go"
-              disabled={busy || stake > view.balance}
+              disabled={busy || stake > view.balance || view.runOff}
               onClick={() => void run(() => api.open(stake))}
             >
               {t.newRound} &middot; {chips(stake)}
@@ -259,6 +326,15 @@ export default function App() {
               onClick={() => void run(() => api.cashOut(round.id))}
             >
               {t.cashOut} &middot; {chips(round.cashOut)}
+            </button>
+            <button
+              type="button"
+              className={`buy${buying ? ' armed' : ''}`}
+              disabled={busy || shot !== null || view.bribesLeft === 0}
+              aria-pressed={buying}
+              onClick={() => setBuying(!buying)}
+            >
+              {t.buyHim} &middot; {view.bribesLeft}
             </button>
           </div>
         )}

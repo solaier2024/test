@@ -49,6 +49,7 @@ interface Body {
   stake?: number
   roundId?: string
   zone?: Zone
+  bribe?: boolean
   seed?: string
   next?: string
 }
@@ -122,9 +123,17 @@ export function handler(house: House): (req: HttpRequest, res: HttpResponse) => 
           case '/open':
             return house.open(playerId, required(body.stake, 'stake'), key())
           case '/kick':
-            return house.kick(playerId, required(body.roundId, 'roundId'), required(body.zone, 'zone'), key())
+            return house.kick(
+              playerId,
+              required(body.roundId, 'roundId'),
+              required(body.zone, 'zone'),
+              key(),
+              body.bribe === true,
+            )
           case '/cash-out':
             return house.cashOut(playerId, required(body.roundId, 'roundId'), key())
+          case '/call':
+            return house.call(playerId, required(body.roundId, 'roundId'), key())
           case '/client-seed':
             return house.setClientSeed(playerId, required(body.seed, 'seed'), key())
           case '/rotate-seed':

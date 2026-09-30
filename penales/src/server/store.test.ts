@@ -43,6 +43,7 @@ describe('the transaction commits or it does not', () => {
           nonce: 0,
           kicks: [],
           status: 'open',
+          called: null,
           payout: 0,
           openedAt: 0,
           closedAt: null,

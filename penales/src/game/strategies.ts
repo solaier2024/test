@@ -132,12 +132,13 @@ export function simulate(
   nonce: number,
   stake: Chips,
   rnd: () => number,
+  straight = true,
 ): Played {
   const at = floatsFor(serverSeed, clientSeed, nonce)
   const survived: number[] = []
 
   for (let i = 0; i < MAX_KICKS; i++) {
-    const rolls = rollsFor(at, i)
+    const rolls = rollsFor(at, i, straight)
     const shown = rolls.tell ? rolls.dive : null
 
     const board: BoardRow[] = ZONES.map((zone) => ({
@@ -160,7 +161,7 @@ export function simulate(
       break
     }
 
-    if (resolveKick(rolls, decision.zone) !== 'goal') {
+    if (resolveKick(rolls, decision.zone).result !== 'goal') {
       return { stake, payout: 0, scored: survived.length, ended: 'busted' }
     }
     survived.push(pGoal(decision.zone, shown))
@@ -198,7 +199,22 @@ export interface Measured {
   bestMultiplier: number
 }
 
-export function measure(strategy: Strategy, rounds: number, stake: Chips, seed: number): Measured {
+/**
+ * @param straight he keeps his feet on the line.
+ *
+ * Defaults to true, and the default is the point: the claim that no way of playing beats
+ * any other is a claim about the CLEAN game. Once he starts stealing a step the longer
+ * ladders lose more than the short ones, on purpose and by a measured amount, so mixing
+ * the two would make the invariance look broken when it is not. exact.ts is what prices
+ * the theft; this measures the game the board is quoting.
+ */
+export function measure(
+  strategy: Strategy,
+  rounds: number,
+  stake: Chips,
+  seed: number,
+  straight = true,
+): Measured {
   const rnd = mulberry32(seed)
   /* One server seed across the run with the nonce walking, which is exactly how
    * a real session consumes a seed. */
@@ -212,7 +228,7 @@ export function measure(strategy: Strategy, rounds: number, stake: Chips, seed: 
   let sumSquares = 0
 
   for (let n = 0; n < rounds; n++) {
-    const played = simulate(strategy, serverSeed, `cliente-${seed}`, n, stake, rnd)
+    const played = simulate(strategy, serverSeed, `cliente-${seed}`, n, stake, rnd, straight)
     staked += played.stake
     returned += played.payout
     goals += played.scored

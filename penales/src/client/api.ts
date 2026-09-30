@@ -37,8 +37,9 @@ import type { Zone } from '../game/table.ts'
 export interface Api {
   view(): Promise<PlayerView>
   open(stake: number): Promise<PlayerView>
-  kick(roundId: string, zone: Zone): Promise<PlayerView>
+  kick(roundId: string, zone: Zone, bribe?: boolean): Promise<PlayerView>
   cashOut(roundId: string): Promise<PlayerView>
+  call(roundId: string): Promise<PlayerView>
   setClientSeed(seed: string): Promise<PlayerView>
   rotateSeed(next: string): Promise<PlayerView>
 }
@@ -102,13 +103,17 @@ export function inProcess(house: House, playerId: string, latency = 140): Api {
       const key = newKey()
       return reaching(() => call(() => house.open(playerId, stake, key)))
     },
-    kick: (roundId, zone) => {
+    kick: (roundId, zone, bribe = false) => {
       const key = newKey()
-      return reaching(() => call(() => house.kick(playerId, roundId, zone, key)))
+      return reaching(() => call(() => house.kick(playerId, roundId, zone, key, bribe)))
     },
     cashOut: (roundId) => {
       const key = newKey()
       return reaching(() => call(() => house.cashOut(playerId, roundId, key)))
+    },
+    call: (roundId) => {
+      const key = newKey()
+      return reaching(() => call(() => house.call(playerId, roundId, key)))
     },
     setClientSeed: (seed) => {
       const key = newKey()
@@ -148,8 +153,9 @@ export function overHttp(base: string): Api {
   return {
     view: () => send('/view', {}),
     open: (stake) => withKey('/open', { stake }),
-    kick: (roundId, zone) => withKey('/kick', { roundId, zone }),
+    kick: (roundId, zone, bribe = false) => withKey('/kick', { roundId, zone, bribe }),
     cashOut: (roundId) => withKey('/cash-out', { roundId }),
+    call: (roundId) => withKey('/call', { roundId }),
     setClientSeed: (seed) => withKey('/client-seed', { seed }),
     rotateSeed: (next) => withKey('/rotate-seed', { next }),
   }

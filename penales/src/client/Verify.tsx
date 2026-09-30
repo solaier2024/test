@@ -67,7 +67,7 @@ function Recomputed({ t, serverSeed, round }: { t: Strings; serverSeed: string; 
         serverSeed,
         round.fair.clientSeed,
         round.fair.nonce,
-        round.kicks.map((k) => k.zone as Zone),
+        round.kicks.map((k) => ({ zone: k.zone as Zone, bribed: k.bribed })),
       ),
     [serverSeed, round],
   )
@@ -88,9 +88,14 @@ function Recomputed({ t, serverSeed, round }: { t: Strings; serverSeed: string; 
             <span className="d">
               {t.hisDive} {t[ZONE_LABEL[r.dive]]}
               {r.tell ? ' *' : ''}
+              {/* The line the panel exists for. A player who was saved and did not call
+                  it can see, for certain, that he was off his line and they missed it -
+                  which is a lesson they can take to the next round. */}
+              {r.stole ? <b className="stolemark"> {t.offHisLine}</b> : null}
             </span>
             <span className="s">
               {r.zone === null ? t.notTaken : `${t.yourShot} ${t[ZONE_LABEL[r.zone]]}`}
+              {r.bribed ? (r.bought ? ` · ${t.boughtHim}` : ` · ${t.refusedYou}`) : ''}
             </span>
             <span className="r">
               {r.result === 'goal'

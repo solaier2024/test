@@ -35,16 +35,24 @@
 
 import { commit, floatsAt, floatsFor, floatsOf, newSeedPair, type Floats } from '../game/fair.ts'
 import {
+  BRIBES_PER_SESSION,
   displayMultiplier,
   FLOATS_PER_ROUND,
+  HEAT_BRIBE,
+  HEAT_BRIBE_FAILED,
+  HEAT_CALL_WRONG,
+  HEAT_CLEAN_ROUND,
   MAX_KICKS,
   multiplierAfter,
   multiplierIfScored,
   payoutFor,
   pGoal,
+  pGoalBought,
+  pGoalFor,
   REGULATION_KICKS,
   resolveKick,
   rollsFor,
+  STRAIGHT_ROUNDS,
   TABLE,
   type Chips,
   type Dive,
@@ -52,7 +60,15 @@ import {
   ZONES,
 } from '../game/table.ts'
 import { balance, deposit, payOut, playerAccount, takeStake } from './ledger.ts'
-import { Rejected, Store, type Db, type KickRecord, type RoundRecord, type SeedRecord } from './store.ts'
+import {
+  Rejected,
+  Store,
+  type Db,
+  type KickRecord,
+  type PlayerRecord,
+  type RoundRecord,
+  type SeedRecord,
+} from './store.ts'
 
 /*
  * Table limits, in chips.
@@ -79,6 +95,9 @@ export interface BoardRow {
   p: number
   /** What the board would read if this kick goes in. */
   multiplier: number
+  /** And what it would read if he had been paid to stay out of this corner. */
+  boughtP: number
+  boughtMultiplier: number
 }
 
 export interface FairView {
@@ -105,6 +124,13 @@ export interface RoundView {
   shown: Dive | null
   board: readonly BoardRow[]
   payout: Chips
+  /** Whether the player called him, and whether they were right. */
+  called: 'right' | 'wrong' | null
+  /**
+   * A save is sitting there that could be called. True whether or not he was actually
+   * off his line - the whole point is that the house does not tell you.
+   */
+  callable: boolean
   fair: FairView
 }
 
@@ -131,6 +157,13 @@ export interface PlayerView {
    */
   openingBoard: readonly BoardRow[]
   fair: FairView
+  /** 0 to 1. Session length, never chips. */
+  heat: number
+  bribesLeft: number
+  /** Rounds he will keep his feet on the line for, because he has been called out. */
+  straightRounds: number
+  /** The man running the lot has had enough. Chips are kept. */
+  runOff: boolean
   /** Newest first. What the verify panel reads. */
   history: readonly RoundView[]
   /** Retired seeds, newest first, so a player can verify an old round. */
@@ -155,13 +188,72 @@ const roundOf = (db: Db, roundId: string): RoundRecord => {
   return round
 }
 
-/** The six corners, priced against a ladder so far and what the keeper has shown. */
+/**
+ * The six corners, priced two ways: straight, and with him paid to stay out of the
+ * corner.
+ *
+ * Both lines are published because the choice between them is the interesting one, and
+ * a player cannot make it without seeing what it costs. Buying him raises the
+ * probability and lowers the multiplier by exactly as much - it buys survival on a
+ * ladder, never edge.
+ */
 const boardFor = (survived: readonly number[], shown: Dive | null): BoardRow[] =>
-  ZONES.map((zone) => ({
-    zone,
-    p: pGoal(zone, shown),
-    multiplier: displayMultiplier(multiplierIfScored(survived, zone, shown)),
-  }))
+  ZONES.map((zone) => {
+    const bought = pGoalBought(zone, shown)
+    return {
+      zone,
+      p: pGoal(zone, shown),
+      multiplier: displayMultiplier(multiplierIfScored(survived, zone, shown)),
+      boughtP: bought,
+      boughtMultiplier: displayMultiplier(multiplierAfter([...survived, bought])),
+    }
+  })
+
+/* -------------------------------------------------------------------- heat */
+
+const playerOf = (db: Db, playerId: string): PlayerRecord =>
+  db.players.get(playerId) ?? {
+    id: playerId,
+    heat: 0,
+    bribesLeft: BRIBES_PER_SESSION,
+    straightRounds: 0,
+    runOff: false,
+  }
+
+/**
+ * Everything that happens to a player because a round ended.
+ *
+ * One function rather than the three call sites that each used to remember half of it -
+ * a losing kick, a finished ladder and a cash-out all end a round, and all three have to
+ * cool the heat and spend a round of his good behaviour. The first version decremented
+ * his good behaviour in open() instead, which was off by one: set to five and decremented
+ * before the first of the five, so the fifth round had him stealing again.
+ */
+function endRound(db: Db, playerId: string, bribed: boolean): void {
+  const was = playerOf(db, playerId)
+  db.players.set(playerId, {
+    ...was,
+    straightRounds: Math.max(0, was.straightRounds - 1),
+  })
+  /* Playing it straight is how you cool off, and it is the only reason not to buy him
+   * every single time. */
+  if (!bribed) stir(db, playerId, HEAT_CLEAN_ROUND)
+}
+
+/**
+ * Moves heat, and runs the player off the lot when it tops out.
+ *
+ * The only thing heat does. It moves no chips - that is what makes it safe to hang a
+ * whole cheating system off it without touching the return - and being run off keeps
+ * everything already won. What ends is the evening.
+ */
+function stir(db: Db, playerId: string, by: number): PlayerRecord {
+  const was = playerOf(db, playerId)
+  const heat = Math.min(1, Math.max(0, was.heat + by))
+  const next: PlayerRecord = { ...was, heat, runOff: was.runOff || heat >= 1 }
+  db.players.set(playerId, next)
+  return next
+}
 
 /** The probabilities of the goals already scored, in order. */
 const survivedOf = (round: RoundRecord): number[] => round.kicks.filter((k) => k.result === 'goal').map((k) => k.p)
@@ -304,7 +396,9 @@ export class House {
 
     return this.store.transact(key, (db) => {
       if (db.openRounds.has(playerId)) throw new Rejected('round_open', 'there is already a shootout running')
+      if (playerOf(db, playerId).runOff) throw new Rejected('run_off', 'the man running the lot has had enough')
 
+      db.players.set(playerId, playerOf(db, playerId))
       const seed = this.ensureSeed(db, playerId, playerId)
       if (balance(db, playerAccount(playerId)) < stake) {
         throw new Rejected('insufficient_funds', 'not enough in the account for that stake')
@@ -319,6 +413,7 @@ export class House {
         nonce: seed.nonce,
         kicks: [],
         status: 'open',
+        called: null,
         payout: 0,
         openedAt: Date.now(),
         closedAt: null,
@@ -346,7 +441,7 @@ export class House {
    * on was fixed when the round opened, so there is nothing here to validate and
    * nothing to disagree about.
    */
-  kick(playerId: string, roundId: string, zone: Zone, key: string): PlayerView {
+  kick(playerId: string, roundId: string, zone: Zone, key: string, bribe = false): PlayerView {
     if (!ZONES.includes(zone)) throw new Rejected('bad_zone', `no such zone: ${zone}`)
 
     return this.store.transact(key, (db) => {
@@ -355,37 +450,110 @@ export class House {
       if (round.status !== 'open') throw new Rejected('round_closed', 'that shootout is over')
       if (round.kicks.length >= MAX_KICKS) throw new Rejected('no_kicks_left', 'no kicks left')
 
+      const who = playerOf(db, playerId)
+      if (bribe && who.bribesLeft <= 0) throw new Rejected('no_bribes_left', 'he will not take your money again tonight')
+
       const seed = db.seeds.get(round.seedCommitment)!
       const at = roundFloats(seed, round)
       const index = round.kicks.length
-      const rolls = rollsFor(at, index)
+      const straight = who.straightRounds > 0
+      const rolls = rollsFor(at, index, straight)
       const shown = rolls.tell ? rolls.dive : null
 
-      const result = resolveKick(rolls, zone)
-      const record: KickRecord = { zone, result, dive: rolls.dive, shown, p: pGoal(zone, shown) }
+      const played = resolveKick(rolls, zone, bribe)
+      const record: KickRecord = {
+        zone,
+        result: played.result,
+        dive: played.dive,
+        shown,
+        stole: played.stole,
+        straight,
+        bribed: bribe,
+        bought: played.bought,
+        /* Priced against what the player knew AND what they did. Paying him raises the
+         * probability, so it lowers the multiplier by the same factor - the money buys
+         * survival on this ladder and never edge. */
+        p: pGoalFor(zone, shown, bribe),
+      }
       const kicks = [...round.kicks, record]
 
-      if (result !== 'goal') {
-        /* Lost. The stake already moved when the round opened, so closing the
-         * round is the whole settlement and there is no second money move to
-         * lose. Losses being free of a payout leg is not an optimisation - it is
-         * why a crash on a losing kick cannot cost anybody anything. */
+      if (bribe) {
+        db.players.set(playerId, { ...who, bribesLeft: who.bribesLeft - 1 })
+        /* Trying costs heat. Trying and being refused costs more, because he mentions
+         * it to the man running the lot. */
+        stir(db, playerId, played.bought ? HEAT_BRIBE : HEAT_BRIBE + HEAT_BRIBE_FAILED)
+      }
+
+      if (played.result !== 'goal') {
+        /*
+         * Lost. The stake already moved when the round opened, so closing the round is
+         * the whole settlement and there is no second money move to lose. Losses being
+         * free of a payout leg is not an optimisation - it is why a crash on a losing
+         * kick cannot cost anybody anything.
+         *
+         * A save stays callable: the round is closed but `called` is still null, and
+         * call() is the only thing that can pay on it.
+         */
         db.rounds.set(round.id, { ...round, kicks, status: 'busted', payout: 0, closedAt: Date.now() })
         db.openRounds.delete(playerId)
+        endRound(db, playerId, kicks.some((k) => k.bribed))
         return this.playerView(db, playerId)
       }
 
       const survived = [...survivedOf(round), record.p]
 
       if (kicks.length >= MAX_KICKS) {
-        /* The ladder is finished, so there is nothing left to decide and the
-         * round pays itself out. Leaving it open with no legal move would be a
-         * round that can only be closed by a timeout job. */
+        /* The ladder is finished, so there is nothing left to decide and the round pays
+         * itself out. Leaving it open with no legal move would be a round that can only
+         * be closed by a timeout job. */
         this.settle(db, { ...round, kicks }, survived, `${key}:payout`)
+        endRound(db, playerId, kicks.some((k) => k.bribed))
         return this.playerView(db, playerId)
       }
 
       db.rounds.set(round.id, { ...round, kicks })
+      return this.playerView(db, playerId)
+    })
+  }
+
+  /**
+   * Call him for coming off his line.
+   *
+   * Allowed once, on a save, after the round has closed - which is exactly when a
+   * player has seen what they need to see. The house does not say whether he was off
+   * his line; the animation showed it and the player either read it or did not.
+   *
+   * Right: the round is voided and the ante comes back, in one transaction with the
+   * status change like every other payout here. Wrong: nothing moves, and the heat
+   * does. Either way it is one call and the round remembers it.
+   */
+  call(playerId: string, roundId: string, key: string): PlayerView {
+    return this.store.transact(key, (db) => {
+      const round = roundOf(db, roundId)
+      if (round.playerId !== playerId) throw new Rejected('not_yours', 'that is not your round')
+      if (round.called !== null) throw new Rejected('already_called', 'you only get one')
+      if (round.status !== 'busted') throw new Rejected('nothing_to_call', 'there is nothing to call')
+
+      const last = round.kicks.at(-1)
+      if (last === undefined || last.result !== 'saved') {
+        throw new Rejected('nothing_to_call', 'he only cheats on the ones he saves')
+      }
+
+      if (!last.stole) {
+        db.rounds.set(round.id, { ...round, called: 'wrong' })
+        stir(db, playerId, HEAT_CALL_WRONG)
+        return this.playerView(db, playerId)
+      }
+
+      /*
+       * Nothing is paid, and that is the design rather than a shortfall. Every version of
+       * paying for this overshoots - see STRAIGHT_ROUNDS in game/table.ts for the two
+       * that were tried and the exact figures that killed them. What a correct call buys
+       * is that the next few rounds are the game the board advertises, which cannot
+       * exceed the clean return because it IS the clean return.
+       */
+      db.rounds.set(db.rounds.get(round.id)!.id, { ...round, called: 'right', status: 'voided' })
+      db.players.set(playerId, { ...playerOf(db, playerId), straightRounds: STRAIGHT_ROUNDS })
       return this.playerView(db, playerId)
     })
   }
@@ -401,6 +569,7 @@ export class House {
       if (survived.length === 0) throw new Rejected('nothing_to_take', 'score one first')
 
       this.settle(db, round, survived, `${key}:payout`)
+      endRound(db, playerId, round.kicks.some((k) => k.bribed))
       return this.playerView(db, playerId)
     })
   }
@@ -443,11 +612,18 @@ export class House {
       .map((s) => ({ commitment: s.commitment, serverSeed: s.serverSeed, clientSeed: s.clientSeed, rounds: s.nonce }))
       .reverse()
 
+    const who = playerOf(db, playerId)
+
     return {
       playerId,
       balance: balance(db, playerAccount(playerId)),
       round: history[0] ?? null,
       openingBoard: boardFor([], null),
+      heat: who.heat,
+      bribesLeft: who.bribesLeft,
+      /** Rounds he will keep his feet on the line for. Earned by calling him out. */
+      straightRounds: who.straightRounds,
+      runOff: who.runOff,
       history,
       fair: {
         commitment: seed?.commitment ?? '',
@@ -495,6 +671,13 @@ export class House {
       shown,
       board,
       payout: round.payout,
+      called: round.called,
+      /*
+       * A save with no call made on it. True whether or not he was actually off his
+       * line, and that is the whole mechanic: the house does not tell you, the picture
+       * did, and a wrong call costs heat.
+       */
+      callable: round.status === 'busted' && round.called === null && round.kicks.at(-1)?.result === 'saved',
       fair: {
         commitment: round.seedCommitment,
         clientSeed: round.clientSeed,
@@ -512,35 +695,63 @@ export interface Recomputed {
   kick: number
   dive: Dive
   tell: boolean
+  /**
+   * He was off his line on this kick.
+   *
+   * The most useful line in the whole panel, and the reason it is here: a player who
+   * was saved and did not call it can now see, for certain, that he was cheating and
+   * they missed it. That is a lesson they can take to the next round, which is what
+   * separates a read you can practise from a guess.
+   */
+  stole: boolean
   /** What the player shot at, when they got this far. */
   zone: Zone | null
+  /** Whether they paid him, and whether the money took. */
+  bribed: boolean
+  bought: boolean
   result: 'goal' | 'saved' | 'missed' | 'not taken'
+}
+
+/** What the player did on a kick, which the verifier needs in order to reproduce it. */
+export interface Taken {
+  zone: Zone
+  bribed: boolean
 }
 
 /**
  * What the player runs, on their own machine, on the revealed seed.
  *
- * Deliberately independent of the House: it takes strings and returns the whole
- * round, including the kicks that were never taken. A player who walked after
- * three goals can see where he was going on the fourth, which is the part that
- * turns "provably fair" from a badge into something anybody can feel.
+ * Deliberately independent of the House: it takes strings and returns the whole round,
+ * including the kicks that were never taken. A player who walked after three goals can
+ * see where he was going on the fourth, which is the part that turns "provably fair"
+ * from a badge into something anybody can feel.
+ *
+ * It needs the player's own actions as well as the seed, because the corner and the
+ * money are inputs to the outcome - which is the point of the design rather than a
+ * weakness in it. The seed fixes what he was going to do; the player decides what gets
+ * tested against it.
  */
 export function recompute(
   serverSeed: string,
   clientSeed: string,
   nonce: number,
-  zones: readonly (Zone | null)[],
+  taken: readonly (Taken | null)[],
 ): Recomputed[] {
   const at = floatsOf(floatsAt(serverSeed, clientSeed, nonce, FLOATS_PER_ROUND))
   return Array.from({ length: MAX_KICKS }, (_, i) => {
     const rolls = rollsFor(at, i)
-    const zone = zones[i] ?? null
+    const did = taken[i] ?? null
+    const played = did === null ? null : resolveKick(rolls, did.zone, did.bribed)
     return {
       kick: i + 1,
-      dive: rolls.dive,
+      /* The dive he would have made, or the one he actually made once paid. */
+      dive: played?.dive ?? rolls.dive,
       tell: rolls.tell,
-      zone,
-      result: zone === null ? 'not taken' : resolveKick(rolls, zone),
+      stole: rolls.steals,
+      zone: did?.zone ?? null,
+      bribed: did?.bribed ?? false,
+      bought: played?.bought ?? false,
+      result: played?.result ?? 'not taken',
     }
   })
 }

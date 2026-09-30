@@ -160,7 +160,7 @@ describe('nothing adapts to the shot', () => {
       seed.serverSeed,
       round.fair.clientSeed,
       round.fair.nonce,
-      round.kicks.map((k) => k.zone as Zone),
+      round.kicks.map((k) => ({ zone: k.zone as Zone, bribed: k.bribed })),
     )
 
     /* Every kick the player took, independently reproduced on their own machine
@@ -375,7 +375,10 @@ describe('the rules of the round', () => {
     for (let s = 0; s < 400; s++) {
       const house = table(s)
       const round = play(house, MIN_STAKE, Array.from({ length: MAX_KICKS }, () => 'bc'))
-      if (round.kicks.length < MAX_KICKS) continue
+      /* Ten KICKS is not ten GOALS - a round can reach the last kick and lose it, and
+       * once he started stealing a step that became the commoner way to get here. This
+       * test is about the round settling itself, so it wants the perfect run. */
+      if (round.kicks.length < MAX_KICKS || round.kicks.some((k) => k.result !== 'goal')) continue
 
       expect(round.status).toBe('cashed')
       expect(round.payout).toBe(payoutFor(MIN_STAKE, multiplierAfter(round.kicks.map((k) => k.p))))
