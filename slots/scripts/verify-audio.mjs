@@ -15,57 +15,79 @@
  * heard nothing at all. Every reading in this file is there because that was
  * invisible until something measured it.
  *
- * Four kinds of check, in order.
+ * Five kinds of check, in order.
  *
- *   0. What the table is MADE of: the balance between the layers, whether the
- *      ambience is people or a noise generator, and whether the upright plays
- *      numbers or a loop. The last two are here because the brief was
- *      tightened to say so, and because every check in this file passed on a
- *      bed of filtered noise and a four-bar turnaround - a level cannot tell
- *      a crowd from a hiss, and it cannot tell a pianist from a loop either.
+ *   0. The OPENING, measured while the film is on screen. It is first because
+ *      it is the first thing a player hears, and it had no sound at all -
+ *      invisible to every other section here, all of which begin by skipping
+ *      the opening in order to get at the table.
  *
- *   1. Each reaction on its own, fired through the game's own react() on the
+ *   1. What the table is MADE of: the balance between the layers, whether the
+ *      ambience is people or a noise generator, whether it is dull enough and
+ *      crowded enough not to be heard as words, and whether the band plays
+ *      numbers or a loop. Most of these are here because the brief was
+ *      tightened to say so, and because every check in this file once passed
+ *      on a bed of filtered noise and a four-bar turnaround - a level cannot
+ *      tell a crowd from a hiss, and it cannot tell a band from a loop either.
+ *
+ *   2. Each reaction on its own, fired through the game's own react() on the
  *      game's own graph, so the six can be compared against each other and
  *      against the machine sounds they have to be heard over. Nothing is
- *      simulated: window.__audio.react IS src/audio/crowd.ts.
+ *      simulated: window.__audio.react IS src/audio/crowd.ts. Two-sided now:
+ *      a reaction has to be heard, and it has to stay in proportion to what
+ *      happened - see the ladder.
  *
- *   2. The binding, by playing. A reaction that is audible but fires on the
+ *   3. The binding, by playing. A reaction that is audible but fires on the
  *      wrong outcome is the "fake noise" the brief was guarding against, so
  *      the play-through insists the sound arrives with the line that names
  *      the outcome that caused it. reactionTo() is pinned exhaustively in
  *      src/game/engine.test.ts; this is the other end of the same wire.
  *
- *   3. Silence: the hush on a call, and mute meaning mute.
+ *   4. Silence: the hush on a call, and mute meaning mute.
  *
  * Absolute levels are asserted only as "over the room", because the room is
  * measured in the same run. Everything else is a relationship between two
  * numbers from the same session, which survives a change of mix.
  *
- * What the table sounds like now, peak-hold at the destination against a room
- * whose average level is -47dBFS, and what it sounded like before any of this
- * was measured:
+ * Peak-hold at the destination, against a room whose average level is -46dBFS
+ * in all three columns. The table has now been wrong in both directions, and
+ * the three columns are the two wrong ones and where it ended up:
  *
- *                       was     now      above 1.2kHz
- *     roar            -37.4   -24.4          0.59
- *     cheer               -   -27.0          0.71
- *     gasp            -37.0   -27.7          0.52   <- brighter
- *     sigh            -37.7   -27.7          0.35   <- darker
- *     jeer                -   -28.3          0.55
- *     murmur              -   -33.3          0.66
- *     the coin fall   -30.1   -31.0          1.40
- *     the bell        -28.4   -28.8          0.98
+ *                     silent    loud      now
+ *     roar            -37.4   -23.8    -21.4
+ *     cheer               -   -27.0    -33.7
+ *     gasp            -37.0   -28.1    -32.3
+ *     sigh            -37.7   -26.1    -32.7
+ *     jeer                -   -28.1    -34.1
+ *     murmur              -   -34.8    -36.0
+ *     the coin fall   -30.1   -28.5    -31.4
+ *     the bell        -28.4   -28.5    -29.6
  *
- * The left column is the whole problem in one place: the three reactions that
- * were measurable were all quieter than the room they were supposed to be
- * reacting in, and both of the machine's own noises were louder than any of
- * them.
+ * The first column is the original defect in one place: the three reactions
+ * that were measurable at all were quieter than the room they were supposed
+ * to be reacting in, and both of the machine's own noises were louder than
+ * any of them. So everything got pushed up until it cleared the room by 10dB.
  *
- * The right column is a median of five firings, because a crowd is randomised
- * on purpose and one reading is a sample rather than a measurement. Thresholds
- * are set with a few dB of margin rather than against these exact figures.
+ * The second column is what that produced, and it took a player an hour to
+ * say what is obvious from it: every row within 5dB of every other row. A
+ * flat loss - the commonest outcome on the machine - was 2dB off a jackpot,
+ * so the building came apart about every third pull and the jackpot had
+ * nothing to be louder than. The brief that produced that column asked for a
+ * loss to be answered as loudly as a win and got exactly what it asked for.
+ *
+ * The third is a ladder. The jackpot went UP; everything routine came down 5
+ * to 6dB, under the bell and the coin fall it is reacting to. A roar is now
+ * 11dB above an ordinary pull rather than 2.
+ *
+ * The reaction columns are medians of five firings, because a crowd is
+ * randomised on purpose and one reading is a sample rather than a
+ * measurement. The two machine rows are single readings and move about 2dB
+ * between runs for the same reason - see the pull peak in section 3, which is
+ * what the ceiling is measured against instead. Thresholds are set with a few
+ * dB of margin rather than against these exact figures.
  */
 import { chromium } from 'playwright'
-import { skipIntro } from './lib/skip-intro.mjs'
+import { open, skipIntro } from './lib/skip-intro.mjs'
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:5180/'
 /* The night the stills and the walkthrough come from: pull 1 is a near miss,
@@ -162,9 +184,11 @@ const PROBE = () => {
    * graph for measuring.
    */
   window.__layers = async (ms) => {
-    const { sfx, piano } = window.__audio.buses()
+    const { sfx, band, talk } = window.__audio.buses()
     const c = window.__audio.ctx()
-    const taps = Object.entries({ sfx, piano }).map(([name, node]) => {
+    /* The conversation only exists once the room has been started, and one of
+     * the things measured below is whether it has been. */
+    const taps = Object.entries(talk ? { sfx, band, talk } : { sfx, band }).map(([name, node]) => {
       const a = c.createAnalyser()
       a.fftSize = 2048
       a.smoothingTimeConstant = 0
@@ -305,6 +329,11 @@ const PROBE = () => {
      * puts the talker across the room rather than the talker.
      */
     const hzPerBin = c.sampleRate / 2 / room.power.length
+    const energy = (p, lo, hi) => {
+      let s = 0
+      for (let i = Math.ceil(lo / hzPerBin); i < Math.min(p.power.length, hi / hzPerBin); i++) s += p.power[i]
+      return s
+    }
     const flatness = (p) => {
       let logs = 0
       let sum = 0
@@ -355,11 +384,35 @@ const PROBE = () => {
     const measure = (p) => {
       const s = spectrum(p.env)
       const sum = (lo, hi) => s.filter((b) => b.hz >= lo && b.hz <= hi).reduce((a, b) => a + b.power, 0)
+      const mean = p.env.reduce((a, b) => a + b, 0) / Math.max(1, p.env.length)
       return {
         /* Energy at a syllable rate against the slow wander that any signal
          * has, so this is a shape and not a level. */
         ratio: sum(2.5, 8) / Math.max(1e-12, sum(0.25, 1.25)),
         flat: flatness(p),
+        /*
+         * How much of this layer is in the band that carries words.
+         *
+         * Speech is identifiable AS speech between roughly 1.5 and 4kHz -
+         * that is where the consonants are and where the second formant has
+         * enough room to say which vowel it is. It is also the first thing
+         * that ten metres of air and a wall full of people take away, which
+         * is why a crowd across a room is a murmur and not a conversation.
+         * A layer with energy up there is somebody talking AT you, and if
+         * there is no language behind it, what that sounds like is an alien.
+         */
+        voiced: energy(p, 1500, 5000) / Math.max(1e-20, energy(p, 180, 1500)),
+        /*
+         * And how much of the time it thins out to nearly nothing.
+         *
+         * The other half of the same failure, and the half that is not about
+         * filters at all: a crowd is unfollowable because several people are
+         * always talking at once. Whenever the layer drops to near silence,
+         * whoever speaks next is alone in the clear, and one voice in the
+         * clear is a voice the ear tries to get words out of. Six talkers
+         * with three-second gaps spent much of their time here.
+         */
+        alone: p.env.filter((v) => v < mean * 0.25).length / Math.max(1, p.env.length),
       }
     }
     return { room: measure(room), noise: measure(hiss) }
@@ -374,13 +427,13 @@ const PROBE = () => {
    * playing and a gap of at least six seconds, and reports how long each took
    * - which also fails, by timing out, if somebody puts a loop back.
    */
-  window.__watchPiano = async (ms) => {
+  window.__watchBand = async (ms) => {
     const c = window.__audio.ctx()
-    const { piano } = window.__audio.buses()
+    const { band } = window.__audio.buses()
     const a = c.createAnalyser()
     a.fftSize = 1024
     a.smoothingTimeConstant = 0
-    piano.connect(a)
+    band.connect(a)
     const buf = new Float32Array(a.fftSize)
     const t0 = performance.now()
     const seen = []
@@ -454,14 +507,8 @@ function expect(what, ok, detail) {
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({ reducedMotion: 'no-preference' })
 await context.addInitScript(PROBE)
-const page = await context.newPage()
-page.on('pageerror', (e) => problems.push(String(e)))
-page.on('console', (m) => m.type() === 'error' && problems.push(m.text()))
 
-await skipIntro(page, url)
-await page.waitForSelector('.machines button', { timeout: 30000 })
-
-const label = () => page.locator('button.sound').textContent().then((s) => (s ?? '').trim())
+const label = (p) => p.locator('button.sound').textContent().then((s) => (s ?? '').trim())
 
 /*
  * Presses the control until sound is on, whatever state it started in, and
@@ -475,22 +522,99 @@ const label = () => page.locator('button.sound').textContent().then((s) => (s ??
  * is of silence. Nine failures that all pointed at the audio engine and none of
  * which were in it.
  */
-async function soundOn() {
+async function soundOn(p) {
   for (let i = 0; i < 3; i++) {
-    if ((await label()).includes('🔊')) return true
-    await page.locator('button.sound').click()
-    await page.waitForTimeout(500)
+    if ((await label(p)).includes('🔊')) return true
+    await p.locator('button.sound').click()
+    await p.waitForTimeout(500)
   }
-  return (await label()).includes('🔊')
+  return (await label(p)).includes('🔊')
 }
-expect('the sound control turns audio on', await soundOn(), await label())
+
+/* ---- 0. the opening ---------------------------------------------------- */
+
+/*
+ * The film had no sound at all, and nothing in this file could tell.
+ *
+ * Every clip in the project is silent by design - a room tone baked into a
+ * video cannot duck under a reel - so the opening's soundtrack is the live
+ * saloon running underneath it. That was wired up and it did not work:
+ * Intro.tsx started the band and not the room, and the band deferred its
+ * first number by six to sixteen seconds, which is longer than the film. So
+ * the game opened on a shot of a bar three deep with a band playing in the
+ * corner of it, in silence, and then the sound arrived when you sat down.
+ *
+ * The reason this file could not see it is structural rather than subtle:
+ * every other section starts by SKIPPING the opening, because the sections
+ * are about the table. So the opening gets its own page, which does not seed
+ * the seen-flag, and everything here is measured while the film is on screen
+ * - asserted at both ends of the window, so a reading taken after the film
+ * had handed over to the machine-select screen cannot pass for one taken
+ * during it.
+ */
+const film = await context.newPage()
+film.on('pageerror', (e) => problems.push(String(e)))
+film.on('console', (m) => m.type() === 'error' && problems.push(m.text()))
+await open(film, url)
+await film.waitForSelector('.intro-video', { timeout: 30000 })
+/* The control is inside the intro's own chrome row, which stops the click
+ * propagating, so turning the sound on does not dismiss the film. */
+expect('the sound control turns audio on', await soundOn(film), await label(film))
+
+const rolling = () => film.locator('.intro-video').count()
+const before = await rolling()
+const [opening, openingBuses] = await Promise.all([
+  film.evaluate((ms) => window.__grab(ms), 4500),
+  film.evaluate((ms) => window.__layers(ms), 4500),
+])
+const during = before > 0 && (await rolling()) > 0
+await film.close()
+
+expect('the film is still on screen while it is measured', during, `${before} video element(s), then ${during ? 'still there' : 'gone'}`)
+/*
+ * Not silence. An absolute threshold is worth using exactly once, and this is
+ * the place: the claim is that there is an audio track at all. For scale, the
+ * check at the bottom of this file that mute means mute asks for -70dBFS and
+ * measures around -200, and the table's own room tone lands near -46.
+ */
+expect('the opening has a soundtrack at all', opening.mean > -60, `${opening.mean.toFixed(1)} dBFS average under the film`)
+/*
+ * And it is the saloon rather than a music cue, which is the other half of
+ * the requirement: the film is four shots of the inside of a busy bar, so
+ * what plays under it has to be that bar. Same ordering as the idle table
+ * below, measured on the same buses.
+ */
+expect(
+  'and what plays under it is the room, not the band',
+  openingBuses.sfx.mean > openingBuses.band.mean + 4,
+  `room ${openingBuses.sfx.mean.toFixed(1)} against a band of ${openingBuses.band.mean.toFixed(1)} dBFS`,
+)
+/*
+ * Including the conversation, which is the part that was missing rather than
+ * merely quiet: startRoom() is what builds this bus, so if the opening had
+ * gone on starting the band alone there would be no talk bus for __layers to
+ * find at all.
+ */
+expect(
+  'and the conversation is running under it',
+  openingBuses.talk !== undefined && openingBuses.talk.mean > -60,
+  openingBuses.talk ? `${openingBuses.talk.mean.toFixed(1)} dBFS of talking` : 'the room was never started',
+)
+
+const page = await context.newPage()
+page.on('pageerror', (e) => problems.push(String(e)))
+page.on('console', (m) => m.type() === 'error' && problems.push(m.text()))
+
+await skipIntro(page, url)
+await page.waitForSelector('.machines button', { timeout: 30000 })
+expect('the sound control turns audio on at the table too', await soundOn(page), await label(page))
 
 // The crooked machine: the most reactions per pull, so the fewest pulls.
 await page.locator('.machines button').nth(2).click()
 await page.waitForSelector('.reels', { timeout: 30000 })
 await page.waitForTimeout(3000)
 
-/* ---- 0. what the table is made of ------------------------------------- */
+/* ---- 1. what the table is made of ------------------------------------- */
 
 /*
  * The brief, in one sentence: the sound of this table is the saloon and the
@@ -531,7 +655,7 @@ for (let i = 0; i < 3; i++) idle.push(await page.evaluate((ms) => window.__layer
 const layer = (bus, field = 'peak') => median(idle.map((m) => m[bus][field]))
 const saloon = layer('sfx', 'mean')
 const loudest = layer('sfx')
-const numbers = await page.evaluate((ms) => window.__watchPiano(ms), 80000)
+const numbers = await page.evaluate((ms) => window.__watchBand(ms), 80000)
 const upright = numbers.level
 
 expect('an idle table is the saloon, not the piano', saloon > upright + 4,
@@ -546,6 +670,21 @@ expect('an idle table is the saloon, not the piano', saloon > upright + 4,
  */
 expect('and it is a room rather than a hum', loudest - saloon > 5,
   `${(loudest - saloon).toFixed(1)}dB between the loudest thing in it and its average`)
+/*
+ * And it is the SAME room the film opened on, which is the second half of
+ * the opening's requirement and the only part of it that needs a number from
+ * this section. The four shots are the inside of this bar; walking from them
+ * to the table should not sound like walking into a different building.
+ *
+ * A band rather than an equality, because the opening runs the room at a
+ * fixed density - the loud hour, which is what the first shot is of - and
+ * the table hands that dial to how hard the player is being looked at.
+ */
+expect(
+  'and it is the room the film opened on',
+  Math.abs(openingBuses.sfx.mean - saloon) < 6,
+  `${openingBuses.sfx.mean.toFixed(1)} dBFS under the film against ${saloon.toFixed(1)} at the table`,
+)
 
 /*
  * And the part that no level can reach: the ambience is PEOPLE.
@@ -582,6 +721,33 @@ expect(
 )
 
 /*
+ * And the two checks above, having been met, produced the opposite complaint.
+ *
+ * Making the bed measurably people meant giving each talker a mouth: a
+ * glottal buzz through formants that swept between six vowels, gated into
+ * syllables, with a hiss on the front of half of them for the consonant.
+ * Every number in this file improved. What a player heard was aliens.
+ *
+ * The diagnosis is that "a crowd" and "a voice you cannot understand" are
+ * different sounds. A crowd across a room is a voice you cannot FOLLOW; the
+ * moment one throat is trackable the ear starts listening for words, and in
+ * a game with no language in it, the absence of words becomes the loudest
+ * thing in the mix. So there are two more properties to hold, and they pull
+ * against the two above rather than extending them - which is the reason to
+ * measure all four rather than any one of them.
+ */
+expect(
+  'and it is too dull to be words',
+  speech.room.voiced < 0.06,
+  `${(speech.room.voiced * 100).toFixed(1)}% of it is in the 1.5-5kHz band that carries them`,
+)
+expect(
+  'and never thins out to one voice in the clear',
+  speech.room.alone < 0.1,
+  `near-silent for ${(speech.room.alone * 100).toFixed(1)}% of the window`,
+)
+
+/*
  * And the upright plays NUMBERS.
  *
  * "The music is furniture" was asserted with a level for as long as there
@@ -601,7 +767,7 @@ expect(
   `${numbers.playing.toFixed(0)}s of playing and a ${numbers.silence.toFixed(0)}s gap inside ${numbers.watched.toFixed(0)}s`,
 )
 
-/* ---- 1. the room, and the six things it does -------------------------- */
+/* ---- 2. the room, and the six things it does -------------------------- */
 
 /*
  * Measured first and every reaction is compared against it, so a table that
@@ -703,8 +869,14 @@ const over = (k) => `${heard[k].db.toFixed(1)} dBFS over a ${room.level.toFixed(
  * hearing rather than from what the mix happens to measure: 10dB is roughly
  * the classic doubling of loudness, which is what a room reacting TOGETHER
  * should be worth, and 6dB is an unambiguous step up for the one reaction
- * that is not really a reaction. Measured, the five clear 10 by five or more
- * and the murmur clears 6 by five, so neither is a knife edge.
+ * that is not really a reaction.
+ *
+ * These are the floor, and turning the table down made them the binding
+ * constraint rather than a formality. The five used to clear 10dB by five or
+ * more; they now clear it by two to four, and the quietest of them - the jeer
+ * - has the least room of anything in this file. That is the correct place
+ * for the pressure to be: the reactions are as restrained as they can be
+ * while a player can still hear that the room reacted.
  */
 const TOGETHER = 10
 const BARELY = 6
@@ -743,15 +915,53 @@ expect(
 )
 
 /*
- * The whole point of the brief, as one line: a loss is answered at a
- * comparable level to a win. Not equal - a jackpot should be the loudest thing
- * in the building - but within sight of it, which is what "输赢均有" asks for.
+ * The whole point of the brief, as one line, and it now has two sides.
+ *
+ * The original defect was that what shipped answered a win with a coin fall
+ * and a loss with nothing audible at all. That got asserted as "the groan is
+ * within 6dB of the ROAR", which fixed the silence and then caused the
+ * opposite complaint: a player put an hour into the table and reported that
+ * it came apart on every pull. He was right, and this check was part of the
+ * reason. A flat loss is the commonest outcome on the machine and a jackpot
+ * is the rarest, so a rule holding the commonest outcome within 6dB of the
+ * rarest one is a rule that the building has to fall over every third pull.
+ *
+ * It was comparing the wrong pair. "输赢均有" is about a win and a loss being
+ * answered alike, and the win that belongs next to an ordinary loss is an
+ * ordinary WIN - the five-coin one, where somebody slaps the bar - not the
+ * twenty-coin jackpot where the hats go up. Those two are what the engine
+ * hands out most of the time, and holding them to each other says the thing
+ * that was meant while leaving the jackpot free to be an event.
+ *
+ * Two-sided by construction, because it is a distance rather than a floor: a
+ * groan cannot go quiet and it cannot go operatic either.
  */
 expect(
-  'a loss is answered within 6dB of a win',
-  heard.sigh.db > heard.roar.db - 6,
-  `groan ${heard.sigh.db.toFixed(1)} against a roar of ${heard.roar.db.toFixed(1)} dBFS`,
+  'a loss is answered as well as a win',
+  Math.abs(heard.sigh.db - heard.cheer.db) < 5,
+  `groan ${heard.sigh.db.toFixed(1)} against a cheer of ${heard.cheer.db.toFixed(1)} dBFS`,
 )
+/*
+ * And the same thing for the rest of the table, which is the part a player
+ * hears as restraint: only the jackpot is allowed to be an event.
+ *
+ * reactionTo() gives a roar at twenty coins or more, so most players will go
+ * a long time without one. Everything else is routine - a five-coin win, a
+ * near miss, a flat loss - and routine has to sound routine, or the loud
+ * moment has nothing to be louder than.
+ */
+const ROUTINE = ['cheer', 'gasp', 'sigh', 'jeer', 'murmur']
+const loudestRoutine = ROUTINE.reduce((a, b) => (heard[a].db > heard[b].db ? a : b))
+expect(
+  'only the jackpot comes off the floor',
+  ROUTINE.every((k) => heard[k].db < heard.roar.db - 3),
+  `loudest routine reaction is the ${loudestRoutine} at ${heard[loudestRoutine].db.toFixed(1)}, ${(heard.roar.db - heard[loudestRoutine].db).toFixed(1)}dB under a roar of ${heard.roar.db.toFixed(1)} dBFS`,
+)
+/*
+ * The ceiling that goes with it is expressed against the machine and lives in
+ * the next section, because the steady reading of "the machine" comes from a
+ * whole pull rather than from firing its two noises on their own.
+ */
 /*
  * And the crowd, not the payout, is what you hear on a win. This is the check
  * that would have caught the original defect on its own: the coins and the
@@ -776,7 +986,7 @@ expect(
   `${heard.gasp.bright.toFixed(2)} against ${heard.sigh.bright.toFixed(2)} above 1.2kHz`,
 )
 
-/* ---- 2. bound to the outcome, by playing ------------------------------ */
+/* ---- 3. bound to the outcome, by playing ------------------------------ */
 
 /*
  * The other half of the balance, measured while the machine is working: iron
@@ -809,8 +1019,34 @@ const played = await working
 await page.waitForTimeout(2500)
 expect('the machine leads while it is working', played.sfx.peak > saloon + 5,
   `${played.sfx.peak.toFixed(1)} dBFS against an idle saloon of ${saloon.toFixed(1)}`)
-expect('and the upright is behind both of them', played.piano.mean < played.sfx.mean - 10,
-  `upright ${played.piano.mean.toFixed(1)}, saloon ${saloon.toFixed(1)}, machine ${played.sfx.mean.toFixed(1)} dBFS`)
+expect('and the upright is behind both of them', played.band.mean < played.sfx.mean - 10,
+  `upright ${played.band.mean.toFixed(1)}, saloon ${saloon.toFixed(1)}, machine ${played.sfx.mean.toFixed(1)} dBFS`)
+/*
+ * And the other half of the ladder: the loudest thing in an ordinary pull is
+ * the machine, not the room.
+ *
+ * This is the one that says "proportionate" with no taste in it at all. The
+ * player pulled the arm of a slot machine; what should dominate is the arm,
+ * the reels and the payout. A room that out-shouts the iron on a routine pull
+ * is a room performing, and performing four times a minute is exactly what
+ * "every pull blows the place up" is as a measurement. The jackpot roar is
+ * deliberately exempt - it is the one moment where the room IS the event, and
+ * it is pinned the other way round in the section above, over the bell.
+ *
+ * Measured against the pull rather than against the bell and the coin fall
+ * fired on their own, and that is not a convenience. Both of those are built
+ * out of eighteen randomised coins and three randomised strikes, so a single
+ * peak-hold reading of either moves 2.4dB between runs on the same machine,
+ * which is most of the margin this check has. The peak of a whole pull -
+ * lever, ratchet, three bands landing, hopper - repeats to 0.4dB, because it
+ * is the loudest sound the machine is BUILT to make rather than whichever
+ * coin happened to land on top of another one.
+ */
+expect(
+  'and the loudest thing in a pull is the machine',
+  heard[loudestRoutine].db < played.sfx.peak,
+  `the ${loudestRoutine} at ${heard[loudestRoutine].db.toFixed(1)} against a pull peaking at ${played.sfx.peak.toFixed(1)} dBFS`,
+)
 
 /*
  * Reaction lines, as regexes, so a pull can be checked against the reaction
@@ -867,15 +1103,27 @@ for (const n of [1, 2, 3]) {
    * those readings were right. What was wrong was asking a roar buried in
    * eighteen falling coins to have the colour of a roar on its own.
    *
+   * The allowance over that brightest component is 1.5x rather than something
+   * nearer 1, and the reason is a real mechanism rather than slack. A paying
+   * pull is the only window in this file where the room DUCKS: a roar takes
+   * the bed down by 70%, and the bed is now the darkest thing on the table
+   * since the conversation got low-passed to stop it sounding like words. So
+   * the mixture has had dark content removed that every one of its components
+   * was measured with still present, and it therefore legitimately reads
+   * brighter than all of them - 1.12 against 0.93 for the coin fall, which at
+   * 1.2x was a fail by two hundredths. It still bounds something: a groan in
+   * a jackpot's caption measures 0.14.
+   *
    * The two reactions that pay nothing keep the tight band, and those are
    * the ones this check is really for: a gasp and a groan are both a losing
    * pull, so the difference between them cannot be the payout - it is the
-   * vowel, and the 1.5x between them sits inside 2x.
+   * vowel, and the gap between them is now in the throat rather than borrowed
+   * from the room. See VoiceOpts.top in src/audio/crowd.ts.
    */
   if (got.kind) {
     const solo = heard[got.kind].bright
     const paid = ['roar', 'cheer', 'murmur'].includes(got.kind)
-    const ceiling = paid ? Math.max(solo, heard.coins.bright, heard.bell.bright) * 1.2 : solo * 2
+    const ceiling = paid ? Math.max(solo, heard.coins.bright, heard.bell.bright) * 1.5 : solo * 2
     expect(
       `pull ${n}: and it is the ${got.kind} it says it is`,
       got.bright > solo * 0.5 && got.bright < ceiling,
@@ -884,7 +1132,7 @@ for (const n of [1, 2, 3]) {
   }
 }
 
-/* ---- 3. silence --------------------------------------------------------- */
+/* ---- 4. silence --------------------------------------------------------- */
 
 /*
  * Calling the house out stops the room dead - the oldest gesture in the genre
@@ -905,13 +1153,13 @@ await page.waitForTimeout(4500)
 
 await page.locator('button.sound').click()
 await page.waitForTimeout(700)
-expect('the control then reads muted', (await label()).includes('🔇'), await label())
+expect('the control then reads muted', (await label(page)).includes('🔇'), await label(page))
 const off = await page.evaluate((d) => window.__grab(d), 1400)
 expect('and mute means mute', off.db < -70, `${off.db.toFixed(1)} dBFS`)
 
 await page.locator('button.sound').click()
 await page.waitForTimeout(1800)
-expect('unmuting reads on again', (await label()).includes('🔊'), await label())
+expect('unmuting reads on again', (await label(page)).includes('🔊'), await label(page))
 const back = await page.evaluate((d) => window.__grab(d), 4000)
 /*
  * Level against level, not peak against level, because this one is about the
