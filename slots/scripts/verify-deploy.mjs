@@ -5,6 +5,21 @@
  *
  *   node scripts/verify-deploy.mjs <url> [screenshot.jpg]
  *
+ * IS IT EVEN THE BUILD YOU JUST PUSHED? That is the first thing this asks,
+ * because every other line below it is worthless if the answer is no, and the
+ * answer is not visible. Vite content-hashes the assets, so a stale one cannot
+ * be served under a fresh name - but index.html has a fixed name, it names the
+ * hashed bundle, and a CDN holding an old copy of it keeps an entire old
+ * release on the air. The page looks perfect. It is last week's.
+ *
+ * So the build signs itself (see vite.config.ts) and this reads the signature
+ * back off the deployed page in both places it is written: the <meta> in the
+ * HTML, and __BUILD__ inside the bundle that ran. Set BUILD_SHA to the commit
+ * that should be live, or let it default to local HEAD.
+ *
+ * The page is fetched with the cache disabled, so what is being tested is the
+ * deployment rather than this machine's memory of it.
+ *
  * Serving from a sub-path is the part that breaks silently. Every runtime
  * asset URL on this table goes through import.meta.env.BASE_URL (see
  * src/art.ts), which is exactly one edit away from being wrong, and a missing
@@ -24,6 +39,7 @@
  *     somewhere on the bar. Comparing the two rectangles is the only way to
  *     catch that without a human looking at it.
  */
+import { execSync } from 'node:child_process'
 import { chromium } from 'playwright'
 
 const SITE = process.argv[2]
@@ -33,6 +49,18 @@ if (!SITE) {
 }
 const SHOT = process.argv[3]
 
+/** The commit that should be live. Empty means "report it, do not judge it". */
+const WANT = (
+  process.env.BUILD_SHA ??
+  (() => {
+    try {
+      return execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim()
+    } catch {
+      return ''
+    }
+  })()
+).trim()
+
 const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
 const context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
@@ -40,6 +68,10 @@ const context = await browser.newContext({
   // skipping the opening entirely - which would skip most of what is being
   // checked here.
   reducedMotion: 'no-preference',
+  // A fresh context already has an empty cache; this is aimed past it, at the
+  // CDNs in between, which are the ones capable of serving a stale index.html
+  // long after the deployment that replaced it.
+  extraHTTPHeaders: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
 })
 const page = await context.newPage()
 
@@ -68,6 +100,38 @@ const interstitial = page.getByRole('button', { name: 'Open the page' })
 if (await interstitial.count()) {
   await interstitial.click()
   await page.waitForLoadState('networkidle')
+}
+
+/*
+ * Before anything else: whose build is this? The two stamps are read from the
+ * live DOM - the meta out of the served HTML, the dataset written by the
+ * bundle that executed - so a page assembled from a cached half answers
+ * differently in the two halves.
+ */
+const built = await page.evaluate(() => ({
+  html: document.querySelector('meta[name="build"]')?.getAttribute('content') ?? '',
+  js: document.documentElement.dataset.build ?? '',
+  when: document.documentElement.dataset.built ?? '',
+}))
+const htmlSha = built.html.split(' ')[0]
+console.log(`build (html): ${htmlSha || '(unstamped)'}`)
+console.log(`build (js):   ${built.js || '(unstamped)'} ${built.when}`)
+
+const stamped = Boolean(htmlSha && built.js)
+const agree = htmlSha === built.js
+const isWanted = !WANT || built.js === WANT
+if (WANT) console.log(`expected:     ${WANT}${isWanted && agree ? ' - match' : ' - MISMATCH'}`)
+if (stamped && !agree) {
+  console.error(
+    '\nThe HTML and the bundle were built from different commits. A cache is ' +
+      'serving part of an old release.',
+  )
+}
+if (WANT && stamped && agree && !isWanted) {
+  console.error(
+    `\nThe live page is ${built.js.slice(0, 7)}, not ${WANT.slice(0, 7)}. Either the ` +
+      'deployment has not finished, or a cache is still serving the old build.',
+  )
 }
 
 /** Reads a <video> the way a viewer would: is there picture, and is it moving? */
@@ -164,6 +228,9 @@ if (broken.length) console.error('\nBroken plates:\n  ' + broken.map((p) => p.sr
 const playing = (v) => v.width > 0 && v.advanced > 0.2
 
 const ok =
+  stamped &&
+  agree &&
+  isWanted &&
   !failures.length &&
   !consoleErrors.length &&
   !broken.length &&
@@ -173,5 +240,9 @@ const ok =
   playing(opening) &&
   playing(idle) &&
   /pull\./.test(pulled ?? '')
-console.log(ok ? '\nOK: reachable, film rolls, bands sit in the glass, every asset loads' : '\nFAILED')
+console.log(
+  ok
+    ? `\nOK: ${built.js.slice(0, 7)} is live, film rolls, bands sit in the glass, every asset loads`
+    : '\nFAILED',
+)
 process.exit(ok ? 0 : 1)

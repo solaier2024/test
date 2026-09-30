@@ -18,7 +18,19 @@ declare global {
   interface Window {
     __audio?: Record<string, unknown>
   }
+  /** Written in by vite.config.ts. See the comment there. */
+  const __BUILD__: { commit: string; short: string; built: string }
 }
+
+/*
+ * The bundle says which commit it was built from, on the element a browser
+ * shows you first. `document.documentElement.dataset` rather than a variable
+ * because the question it answers - "is the page I am looking at the build I
+ * just pushed, or a cached one" - is usually asked of a page that is already
+ * open, and an attribute in the inspector answers it without a console.
+ */
+document.documentElement.dataset.build = __BUILD__.commit
+document.documentElement.dataset.built = __BUILD__.built
 
 window.__audio = {
   ctx: () => ac(),
