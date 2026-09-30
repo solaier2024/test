@@ -380,11 +380,11 @@ const hush = events.length ? level.filter((l) => l.at > events[0].at && l.db < r
  * gutter and the smoke drifts every rAF, so a still frame is never correct.
  *
  * A healthy take averages 26 a second: a flat 30 from the moment the table
- * appears, and 15 to 18 over the opening, because the opening is an OpenArt
- * clip being played back at its own frame rate and thirty distinct pictures
- * a second is not available from it. Fifteen is the floor - roughly where
- * motion stops reading as motion - and the take that prompted this check was
- * running at three.
+ * appears, 25 to 29 over the opening film, and a few near-still seconds on
+ * the machine-select screen, which is a still page and is supposed to sit
+ * there. So the floor is on the average, not on any one second. Fifteen is
+ * roughly where motion stops reading as motion, and the take that prompted
+ * this check was running at three.
  */
 const SHRUNK = `${OUT}.gray`
 const [gw, gh] = [180, 112]

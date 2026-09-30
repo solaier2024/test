@@ -931,22 +931,28 @@ ffmpeg 把 x11grab 和那个 monitor 合成一个文件。三样都由脚本启�
 两个录制器共用 `lib/walkthrough.mjs`，所以编排只有一份，不会漂成两份。
 
 录完它**把自己的声轨从成品文件里读回来**，这才是关键的那一步。不是"有没有声音"
-（录着房间底噪也能过），而是四个响的时刻加一个静的时刻：
+（录着房间底噪也能过），而是那几个响的时刻加一个静的时刻：
 
 ```
-recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:02.50
-  the room sits at -46.4 dBFS
-   23.0s  -32.0 dBFS      差一格，房间的气被抽走
-   31.5s  -26.7 dBFS      中了，全片最响的一下
-   37.0s  -37.6 dBFS
-   40.5s  -27.7 dBFS
-   50.3s  -34.2 dBFS
-   56.0s  -31.0 dBFS      对一次太早的叫破的判决
-   55.0s  -66.1 dBFS  <-  叫破的一瞬间房间死寂
-  the picture changes 25.9 times a second, over 1875 frames
+recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:02.77
+  the room sits at -49.5 dBFS
+   23.5s  -31.8 dBFS      差一格，房间的气被抽走
+   27.5s  -36.9 dBFS
+   32.0s  -25.9 dBFS      中了，全片最响的一下
+   37.5s  -38.1 dBFS
+   41.0s  -27.4 dBFS
+   46.0s  -37.9 dBFS
+   50.5s  -32.7 dBFS
+   56.5s  -31.6 dBFS      对一次太早的叫破的判决
+   52.5s  -65.5 dBFS  <-  叫破的一瞬间房间死寂
+  the picture changes 26.1 times a second, over 1883 frames
 
-OK: 6 reactions and a hush, on a file that moves
+OK: 8 reactions and a hush, on a file that moves
 ```
+
+这一版比上一版多两个反应、房间底噪低了 3 dB。两件事是同一个原因：房间声改成
+有内容的说话声之后，中位数落在句子之间的间隙上，于是每一次喝彩相对房间抬得更高，
+原来压在门槛下的两次叹息也被数出来了。
 
 找静音只在**房间第一次出声之后**找。第一版在开头那段黑场上通过了——
 正是这个文件存在的意义所在。
@@ -985,9 +991,9 @@ OK: 6 reactions and a hush, on a file that moves
 
 检查现在报的是**画面每秒变几次**，这是关于影片的事实；
 而不是"新帧占帧率的百分比"，那是关于容器的事实。
-健康的一条片子平均 26 次：台面出现之后稳定 30，开场 15–18，
-因为开场是一段 OpenArt 片子在按它自己的帧率播，从它身上拿不出每秒三十张不同的画。
-下限定在 15。
+健康的一条片子平均 26 次：台面出现之后稳定 30，开场那段片子 25–29，
+中间选机台那一屏接近 0——那是一张静止的页面，本来就该停在那儿。
+所以下限压在**平均值**上，不压在任何单独一秒上，定在 15。
 
 ### 而画面里那个光标，并不是在拉拉杆的那个
 
