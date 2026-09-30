@@ -230,8 +230,17 @@ const SHAPE: Record<Reaction, {
    * Breath is nearly all of it, and noise through a formant is far louder than
    * a sawtooth through the same one, so this gets the smallest gain and the
    * deepest bed duck: a gasp is not a loud sound, it is twenty conversations
-   * stopping at once, and it only reads as one if they actually stop. */
-  gasp: { voices: 10, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.58, gain: 0.0168, breath: 0.85, tremor: 0, top: 3.2, spread: 0.05, clap: [0, 0], duck: 0.32, bed: 0.85 },
+   * stopping at once, and it only reads as one if they actually stop.
+   *
+   * Eighteen throats, up from ten, and the reason is the murmur's reason two
+   * rows down. This is the SHORTEST sound in the table - 0.58s, and a sixth
+   * of that is the attack - so it has the least time of anything here to
+   * average its own throats out, and peak-hold reads whichever draw of them
+   * happened to align. It was the widest row in the file at 4.3dB between
+   * firings on CI, against a 4dB limit, while every local run was green.
+   * Eighteen of them put it at 1.4dB and moved its median 0.2dB, which is
+   * what "more throats is a thicker sound, not a louder one" means. */
+  gasp: { voices: 18, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.58, gain: 0.0168, breath: 0.85, tremor: 0, top: 3.2, spread: 0.05, clap: [0, 0], duck: 0.32, bed: 0.85 },
   /* Down, slow, and it takes a while to stop. Sits in the same octaves as the
    * bed, so it needs the room out of the way more than it needs volume.
    *
@@ -304,7 +313,25 @@ export function react(kind: Reaction, density = 0.6): void {
       vowel: s.vowel,
       attack: s.attack * (0.8 + Math.random() * 0.5),
       seconds: s.seconds * (0.82 + Math.random() * 0.36),
-      gain: (s.gain / Math.sqrt(n)) * (0.6 + Math.random() * 0.9) * THROAT,
+      /*
+       * Throats are not equally loud, and this is how unequal they are. It
+       * was 0.6 to 1.5 - two and a half to one, 8dB - which is a plausible
+       * room and an implausible measurement: the loudest voice in the draw
+       * sets the peak, so the peak of the sum is a lottery over a handful of
+       * tickets, and verify-audio.mjs reads a reaction by peak-hold. Turning
+       * the table down made that visible rather than worse, because every
+       * ordering it holds now has a few dB to spare instead of a dozen.
+       *
+       * 0.8 to 1.25 is still a room where nobody matches anybody, and it cuts
+       * the spread between firings roughly in half. It keeps the same MEAN of
+       * 1.05 that the gain column was tuned against, which is not a detail:
+       * the first cut at this was centred on 1.0 and every reaction came out
+       * half a decibel quieter, so a fix to a measurement would have turned
+       * the whole room down as a side effect. The other half of the repair is
+       * the gasp's throat count, above - unequal voices only average out if
+       * there are enough of them, and the gasp is the shortest sound here.
+       */
+      gain: (s.gain / Math.sqrt(n)) * (0.8 + Math.random() * 0.5) * THROAT,
       breath: s.breath,
       tremor: s.tremor ? s.tremor * (0.9 + Math.random() * 0.25) : 0,
       top: s.top,
