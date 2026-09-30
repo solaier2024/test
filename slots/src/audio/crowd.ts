@@ -259,39 +259,73 @@ let bed: { talk: GainNode; duck: GainNode[]; stop: () => void } | null = null
 /* ----------------------------------------------------------------- the talkers */
 
 /*
- * A dozen conversations, two tables away.
+ * Ten conversations at the other end of the room.
  *
- * This is the part of the room that used to be a bandpass on a noise buffer -
- * a 520Hz hum with the odd syllable dropped on top of it. It measured fine
- * and it was wrong, and the way it was wrong is worth writing down: a noise
- * bed and a crowd have roughly the same long-term spectrum, so nothing that
- * averages over a few seconds can tell them apart. What separates them is
- * ENTIRELY in how the level moves. Speech turns on and off four or five times
- * a second, because that is how fast a mouth can change shape, and it is the
- * one property a filtered hiss cannot fake at any level or bandwidth.
+ * This layer has now been wrong in two opposite directions, and both of them
+ * are worth keeping written down because the second one is the more
+ * interesting mistake.
  *
- * So each talker is a mouth rather than a texture: one glottal sawtooth, its
- * pitch falling across a phrase the way a sentence does, through two moving
- * formants that pick out a vowel, gated into syllables, with a hiss on the
- * front of about half of them for the consonant. Nobody is saying words -
- * there is no language in here - but the RHYTHM is speech, and that is what
- * the ear uses to decide it is hearing people.
+ * It started as a bandpass on a noise buffer: a 520Hz hum with the odd
+ * syllable dropped on top. That measured fine on every check in the file and
+ * it was a hiss, because a noise bed and a crowd have roughly the same
+ * long-term spectrum and nothing that averages over a few seconds can tell
+ * them apart. What separates them is how the LEVEL moves - speech turns on
+ * and off four or five times a second because that is how fast a mouth can
+ * change shape - so each talker became a mouth: a glottal sawtooth through
+ * two formants that swept between six vowels, gated into syllables, with a
+ * hiss spat on the front of half of them for the consonant.
+ *
+ * That fixed the measurement and broke the sound. Played back, it was
+ * unmistakably somebody ENUNCIATING - and since there is no language in here,
+ * what it enunciated was gibberish. A player's word for it was aliens, which
+ * is exactly right and is the whole diagnosis:
+ *
+ *   A crowd two tables away is not a voice you cannot understand. It is a
+ *   voice you cannot FOLLOW. The moment one throat is trackable, the ear
+ *   starts listening for words, and then their absence is the loudest thing
+ *   in the mix.
+ *
+ * Three things made a throat trackable, and all three are gone:
+ *
+ *   - The consonants. A 20ms hiss in front of a vowel is heard as an attempt
+ *     at a word. Removed outright; at this distance a real one would not
+ *     survive the air anyway.
+ *   - The formant sweeps. Jumping F1/F2 between six vowels every 150ms is
+ *     articulation. A throat now sits on ONE vowel colour - its own - and
+ *     only jitters a few percent around it, so what varies within a phrase is
+ *     pitch and loudness, which is what carries across a room.
+ *   - The intelligibility band. Speech is identifiable as speech between
+ *     about 1 and 4kHz; ten metres of air and a wall full of people take
+ *     that away. The low-pass is now at 1500Hz coming down to 700, which is
+ *     the acoustics doing what the acoustics do.
+ *
+ * And the fourth thing, which is not per-voice at all: there are ten of them
+ * and the gaps between their phrases are short, so five or six are always
+ * talking at once. Overlap is what stops any one of them being followable -
+ * six talkers with three-second gaps spent most of their time as a solo, and
+ * a solo is the alien.
+ *
+ * What survives is the property the brief asks for and the measurement is
+ * about: the composite still turns on and off at a syllable rate, so it is
+ * still people rather than a hiss. It is simply people you cannot make out.
  *
  * Cheap on purpose. The nodes are built once per talker and live for the
- * session; a syllable is six scheduled automation events on parameters that
- * already exist, not six new nodes. Six talkers is about fifty nodes in total
- * and the page still renders at 30fps under a screen recorder, which a
- * voice-per-syllable version did not.
+ * session; a syllable is three scheduled automation events on parameters that
+ * already exist, not three new nodes.
  */
 
-/** [F1, F2] in Hz. Two formants is the least that still reads as a vowel. */
-const BABBLE: [number, number][] = [
-  [730, 1090], // "aah"
-  [570, 840], // "aww"
-  [520, 1190], // "uh"
-  [660, 1720], // "eh"
-  [400, 1900], // "ih"
-  [300, 870], // "oo"
+/**
+ * A throat's own vowel colour, [F1, F2] in Hz. One row per talker rather than
+ * one per syllable: this is the shape of somebody's mouth and voice, not a
+ * sound they are making.
+ */
+const THROATS: [number, number][] = [
+  [560, 940],
+  [640, 1080],
+  [490, 820],
+  [720, 1150],
+  [530, 1010],
+  [600, 880],
 ]
 
 interface Talker {
@@ -311,16 +345,22 @@ function talker(into: AudioNode, wetTo: AudioNode, f0: number, far: number, pan:
 
   const out = c.createGain()
   out.gain.value = 1
-  /* Distance is a low-pass and a reverb send, which between them are most of
-   * what tells you somebody is across a room rather than next to you. */
+  /*
+   * Distance, and it is doing more work here than it looks. A low-pass this
+   * low is not a tone control, it is the reason none of this can be mistaken
+   * for words: consonants and the formant detail that separates one vowel
+   * from another live above it, and they do not get through.
+   */
   const dull = c.createBiquadFilter()
   dull.type = 'lowpass'
-  dull.frequency.value = 3600 - far * 2100
+  dull.frequency.value = 1500 - far * 800
   const where = c.createStereoPanner()
   where.pan.value = pan
   out.connect(dull).connect(where).connect(into)
+  /* And mostly reflections, because that is the other half of "across a
+   * room". A dry murmur is somebody muttering next to you. */
   const send = c.createGain()
-  send.gain.value = 0.3 + far * 0.6
+  send.gain.value = 0.55 + far * 0.45
   where.connect(send).connect(wetTo)
 
   /** The syllable gate. Everything voiced goes through here. */
@@ -332,12 +372,16 @@ function talker(into: AudioNode, wetTo: AudioNode, f0: number, far: number, pan:
   src.type = 'sawtooth'
   src.frequency.value = f0
 
-  /* F1 and F2 move with the vowel; F3 is a property of the throat and stays
-   * put, which saves a third of the automation for something nobody hears. */
+  /*
+   * Two resonances and nothing above them. The second one is quieter than it
+   * would be on a voice next to you, for the same reason as the low-pass:
+   * F2 is where the vowel's identity is, and identifiable vowels in a
+   * language nobody speaks is the failure mode this layer had.
+   */
+  const [F1, F2] = THROATS[Math.floor(Math.random() * THROATS.length)]
   const mouth = [
-    { hz: 700, q: 6, level: 1 },
-    { hz: 1200, q: 5, level: 0.5 },
-    { hz: 2500 + Math.random() * 500, q: 3, level: 0.16 },
+    { hz: F1, q: 4.5, level: 1 },
+    { hz: F2, q: 3.5, level: 0.3 },
   ].map(({ hz, q, level }) => {
     const band = c.createBiquadFilter()
     band.type = 'bandpass'
@@ -350,58 +394,44 @@ function talker(into: AudioNode, wetTo: AudioNode, f0: number, far: number, pan:
   })
   src.start()
 
-  /* The consonant. One shared hiss, gated in 20ms spits before a vowel - it
-   * is the difference between "aaa-aaa-aaa" and somebody talking. */
-  const air = c.createBufferSource()
-  air.buffer = noiseBuffer(c, 4)
-  air.loop = true
-  const sibilance = c.createBiquadFilter()
-  sibilance.type = 'bandpass'
-  sibilance.frequency.value = 2600 + Math.random() * 1800
-  sibilance.Q.value = 0.7
-  const fric = c.createGain()
-  fric.gain.value = 0.0001
-  air.connect(sibilance).connect(fric).connect(out)
-  air.start(0, Math.random() * 3)
-
-  const level = 0.08 * (1 - far * 0.35)
-  let at = c.currentTime + Math.random() * 3
+  const level = 0.05 * (1 - far * 0.3)
+  let at = c.currentTime + Math.random() * 1.5
 
   return {
-    stop: () => {
-      src.stop()
-      air.stop()
-    },
+    stop: () => src.stop(),
     say: (until: number) => {
       while (at < until) {
         /* One phrase: a few syllables at a steady rate, then a breath. Nobody
          * talks in an unbroken stream, and the gaps are what let the glasses
          * and the boots through. */
-        const count = 2 + Math.floor(Math.random() * 7)
-        const rate = 0.13 + Math.random() * 0.09
+        const count = 2 + Math.floor(Math.random() * 6)
+        const rate = 0.15 + Math.random() * 0.11
         const base = f0 * (0.93 + Math.random() * 0.14)
         /* A question now and then, which rises instead of falling. */
         const rising = Math.random() < 0.18
         for (let i = 0; i < count; i++) {
           const t = at + i * rate
-          const held = rate * (0.5 + Math.random() * 0.32)
+          const held = rate * (0.55 + Math.random() * 0.3)
           /* Declination: a spoken sentence drifts down about a fifth from
            * start to finish, and putting that in is most of the difference
            * between talking and chanting. */
           const arc = rising ? 1 + 0.18 * (i / Math.max(1, count - 1)) : 1 - 0.24 * (i / Math.max(1, count - 1))
-          src.frequency.setTargetAtTime(base * arc * (0.96 + Math.random() * 0.08), t, 0.03)
-          const [f1, f2] = BABBLE[Math.floor(Math.random() * BABBLE.length)]
-          mouth[0].frequency.setTargetAtTime(f1, t, 0.022)
-          mouth[1].frequency.setTargetAtTime(f2, t, 0.022)
-          const loud = level * (0.55 + Math.random() * 0.75) * (i === 0 ? 1.2 : 1)
-          env.gain.setTargetAtTime(loud, t, 0.011)
-          env.gain.setTargetAtTime(0.0001, t + held, 0.018)
-          if (Math.random() < 0.45) {
-            fric.gain.setTargetAtTime(level * 0.42, t - 0.026, 0.005)
-            fric.gain.setTargetAtTime(0.0001, t - 0.006, 0.011)
-          }
+          src.frequency.setTargetAtTime(base * arc * (0.96 + Math.random() * 0.08), t, 0.05)
+          /* A few percent of wobble on his own vowel, which is a jaw moving,
+           * not a different vowel. */
+          mouth[0].frequency.setTargetAtTime(F1 * (0.96 + Math.random() * 0.08), t, 0.05)
+          mouth[1].frequency.setTargetAtTime(F2 * (0.96 + Math.random() * 0.08), t, 0.05)
+          /*
+           * Soft edges. The old gate opened in 11ms and shut in 18ms, which
+           * is a consonant boundary; 35ms either way is a mouth already open
+           * changing what it is doing, and it is the difference between
+           * syllables you can count and a burble you cannot.
+           */
+          const loud = level * (0.6 + Math.random() * 0.6) * (i === 0 ? 1.15 : 1)
+          env.gain.setTargetAtTime(loud, t, 0.035)
+          env.gain.setTargetAtTime(0.0001, t + held, 0.035)
         }
-        at += count * rate + 0.45 + Math.random() * gap()
+        at += count * rate + 0.25 + Math.random() * gap()
       }
     },
   }
@@ -415,9 +445,15 @@ function talker(into: AudioNode, wetTo: AudioNode, f0: number, far: number, pan:
  * background come forward by giving it events rather than gain, and the same
  * thing applies to making it come forward MORE: a room fills up by there
  * being less silence in it, not by everyone shouting.
+ *
+ * Much shorter than it was, and that is the fix for the alien rather than a
+ * separate change of taste. With gaps of up to 3.6s across six talkers the
+ * room spent most of its time as one voice in the clear, and one voice in the
+ * clear is followable. Ten talkers with gaps under two seconds means five or
+ * six are always going at once.
  */
 let density = 0.35
-const gap = () => 3.6 - density * 2.6
+const gap = () => 1.9 - density * 1.2
 
 /**
  * Somebody at the far end finds something funny.
@@ -665,19 +701,28 @@ export function startRoom(): void {
   across.connect(wall).connect(ducked)
 
   /*
-   * Six. Below about four the ear starts following individual conversations
-   * and the illusion becomes "some men talking near a microphone"; much above
-   * six and the gaps between phrases fill in, which is the hum again by a
-   * longer route. Pitches, distances and places in the stereo field are all
-   * spread, because a room of one voice repeated is a chorus.
+   * Ten, and the count is load-bearing. It was six, and six with long gaps
+   * between phrases left one throat in the clear most of the time - which the
+   * ear follows, fails to get words out of, and reports as gibberish. Ten
+   * with short gaps means five or six going at once and no single line to
+   * follow, which is what a busy room actually is.
+   *
+   * Pitches, distances and places in the stereo field are all spread, because
+   * a room of one voice repeated is a chorus. Nobody is at far = 0: there is
+   * nobody standing next to you in any of these shots, and a near-field
+   * talker is the one voice that would be trackable again.
    */
   const talkers = [
-    talker(talk, wet, 118, 0.15, -0.55),
+    talker(talk, wet, 118, 0.3, -0.55),
     talker(talk, wet, 142, 0.45, 0.35),
     talker(talk, wet, 97, 0.7, -0.15),
     talker(talk, wet, 176, 0.55, 0.7),
     talker(talk, wet, 131, 0.9, 0.1),
     talker(talk, wet, 205, 0.8, -0.8),
+    talker(talk, wet, 109, 0.5, 0.55),
+    talker(talk, wet, 156, 0.75, -0.35),
+    talker(talk, wet, 124, 0.95, 0.85),
+    talker(talk, wet, 188, 0.65, -0.05),
   ]
 
   let alive = true
@@ -695,7 +740,11 @@ export function startRoom(): void {
   const knockAbout = () => {
     if (!alive) return
     if (ac().currentTime >= quietUntil) clatter(bar, wet)
-    window.setTimeout(knockAbout, 900 + Math.random() * 2200)
+    /* One every second or so. It was one every two, and the brief for this
+     * room is glasses, pouring and chairs as well as talking - at two-second
+     * spacing those read as the occasional noise in a quiet bar rather than
+     * as a bar doing business. */
+    window.setTimeout(knockAbout, 620 + Math.random() * 1500)
   }
   window.setTimeout(knockAbout, 800)
 
