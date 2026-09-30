@@ -860,7 +860,7 @@ ok    the upright plays numbers and then stops
 | | 人数 | 基频 | 滑向 | 元音 | 起音 | 时长 | 气声 | F3 | 颤音 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `roar` | 12 | 190–320 | ×1.22 | a | 0.05 | 2.2s | 0.20 | ×1 | — |
-| `gasp` | 10 | 200–330 | ×1.35 | a | 0.16 | 0.58s | 0.85 | ×3.2 ← 亮 | — |
+| `gasp` | 18 | 200–330 | ×1.35 | a | 0.16 | 0.58s | 0.85 | ×3.2 ← 亮 | — |
 | `sigh` | 9 | 120–185 | ×0.79 | o | 0.26 | 1.3s | 0.40 | ×0.35 ← 暗 | — |
 | `jeer` | 7 | 155–250 | ×0.88 | a | 0.05 | 1.15s | 0.25 | ×1 | 7.2Hz |
 
@@ -889,15 +889,15 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 
 | | 最初 | 太响那一版 | 现在 | 1.2kHz 以上占比 |
 | --- | --- | --- | --- | --- |
-| `roar` 头奖 | -37.4 | -23.8 | **-23.3** | 0.50 |
-| `cheer` 小赢 | — | -27.0 | **-32.1** | |
-| `gasp` 屏息 | -37.0 | -28.1 | **-31.4** | 0.42 ← 亮 |
-| `sigh` 平局 | -37.7 | -26.1 | **-32.3** | 0.15 ← 暗 |
-| `jeer` 哄笑 | — | -28.1 | **-33.7** | |
-| `murmur` 低语 | — | -34.8 | **-37.0** | |
-| 落币 | -30.1 | -28.5 | -31.3 | 1.08 |
-| 铃铛 | -28.4 | -28.5 | -29.6 | |
-| 房间底噪 | -36 | -46.5 | -46.6（均值，见下） | |
+| `roar` 头奖 | -37.4 | -23.8 | **-23.2** | 0.49 |
+| `cheer` 小赢 | — | -27.0 | **-32.5** | |
+| `gasp` 屏息 | -37.0 | -28.1 | **-31.5** | 0.38 ← 亮 |
+| `sigh` 平局 | -37.7 | -26.1 | **-32.3** | 0.17 ← 暗 |
+| `jeer` 哄笑 | — | -28.1 | **-34.0** | |
+| `murmur` 低语 | — | -34.8 | **-38.1** | |
+| 落币 | -30.1 | -28.5 | -31.1 | 0.95 |
+| 铃铛 | -28.4 | -28.5 | -29.3 | |
+| 房间底噪 | -36 | -46.5 | -45.9（均值，见下） | |
 
 第一列就是最初的整个问题：**三段量得到的反应全都比它们正在反应的那个房间还轻，
 而机器自己的两个声音比它们全都响。** 之前每一次"听到人群反应了"，
@@ -938,17 +938,17 @@ sfx 总线、同一个 duck。所以一次叹息不是"播了一段叹息"，是
 变化：**头奖过去比一次普通的输响 2dB，现在响 11dB。**
 
 ```
-ok    the empty table has a room tone                 -46.6 dBFS average
-ok    the room's roar is audible over it              -23.3 dBFS over a -46.6 room
-ok    a murmur is there, and is the least the room does  -37.0, between a -46.6 room and a -33.7 groan
-ok    and no reaction is too erratic to compare       widest is the gasp, 1.9dB across the middle three of five
-ok    a loss is answered as well as a win             groan -32.3 against a cheer of -32.1 dBFS
-ok    only the jackpot comes off the floor            loudest routine reaction is the gasp at -31.4, 8.1dB under a roar of -23.3
-ok    and the room is louder than the money it is cheering  roar -23.3, coins -31.3, bell -29.6 dBFS
-ok    and the loudest thing in a pull is the machine  the gasp at -31.4 against a pull peaking at -27.4 dBFS
-ok    a gasp is a brighter sound than a groan         0.42 against 0.15 above 1.2kHz
-ok    pull 1: and it is the roar it says it is        1.02 against 0.50 alone and 1.08 for the money that fell with it
-ok    calling the house stops the room dead           -78.2 dBFS, room was -46.6
+ok    the empty table has a room tone                 -45.9 dBFS average
+ok    the room's roar is audible over it              -23.2 dBFS over a -45.9 room
+ok    a murmur is there, and is the least the room does  -38.1, between a -45.9 room and a -34.0 groan
+ok    and no reaction is too erratic to compare       widest is the murmur, 2.1dB across the middle three of five
+ok    a loss is answered as well as a win             groan -32.3 against a cheer of -32.5 dBFS
+ok    only the jackpot comes off the floor            loudest routine reaction is the gasp at -31.5, 8.3dB under a roar of -23.2
+ok    and the room is louder than the money it is cheering  roar -23.2, coins -31.1, bell -29.3 dBFS
+ok    and the loudest thing in a pull is the machine  the gasp at -31.5 against a pull peaking at -27.4 dBFS
+ok    a gasp is a brighter sound than a groan         0.38 against 0.17 above 1.2kHz
+ok    pull 1: and it is the roar it says it is        0.90 against 0.49 alone and 0.95 for the money that fell with it
+ok    calling the house stops the room dead           -76.4 dBFS, room was -45.9
 ```
 
 中间那四条是这一版加的，而**它们才是"克制"这件事的可复跑证据**：
@@ -997,6 +997,56 @@ ok    calling the house stops the room dead           -78.2 dBFS, room was -46.6
 > 抖动那头：从三次改五次之后，"最大减最小"这个量本身变大了 0.5dB 就差点挂——
 > **极差只会随样本数增长，拿一个固定门槛去卡它，等于每次改进采样都把门槛收紧一次。**
 > 现在量的是**五次里中间三次的跨度**，它不随 n 漂，也不会被一次抽风的发声带走。
+
+#### 而那个统计量是对的，被它量的东西才是错的
+
+上面那条检查在**把这一桌收一档之后立刻在 CI 上挂了**：屏息量到 4.3dB，
+门槛 4.0，而同一份代码在本地跑整个文件是全绿的。
+
+这一次先量了分布再动手，而**光是量完就已经把结论推翻了一次**。
+它量的是"五次里中间三次的跨度"，然后取**六种反应里最宽的那一个**——
+一个极值的极值，所以**跑一遍 `verify:audio` 只是从这个分布里抽一个样**，
+而一次抽样要五分钟。于是有了 `npm run probe:spread`：把**一种**声音连发十六次，
+一分钟出结果，并且把"这十六次里，连续五次的跨度每一种取法各是多少"全列出来。
+它不进任何验收链，它是**在两台机器上结论不同的时候，唯一能问的那个问题**。
+
+量完之后，六种反应**全部**落在 2–3dB：
+
+| | 屏息 | 低语 | 平局 | 哄笑 | 小赢 | 头奖 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 改之前，十六连发里最坏的一组五次 | 2.4 | 3.0 | 2.5 | 2.1 | 2.0 | 2.1 |
+| 改之后 | **1.4** | **1.7** | **0.9** | | | |
+
+> **这条检查不是碰巧卡得紧，它卡的是这一桌本来就只勉强满足的一个门槛。**
+
+而它**为什么是现在挂**：把反应收一档之后，这个文件里每一条排序剩下的余量
+从十几 dB 变成几 dB，**于是本来一直存在、一直看不见的抖动，变成了决定一次
+跑是绿还是红的那个量。** 收一档没有让它变坏，是让它露出来。
+
+两个嫌疑人被测量排除掉了，而**排除它们和找到真凶一样值钱**：
+
+- **不是脚本。** 测量循环是在 `requestAnimationFrame` 上采样 analyser 的，
+  而帧率正是一台满载的 CI runner 唯一会饿死的时钟，所以它是第一嫌疑。
+  换成 `setTimeout` 之后，同一个窗口里从采 157 次变成采 **627 次，
+  跨度一点没变**——60fps 下读一次 2048 个样本覆盖的时间本来就比到下一帧的间隔长，
+  **从来就没有一个能漏掉峰值的洞。**
+- **不是房间漏进来。** 吧台变忙确实让更多玻璃器皿落在测量窗口里，
+  但那被房间自己的峰值封住，算下来约 1dB。
+
+真凶在 `react()` 里：**每条嗓子一个随机增益，而它的范围是 0.6–1.5——
+两倍半，8dB。** 一屋子人当然不是一样响，但**峰值保持读到的是这一抽里最响的
+那一条**，所以几条嗓子的和的峰值，是一次**只有几张彩票的抽奖**。
+
+两个旋钮，一个对一个原因：
+
+- **每条嗓子 0.8–1.25**，仍然是一屋子没人跟人一样响的人，跨度砍掉一半。
+  **它的均值保持在 1.05 不动**，而这不是细节：第一版把它居中到 1.0，
+  结果每一种反应都轻了半个 dB——**一次为了修测量而做的改动，
+  会顺手把整个房间又关小一档。**
+- **屏息从十条嗓子加到十八条**，理由和低语当年一样：它是这张表里**最短的声音**
+  （0.58s，其中六分之一还是起音），所以它是最没有时间把自己的嗓子平均掉的那一个。
+  它原来是整个文件里最宽的一行，现在是最稳的一行，**而中位数只动了 0.2dB**
+  ——这就是"人多是声音更厚，不是更响"的意思。
 
 > 绑定是两头都钉的：`src/game/engine.test.ts` 穷举 `reactionTo()` 选得对不对，
 > `verify-audio.mjs` 量**传到扬声器的那个声音**是不是字幕点名的那一个。
@@ -1072,6 +1122,9 @@ npm run shots:mobile    # 竖屏：走一整局并逐屏体检
 npm run demo            # 录一段实时走查（无声，见下）
 npm run demo:sound      # 同一段走查，带声音
 npm run odds            # 重算上面那两张表
+
+npm run probe:spread <cue>   # 不是检查：把一种声音连发十六次，看 verify:audio
+                             # 只抽到一个样的那个分布长什么样
 ```
 
 `tsc` 在 `verify` 链里，因为 **oxlint 不做类型检查、vitest 也不做**——
