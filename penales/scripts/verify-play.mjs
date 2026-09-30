@@ -16,6 +16,7 @@
  * against a server whose log says it is ready.
  */
 
+import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
 
 const URL = process.env.URL ?? 'http://127.0.0.1:5190/'
@@ -152,7 +153,11 @@ console.log('')
 check(failures.length === 0, `the console stayed quiet (${failures.length} problems)`)
 for (const f of failures.slice(0, 5)) console.log(`        ${f}`)
 
-await page.screenshot({ path: 'docs/play.png' })
+/* Into .shots/, which is ignored. docs/ is owned by scripts/shots.mjs, and a check
+ * that rewrites a committed picture every time it runs turns every unrelated run
+ * into a diff. */
+await mkdir('.shots', { recursive: true })
+await page.screenshot({ path: '.shots/play.png' })
 await browser.close()
 
 if (problems.length > 0) {
