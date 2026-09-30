@@ -46,6 +46,30 @@ interface VoiceOpts {
   breath: number
   /** Hz, or 0. A laugh is a voice with a tremor on it. */
   tremor: number
+  /**
+   * Multiplier on the third formant, default 1. How bright the sound is, and
+   * the one thing about a vowel that is not the vowel.
+   *
+   * F3 is chest against throat: a sharp intake of breath has a lot up there
+   * and a groan out of the bottom of somebody has almost none, and that
+   * difference is audible before you can say which vowel either of them is.
+   * It became a knob because the room got darker. The conversation is now
+   * low-passed at 700-1500Hz to stop it being heard as words, and the
+   * measured difference in colour between a gasp and a groan - which had
+   * been leaning on the room's own brightness to make up most of it -
+   * collapsed from 1.5x to 1.09x. Neither sound had changed. The contrast
+   * had been coming from the wrong place, and now it comes from the throat.
+   *
+   * The values are further apart than they look like they need to be, and
+   * that is measured rather than cautious. A reaction is heard over a room
+   * that is still going, so what gets measured at the destination is the
+   * reaction plus whatever of the room is left under it - and above 1.2kHz
+   * the leftovers are almost all of it. Taking the groan's F3 from 1 to 0.55
+   * moved its reading from 0.22 to 0.20: nine tenths of that number was the
+   * glassware behind it. Small changes here buy nothing, which is also why
+   * turning the reactions down 5dB cost the check its margin.
+   */
+  top?: number
   send: number
 }
 
@@ -103,7 +127,7 @@ function voice(o: VoiceOpts, into?: AudioNode, wetTo?: AudioNode): void {
     band.frequency.value = f * (0.94 + Math.random() * 0.12)
     band.Q.value = 7 - i * 1.6
     const lvl = c.createGain()
-    lvl.gain.value = [1, 0.55, 0.22][i]
+    lvl.gain.value = [1, 0.55, 0.22 * (o.top ?? 1)][i]
     src.connect(band)
     air.connect(airGain).connect(band)
     band.connect(lvl).connect(env)
@@ -143,6 +167,28 @@ function claps(at: number, count: number, seconds: number, gain: number): void {
  * What each reaction is, as numbers. Every row is the same instrument - the
  * differences between a groan and a cheer are the pitch, which way it slides,
  * how fast it arrives, and how wide the mouth is.
+ *
+ * These have now been turned down once, and the reason is worth keeping: the
+ * first pass was tuned against a table that could not be heard reacting at
+ * all, so every row was pushed until it cleared the room by 10dB, and the
+ * result was a building that came apart on EVERY pull. Played for an hour,
+ * a flat loss - which is most pulls - was a howl 20dB over the room with the
+ * bar going silent for a second and a half behind it, and a five-coin win was
+ * a standing ovation.
+ *
+ * The repair is a ladder rather than a level. A jackpot is still allowed to be
+ * the loudest thing in the building; the routine outcomes now sit UNDER the
+ * machine's own bell and coin fall, which is the honest ordering - most pulls
+ * are a thing the machine did, and the room barely looks up. Three dials, not
+ * one:
+ *
+ *   - gain, down 5 to 6dB on everything except the roar;
+ *   - seconds, because a long tail is most of what "over the top" is;
+ *   - bed, the depth the room's own muttering ducks to. This is the one that
+ *     was doing the real damage. At 0.85 a routine loss stopped twenty
+ *     conversations dead, and a room that holds its breath is how you say
+ *     "something happened". It should not be saying that four times a minute.
+ *     The gasp keeps its deep duck, because a near miss IS the room stopping.
  */
 const SHAPE: Record<Reaction, {
   voices: number
@@ -154,6 +200,8 @@ const SHAPE: Record<Reaction, {
   gain: number
   breath: number
   tremor: number
+  /** See VoiceOpts.top. Chest against throat, and 1 is neutral. */
+  top: number
   spread: number
   clap: [number, number]
   /** How far the piano comes down under it, 0 to 1. */
@@ -161,26 +209,42 @@ const SHAPE: Record<Reaction, {
   /** How far the room's own muttering comes down under it, 0 to 1. */
   bed: number
 }> = {
-  /* Everything at once, up, and held. Hats in the air, and the loudest thing
-   * on the table - louder than the bell, which is the point of it. */
-  roar: { voices: 14, f0: [190, 320], glide: 1.22, vowel: 'a', attack: 0.05, seconds: 2.5, gain: 0.05, breath: 0.2, tremor: 0, spread: 0.09, clap: [26, 2.1], duck: 0.3, bed: 0.7 },
-  /* A win, but not the one they came to see. */
-  cheer: { voices: 9, f0: [175, 285], glide: 1.14, vowel: 'a', attack: 0.07, seconds: 1.5, gain: 0.04, breath: 0.22, tremor: 0, spread: 0.13, clap: [11, 1.2], duck: 0.2, bed: 0.7 },
+  /* Everything at once, up, and held. Hats in the air, and the only row here
+   * allowed to be louder than the bell - which is the point of it, and the
+   * reason it is the one row that did not come down. It fires at twenty coins
+   * or more; a player can go a long time without hearing it.
+   *
+   * It went slightly UP, from 0.05, while everything around it came down 4dB,
+   * and that is the same decision rather than the opposite one. The jackpot
+   * has to beat the bell it is cheering - that was the original defect here,
+   * and measured it only cleared it by half a dB, which is inside the margin
+   * this reading moves between two machines. What a player hears is still the
+   * change that was asked for: a jackpot used to be 2dB above an ordinary
+   * losing pull and is now 9. */
+  roar: { voices: 12, f0: [190, 320], glide: 1.22, vowel: 'a', attack: 0.05, seconds: 2.2, gain: 0.065, breath: 0.2, tremor: 0, top: 1, spread: 0.09, clap: [18, 1.9], duck: 0.3, bed: 0.7 },
+  /* A win, but not the one they came to see - so somebody slaps the bar and
+   * that is the end of it. It was nine throats and eleven pairs of hands for
+   * five coins, which is an ovation for getting your stake back. */
+  cheer: { voices: 8, f0: [175, 285], glide: 1.14, vowel: 'a', attack: 0.07, seconds: 1.1, gain: 0.0207, breath: 0.22, tremor: 0, top: 1, spread: 0.13, clap: [6, 1.1], duck: 0.14, bed: 0.45 },
   /* The sound of a room taking one breath in together, on the third reel.
    * Breath is nearly all of it, and noise through a formant is far louder than
    * a sawtooth through the same one, so this gets the smallest gain and the
    * deepest bed duck: a gasp is not a loud sound, it is twenty conversations
    * stopping at once, and it only reads as one if they actually stop. */
-  gasp: { voices: 11, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.62, gain: 0.029, breath: 0.85, tremor: 0, spread: 0.05, clap: [0, 0], duck: 0.42, bed: 0.92 },
+  gasp: { voices: 10, f0: [200, 330], glide: 1.35, vowel: 'a', attack: 0.16, seconds: 0.58, gain: 0.0168, breath: 0.85, tremor: 0, top: 3.2, spread: 0.05, clap: [0, 0], duck: 0.32, bed: 0.85 },
   /* Down, slow, and it takes a while to stop. Sits in the same octaves as the
    * bed, so it needs the room out of the way more than it needs volume.
    *
-   * It was 0.036, which put it 5dB under the roar - inside the 6dB the brief
-   * asks for, but only just, and CI duly failed at 6.6dB on a night the roar
-   * came out loud. Widening a threshold would have been the wrong repair: the
-   * requirement is that a loss is answered as loudly as a win, and 5dB down IS
-   * quieter. At 0.045 the gap is about 3dB. */
-  sigh: { voices: 10, f0: [120, 185], glide: 0.72, vowel: 'o', attack: 0.3, seconds: 1.7, gain: 0.045, breath: 0.4, tremor: 0, spread: 0.22, clap: [0, 0], duck: 0.12, bed: 0.85 },
+   * The most-heard row on the table, because a flat loss is the commonest
+   * thing that happens, and therefore the row that most needed turning down.
+   * It went 0.036 -> 0.045 chasing "a loss is answered as loudly as a win",
+   * which got a groan to within 3dB of a jackpot - and a groan within 3dB of
+   * a jackpot, four times a minute, with a 1.7s fall and the bar silenced
+   * behind it, is a funeral. 0.025 with a shorter tail and a much shallower
+   * duck is a room noticing. The brief it was chasing is still met, and now
+   * from both sides: a loss is answered well clear of the room, and it does
+   * not pretend to be the jackpot. */
+  sigh: { voices: 9, f0: [120, 185], glide: 0.79, vowel: 'o', attack: 0.26, seconds: 1.3, gain: 0.025, breath: 0.4, tremor: 0, top: 0.35, spread: 0.22, clap: [0, 0], duck: 0.1, bed: 0.55 },
   /* Barely a reaction at all, and the one row here that is meant to stay close
    * to the room.
    *
@@ -192,9 +256,11 @@ const SHAPE: Record<Reaction, {
    * a random gain on it - 6.7dB of spread between firings, enough that a
    * murmur could land louder than the jeer it is supposed to sit under. Twelve
    * of them arriving inside 160ms average each other out instead. */
-  murmur: { voices: 12, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.1, gain: 0.019, breath: 0.45, tremor: 0, spread: 0.16, clap: [0, 0], duck: 0.06, bed: 0.25 },
-  /* Laughter is the cruellest one in here, so it gets the tremor. */
-  jeer: { voices: 8, f0: [155, 250], glide: 0.88, vowel: 'a', attack: 0.05, seconds: 1.45, gain: 0.034, breath: 0.25, tremor: 7.2, spread: 0.16, clap: [4, 1.1], duck: 0.26, bed: 0.75 },
+  murmur: { voices: 12, f0: [115, 180], glide: 0.93, vowel: 'u', attack: 0.22, seconds: 1.0, gain: 0.0115, breath: 0.45, tremor: 0, top: 0.7, spread: 0.16, clap: [0, 0], duck: 0.05, bed: 0.18 },
+  /* Laughter is the cruellest one in here, so it gets the tremor - and being
+   * laughed at does not need to be loud to land, which is why this row came
+   * down furthest. Four men at the next table, not the whole bar. */
+  jeer: { voices: 7, f0: [155, 250], glide: 0.88, vowel: 'a', attack: 0.05, seconds: 1.15, gain: 0.0176, breath: 0.25, tremor: 7.2, top: 1, spread: 0.16, clap: [3, 1.0], duck: 0.18, bed: 0.5 },
 }
 
 /**
@@ -241,6 +307,7 @@ export function react(kind: Reaction, density = 0.6): void {
       gain: (s.gain / Math.sqrt(n)) * (0.6 + Math.random() * 0.9) * THROAT,
       breath: s.breath,
       tremor: s.tremor ? s.tremor * (0.9 + Math.random() * 0.25) : 0,
+      top: s.top,
       send: 0.45,
     })
   }
