@@ -585,12 +585,16 @@ function intermediate(frames, tag, fps) {
 }
 
 /*
- * Dissolve length per join. The third join is a CUT, not a dissolve: shot four
- * is a macro of a reel band on a workbench at a completely different scale, and
- * cross-fading that into a wide of the machine makes the cast iron appear to
- * dissolve into a strip of paper. Cutting to a detail is better grammar anyway.
+ * Dissolve length per join, and only the first one is a dissolve.
+ *
+ * Joins two and three bracket the macro of the reel band, which is a completely
+ * different scale from the two wides around it. Cross-fading a wide into a
+ * macro makes the room appear to dissolve into a strip of paper, and coming
+ * back out of it the strip of paper appears to become cast iron. Cutting to a
+ * detail and cutting back out of it is better grammar and it is also the only
+ * way the band reads as a separate place rather than as a transition effect.
  */
-const DISSOLVE = [0.5, 0.5, 0]
+const DISSOLVE = [0.5, 0, 0]
 
 /**
  * Frames for one opening shot: the generated take if there is one, and a
@@ -637,21 +641,40 @@ function shotFrames(tag, source, seconds, fallback) {
 }
 
 /*
- * Four shots, about eleven seconds. Shot four is the one the opening exists
- * for: a reel band lying on a bench with a bell cut out of it. With the last
- * caption it teaches the player that the odds live on the bands and not on the
- * payout card, which is the entire game, without a tutorial saying so.
+ * Four shots, about eleven seconds, and all four are inside the saloon.
+ *
+ * There used to be a fifth place: the opening began outside on a dark frontier
+ * street with warm light coming out of a doorway, and pushed in toward it. It
+ * was the prettiest shot in the project and it was the wrong one, for a reason
+ * worth keeping written down. Everything this table is about happens in one
+ * room among a crowd of people - the noise, the reactions, the fact that the
+ * room knows something before you do - and an establishing shot spends the
+ * player's first three seconds on a building. A door you have not gone through
+ * yet cannot be noisy. So the opening now starts already inside, in the loud
+ * part of the evening, and the first thing the player is given is the crowd.
+ *
+ * The order is the argument the opening is making: here is a room full of
+ * people, here is the one thing in it they have all stopped to watch, here is
+ * the part of that thing you are not allowed to see, and here it is in front
+ * of you with your hand on the arm. It ends on the machine because the screen
+ * after it asks which machine you want, and because the last shot of an
+ * opening is the one the player is still looking at when they get control.
+ *
+ * Shot three is the one the opening exists for: a reel band lying on a bench
+ * with a bell cut out of it. With its caption it teaches the player that the
+ * odds live on the bands and not on the payout card, which is the entire
+ * game, without a tutorial saying so.
  */
 function buildOpening() {
   const shots = [
-    // Warm light out of a doorway, and a slow push toward it.
-    { tag: 'street', frames: shotFrames('street', 'intro_street', 2.8, { from: 1.0, to: 1.13, panX: 0.02 }) },
-    // Down the room, past the empty faro layout, to the one lit thing in it.
+    // Inside, already. Down the bar, through the crowd, in the loud hour.
+    { tag: 'bar', frames: shotFrames('bar', 'intro_bar', 3.0, { from: 1.0, to: 1.11, panX: 0.02 }) },
+    // Down the room, past the card tables, to the one knot of people not talking.
     { tag: 'room', frames: shotFrames('room', 'intro_room', 3.0, { from: 1.14, to: 1.02, panY: -0.01 }) },
-    // The machine, and your hand already on the arm.
-    { tag: 'machine', frames: shotFrames('machine', 'machine_rest', 2.4, { from: 1.1, to: 1.0 }) },
     // And the thing you are not allowed to see, on a bench in the back room.
     { tag: 'band', frames: shotFrames('band', 'intro_band', 3.0, { from: 1.0, to: 1.12, panX: -0.03 }) },
+    // The machine, and your hand already on the arm.
+    { tag: 'machine', frames: shotFrames('machine', 'machine_rest', 2.4, { from: 1.1, to: 1.0 }) },
   ]
 
   const segs = shots.map((s) => intermediate(s.frames, s.tag, INTRO_FPS))

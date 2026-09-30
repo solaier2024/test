@@ -103,7 +103,7 @@ for (const name of PLATES) {
 
 /* The opening shots are their own cameras, so there is nothing to register them
  * against - they are copied through at the working size and nothing else. */
-for (const name of ['intro_street', 'intro_room', 'intro_band']) {
+for (const name of ['intro_bar', 'intro_room', 'intro_band']) {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', src(name),
     '-vf', `scale=${W}:${H}`, '-pix_fmt', 'rgb24', join(OUT, `${name}.png`)], { stdio: 'inherit' })
 }

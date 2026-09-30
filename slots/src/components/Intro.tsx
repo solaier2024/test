@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { clipKind, clipPoster, clipUrl } from '../art'
+import { CUES, TITLE_AT } from '../opening'
 import { unlock } from '../audio/engine'
 import { startMusic } from '../audio/music'
 import { useSoundState } from '../audio/useSound'
@@ -9,23 +10,19 @@ import type { Lang, STRINGS } from '../i18n/strings'
 type Strings = (typeof STRINGS)['en']
 
 /*
- * Four shots, about eleven seconds. The last one is a macro of a reel band on a
- * workbench with a bell cut out of it and lying beside the glue pot, and it is
- * the reason the opening exists: it puts the player's attention on the bands
- * rather than on the payout card without a tutorial ever saying so, which is
- * the whole game.
+ * Four shots, about eleven seconds, all of them inside the saloon: the crowd
+ * along the bar, the room down to the one knot of people not talking, a macro
+ * of a reel band with a bell cut out of it, and the machine with a hand on the
+ * arm. Shot three is the reason the opening exists - it puts the player's
+ * attention on the bands rather than on the payout card without a tutorial
+ * ever saying so, which is the whole game - and shot four is the handover,
+ * because the screen after this one asks which machine you want.
  *
  * Captions are placed by fraction of the clip rather than in seconds, so
- * recutting the opening cannot push a line onto the wrong shot.
+ * recutting the opening cannot push a line onto the wrong shot. That is a
+ * claim about arithmetic, and scripts/verify-opening.mjs measures it against
+ * the encoded file rather than taking it on trust.
  */
-const CUES: [number, number][] = [
-  [0.02, 0.2],
-  [0.24, 0.42],
-  [0.46, 0.63],
-  [0.67, 0.86],
-]
-const TITLE_AT = 0.88
-
 interface IntroProps {
   t: Strings
   lang: Lang

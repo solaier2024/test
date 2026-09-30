@@ -14,10 +14,13 @@ const en = {
   begin: 'STEP UP',
   skip: 'SKIP',
 
-  openingA: 'By ninety-nine the faro layouts sat empty half the night.',
-  openingB: 'Everyone was down the end of the bar, watching a machine.',
-  openingC: 'You cannot read a machine the way you read a man.',
-  openingD: 'But the odds are not printed on the front. They are pasted on the bands.',
+  /* One line per shot of the opening, in shot order: the bar, the room, the
+   * doctored band on the bench, the machine. Together they are the whole game
+   * in four sentences, and the last one is the player's actual job. */
+  openingA: 'By ninety-nine a saloon this loud still filled up every night.',
+  openingB: 'And the quietest men in it were down the end, watching a machine.',
+  openingC: 'The odds were never printed on the front. They were pasted on the bands.',
+  openingD: 'So you cannot read it the way you read a man. You count.',
 
   pick: 'THREE MACHINES, ONE CARD',
   pickNote: 'The payout card is identical on all three. That is not a courtesy.',
@@ -102,10 +105,10 @@ const es: Strings = {
   begin: 'ARRÍMESE',
   skip: 'SALTAR',
 
-  openingA: 'Para el noventa y nueve las mesas de faro se quedaban vacías media noche.',
-  openingB: 'Todos al fondo de la barra, mirando una máquina.',
-  openingC: 'A una máquina no se le lee la cara como a un hombre.',
-  openingD: 'Pero la ventaja no está pintada al frente. Está pegada en las cintas.',
+  openingA: 'Para el noventa y nueve una cantina así de ruidosa se llenaba todas las noches.',
+  openingB: 'Y los más callados estaban al fondo, mirando una máquina.',
+  openingC: 'La ventaja nunca estuvo pintada al frente. Estaba pegada en las cintas.',
+  openingD: 'A ella no se le lee la cara como a un hombre. Se le cuenta.',
 
   pick: 'TRES MÁQUINAS, UNA SOLA TABLA',
   pickNote: 'La tabla de pagos es idéntica en las tres. Eso no es cortesía.',

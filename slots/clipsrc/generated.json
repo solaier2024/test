@@ -109,35 +109,63 @@
       "prompt": "Locked-off tripod camera. Absolutely static framing: no pan, no tilt, no zoom, no dolly, no handheld drift. 1899 saloon at night, the quiet moment between pulls. Nothing dramatic happens and nothing is ever completely still. The hanging oil lamp at far left gutters: its flame leans, dips low enough to brown the light across the whole bar, then climbs back, so the warm pool of light on the mahogany slowly breathes darker and brighter. Smoke drifts through the beam. The men standing in the dark behind the bar shift their weight, one turns his head slowly, another lifts a glass, a shoulder moves; they stay in shadow and nobody reacts to anything. The player's right hand rests on the nickel lever ball, the forearm rising and falling very slightly with his breathing. THE MACHINE DOES NOT MOVE: the heavy cast-iron three-reel slot machine, its scrollwork, its brass payout plate and its coin cup are perfectly still, not one pixel of drift or rotation. The dark rectangular reel window in its face stays absolutely black, empty and perfectly still - nothing appears inside it. The shot ends exactly as it began. Warm amber lamplight, deep shadow, 35mm film grain."
     },
 
-    "intro_street": {
+    "intro_bar": {
       "_": [
         "The four shots below are the opening, and they are the one place in this",
         "project where the camera is allowed to move. Everything at the table is",
         "locked off because the DOM has to stay registered to the picture; the",
         "opening has nothing laid over it, so it can be a camera instead of a",
-        "plate. That is also why these four are the only clips with no `to`: a",
-        "shot that is going somewhere cannot be asked to end where it started.",
+        "plate. That is also why three of the four have no `to`: a shot that is",
+        "going somewhere cannot be asked to end where it started.",
         "",
         "They exist to replace pushIn(), a Ken Burns crop that stood in for a",
         "dolly. A crop of a still cannot produce parallax, so the fake move read",
         "as a zoom on a photograph, and it was also the thing blowing the first",
         "screen budget: the synthetic motion had no real structure to predict",
-        "from, so intro.sm.webm encoded at 726 KB against a 400 KB ceiling."
+        "from, so intro.sm.webm encoded at 726 KB against a 400 KB ceiling.",
+        "",
+        "THIS SHOT REPLACED AN EXTERIOR. The opening used to begin outside, on a",
+        "dark frontier street, pushing in toward the light coming out of a",
+        "doorway (historyId Qprx2IsSmHoAcEFonBux, plate clipsrc/intro_street.jpg,",
+        "both now deleted). It was the best-looking shot in the project and it",
+        "was the wrong first shot: this table is about a room full of people and",
+        "what they do when you win or lose, and a building cannot be noisy. The",
+        "opening now starts already inside, in the loud part of the evening.",
+        "",
+        "The plate this is conditioned on was made on OpenArt too - Nano Banana",
+        "Pro image2image, historyId hjvLMICNi3idzcX0FOGi, conditioned on the new",
+        "room plate below and on machine_rest so the light matches the table.",
+        "Three candidates came back and the choice was measured, not eyeballed:",
+        "mean R-B of +13.2 against the approved machine plate's +13.9, where the",
+        "two rejects sat at +18.4 and +31.0. See slots/README.md."
       ],
-      "from": "intro_street",
+      "from": "intro_bar",
       "duration": 3,
       "resolution": "pro",
-      "historyId": "Qprx2IsSmHoAcEFonBux",
-      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/8af1fc4688c2302f933526a5cd9c96dc-143d743f-62c5-4c82-9b89-f3ace325c73f_1790671223337_9dcefcf6.mp4",
-      "prompt": "A slow, steady dolly push straight in toward a lit saloon doorway on a dark frontier street, 1899. The camera advances at a walking pace, as if this is the shot from the eyes of someone who has decided to go in. Warm yellow lamplight spills out of the doorway across the mud and boardwalk and gets wider and brighter as we close. Dust and fine rain drift through the light. The gas lamp above the door swings slightly. Silhouettes move behind the glass. Deep blue-black night everywhere else, hard falloff, anamorphic 35mm film grain, shallow depth of field. No cuts. No people walking into frame. No text or signage changes."
+      "historyId": "HqbUKDbnEpdPwxSuBq2i",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/e04b50ed1a88d959c9af9f6981e33098-0d7290ad-2930-4a3e-8427-50a356358981_1790734254201_5d49723a.mp4",
+      "prompt": "A slow, steady dolly drifting forward and slightly to the right along the length of the bar in a crowded 1899 saloon at night. The camera moves at an unhurried walking pace, as if it has just come through the door into the noise of the room. No handheld shake, no cuts.\n\nThe room is alive and everyone in it is doing something. The men along the brass rail talk to each other with real movement - heads turning, mouths working, hands gesturing, shoulders shifting as they lean in to be heard. Two of them raise glasses and touch them together. The bartender in the white apron tips the bottle and pours into the row of shot glasses on the bar top. The man at the piano works his hands along the keys. The man beside him laughs, head back. Somebody drains a beer and sets it down on the wood. Cigar smoke rolls slowly through the beams of the hanging oil lamps, and the lamp flames gutter and steady.\n\nKeep the exposure and grade exactly as the first frame: warm amber pools falling off hard into near-black, thick smoke, heavy 35mm film grain, shallow depth of field. Nobody walks into or out of frame and nobody looks at the camera. No text or lettering appears. No cuts."
     },
     "intro_room": {
+      "_": [
+        "Re-shot from a new plate. The first version of this shot travelled down",
+        "an EMPTY hall - 'past abandoned card tables and an empty faro layout' -",
+        "which was the deliberate opposite of what the table wanted: the room is",
+        "the thing the player is playing against, and it spent the opening dead.",
+        "The plate is now a full room (Nano Banana Pro image2image, historyId",
+        "2qDLqz5Tj2dBCxhL81Cs, conditioned on the old room plate so the camera",
+        "position and the lamp at the far end survived the rewrite), and the",
+        "shot keeps the one thing that was right about the old one: the machine",
+        "at the dead end is still the brightest thing in frame.",
+        "",
+        "Previous take: historyId cVHSNvxBUzaDAD5RsPuY."
+      ],
       "from": "intro_room",
       "duration": 3,
       "resolution": "pro",
-      "historyId": "cVHSNvxBUzaDAD5RsPuY",
-      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/fbcdb65ecfd0f92b5bccc8971171b9f2-5e719d75-93e6-4041-9b73-d05f9105e65e_1790671232450_4a60f143.mp4",
-      "prompt": "A slow dolly travelling forward down the length of a dim 1899 gambling hall interior at night, past abandoned card tables and an empty faro layout, toward the far end of the room. Steady, unhurried, no handheld shake. Oil lamps hang overhead and gutter as we pass under them; smoke hangs in the beams; a few men sit in shadow at the edges and do not look up. Dust turns in the light. The end of the room stays dark and the eye is drawn to the one thing still lit down there. Deep shadow, warm amber pools of light, 35mm film grain, shallow depth of field. No cuts. No camera shake."
+      "historyId": "F2DEWUgeESSVGIpSXjeZ",
+      "url": "https://cdn.openart.ai/openart-ai/production/2026-09/create-video/3QEdRbk0CmNIrjGTIDam/24bce181d636ef2676eb76364ab7b43d-7432cba0-f7b7-400d-bbd9-6360edcc0817_1790734269351_73ab8c80.mp4",
+      "prompt": "A slow dolly travelling forward down the length of a busy 1899 saloon gambling hall at night, past the occupied card tables, toward the far end of the room. Steady and unhurried, no handheld shake, no cuts. The camera passes under the hanging oil lamps and they gutter as it goes by.\n\nThe near half of the room is working: the dealer's hands move over the green baize and he slides a card out; a seated player leans back in his chair and turns his head to say something; a man at the bar on the right lifts his glass and drinks; the bartender tips a bottle and pours; men standing in groups shift their weight and talk, heads turning to each other. Cigar smoke rolls through every lamp beam.\n\nBut the crowd at the dead end of the room, packed around the lit cast-iron slot machine, stays almost completely still - they are watching it, and only a shoulder or a hat moves. The contrast is the point of the shot: a noisy room with one silent knot of people in it. The machine at the far end stays the brightest thing in frame and the eye is drawn down the room to it.\n\nKeep the exposure and grade exactly as the first frame: warm amber pools falling off hard into near-black, heavy 35mm film grain, shallow depth of field. Nobody walks into or out of frame and nobody looks at the camera. No text or lettering. No cuts."
     },
     "intro_band": {
       "from": "intro_band",
@@ -149,13 +177,18 @@
     },
     "intro_machine": {
       "_": [
-        "Shot three of four, and the only one of the four with a `to`. It is not",
-        "conditioned at both ends in order to join up with a cut - the opening",
-        "hands over to the machine picker, and the shot after this one is the",
-        "macro of the doctored band. It is conditioned at both ends so that the",
+        "The LAST shot of the four, and the only one of the four with a `to`.",
+        "It is not conditioned at both ends in order to join up with a cut -",
+        "nothing follows it, the opening fades out of this shot and hands over",
+        "to the machine picker. It is conditioned at both ends so that the",
         "machine in the opening is the SAME machine the player sits down at: a",
         "push that is not pinned at its end arrives on some other casting, and",
-        "the plate this is pinned to is the one the table opens on."
+        "the plate this is pinned to is the one the table opens on.",
+        "",
+        "It used to be shot three, with the macro of the band after it. The",
+        "order was swapped when the exterior came out: the screen after this",
+        "one asks which machine you want, so the last thing the player looks at",
+        "before they get control should be a machine."
       ],
       "from": "machine_rest",
       "to": "machine_rest",
