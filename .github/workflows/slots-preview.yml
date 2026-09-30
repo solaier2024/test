@@ -79,6 +79,12 @@ jobs:
       # family as the budget above: it reads the committed delivery artefacts,
       # and it runs in a second and a half. It caught two captions sitting on
       # the wrong side of a cut the first time it was ever run.
+      #
+      # It decodes that film, so it needs ffmpeg, and the runner image stopped
+      # shipping one. Installing it is the right way round: a check that skips
+      # itself when its tool is absent is a check that reports success on a
+      # machine which cannot run it.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm run verify:opening
         working-directory: slots
 
