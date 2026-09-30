@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { clipKind, clipPoster, clipUrl } from '../art'
 import { CUES, TITLE_AT } from '../opening'
 import { unlock } from '../audio/engine'
+import { setRoomDensity, startRoom } from '../audio/crowd'
 import { startMusic } from '../audio/music'
 import { useSoundState } from '../audio/useSound'
 import { LangToggle, SoundToggle } from './SoundToggle'
@@ -60,9 +61,30 @@ export function Intro({ t, lang, onLang, small, reduced, onDone }: IntroProps) {
     return () => window.removeEventListener('keydown', keys)
   }, [done])
 
+  /*
+   * The film is silent - every clip in this project is, so that nothing baked
+   * into a video can fail to duck under a reel - which means the opening's
+   * soundtrack is the saloon itself, running live underneath it.
+   *
+   * It was not. This effect started the band and nothing else, and the band
+   * used to wait six to sixteen seconds before its first number, which is
+   * longer than the film. So the opening played in silence: a shot of a room
+   * three deep at the bar with a man at the piano in the corner, and no
+   * sound. Both halves are fixed - the room starts here, and the band opens
+   * on a number - and verify-audio measures the output during the film rather
+   * than trusting this comment.
+   *
+   * startRoom() and startMusic() are both idempotent, so sitting down at a
+   * machine later does not start a second saloon; it inherits this one, which
+   * is also why the room does not restart between the film and the table.
+   */
   useEffect(() => {
     if (!unlocked || scored.current) return
     scored.current = true
+    startRoom()
+    /* The loud hour, which is what the first shot is of. The table takes
+     * this over from the player's heat once it appears. */
+    setRoomDensity(0.72)
     startMusic()
   }, [unlocked])
 
