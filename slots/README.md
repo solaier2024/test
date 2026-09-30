@@ -1150,18 +1150,24 @@ ffmpeg 把 x11grab 和那个 monitor 合成一个文件。三样都由脚本启�
 
 ```
 recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:02.87
-  the room sits at -46.1 dBFS
-   23.5s  -35.4 dBFS      差一格，房间的气被抽走
-   32.0s  -23.8 dBFS      中了，全片最响的一下
-   37.5s  -38.3 dBFS
-   41.0s  -34.0 dBFS
-   50.5s  -35.3 dBFS
-   54.8s  -34.5 dBFS      对一次太早的叫破的判决
-   55.3s  -61.8 dBFS  <-  叫破的一瞬间房间死寂
+  the room sits at -46.3 dBFS
+  the opening film carries it at -45.4 dBFS over its first 10s
+   23.0s  -36.2 dBFS      差一格，房间的气被抽走
+   32.0s  -24.7 dBFS      中了，全片最响的一下
+   41.0s  -33.5 dBFS
+   50.5s  -35.4 dBFS
+   54.8s  -35.7 dBFS      对一次太早的叫破的判决
+   55.5s  -68.0 dBFS  <-  叫破的一瞬间房间死寂
   the picture changes 26.0 times a second, over 1886 frames
 
-OK: 6 reactions and a hush, on a file that moves
+OK: a film with the room under it, 5 reactions and a hush, on a file that moves
 ```
+
+第二行是这一版加的，**而它是"片头有声"这件事在交付物上的证据**：片子那十秒
+量到 -45.4，房间中位数 -46.3，**两个数差 0.9dB**——片头底下跑的就是同一间屋子。
+片头无声的那一版，这一行会读到 -180。这一条**故意放在这里而不是只放在浏览器里**：
+这个脚本存在的全部理由就是"浏览器里是对的"不能当成"文件里是对的"的证据，
+而它的第一版录出来的正是一部漂亮的、完全无声的片子。
 
 **这一版的这张表本身就是"收一档"的证据**，而且它是从成品 mp4 的声轨上读出来的，
 不是从混音器里读出来的：头奖那一下 -23.8，比房间高 22dB；其余五次全部落在

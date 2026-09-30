@@ -313,9 +313,10 @@ await rm(SCRATCH, { force: true })
 
 /*
  * Not "is there audio", which a rig can pass while recording a room tone and
- * nothing else. The take is supposed to contain four pulls that the crowd
- * answers and one accusation that shuts the room up, so the check is that the
- * file has four loud moments in it and one silent one.
+ * nothing else. The take opens on a film that has to be in this saloon, then
+ * plays four pulls that the crowd answers, then one accusation that shuts the
+ * room up - so the check is that the file has a room under its opening, four
+ * loud moments in it, and one silent one.
  *
  * This is deliberately measured on the DELIVERABLE rather than in the browser.
  * verify-audio.mjs already proves the game makes the right noise at the right
@@ -343,6 +344,28 @@ for (let i = 0; i + WINDOW <= pcm.length / 2; i += WINDOW) {
 
 /* The room, taken as the median so four reactions and a hush cannot move it. */
 const room = [...level].sort((a, b) => a.db - b.db)[Math.floor(level.length / 2)].db
+
+/*
+ * And the opening film, which is the first eleven and a half seconds of the
+ * take and which shipped SILENT.
+ *
+ * Every clip in this project is silent by design, so the film's soundtrack is
+ * the live saloon underneath it - and it was not running: the intro started
+ * the band and nothing else, and the band deferred its first number by longer
+ * than the whole film. verify-audio.mjs measures that in the browser now, but
+ * this is the delivered artifact, and the whole reason this script exists is
+ * that the browser being right is not evidence about the file. The first cut
+ * of it produced a beautiful, completely silent film.
+ *
+ * Energy-averaged rather than a median, because the claim is about how much
+ * sound is in the window and not about what a typical half-second of it looks
+ * like. Held against the room tone rather than an absolute floor: the film is
+ * four shots of the inside of this bar, so walking from it to the table
+ * should not sound like walking into another building.
+ */
+const FILM = 10
+const power = (xs) => 10 * Math.log10(xs.reduce((a, d) => a + 10 ** (d / 10), 0) / xs.length)
+const film = power(level.filter((l) => l.at < FILM).map((l) => l.db))
 
 /* One event, not one window: a reaction is about two seconds long and would
  * otherwise be counted eight times. */
@@ -409,11 +432,13 @@ const moving = (frames - 1 - stale) / seconds
 
 console.log(`recorded ${OUT}  ${grab.w}x${grab.h}  ${duration?.[1] ?? '?'}`)
 console.log(`  the room sits at ${room.toFixed(1)} dBFS`)
+console.log(`  the opening film carries it at ${film.toFixed(1)} dBFS over its first ${FILM}s`)
 for (const e of events) console.log(`  ${e.at.toFixed(1).padStart(5)}s  ${e.db.toFixed(1)} dBFS`)
 if (hush.length) console.log(`  ${hush[0].at.toFixed(1).padStart(5)}s  ${hush[0].db.toFixed(1)} dBFS  <- the room stops dead`)
 console.log(`  the picture changes ${moving.toFixed(1)} times a second, over ${frames} frames`)
 
 const wrong = []
+if (film < room - 6) wrong.push(`the opening film is at ${film.toFixed(1)} dBFS against a room of ${room.toFixed(1)}; it is supposed to be in this saloon`)
 if (events.length < 4) wrong.push(`only ${events.length} loud moments; the walkthrough plays four pulls`)
 if (!hush.length) wrong.push('nothing goes quiet; calling the house is supposed to stop the room')
 if (moving < 15) wrong.push(`the picture only changes ${moving.toFixed(1)} times a second; this is a slideshow`)
@@ -421,4 +446,4 @@ if (wrong.length) {
   console.error(`\nFAILED\n  ${wrong.join('\n  ')}`)
   process.exit(1)
 }
-console.log(`\nOK: ${events.length} reactions and a hush, on a file that moves`)
+console.log(`\nOK: a film with the room under it, ${events.length} reactions and a hush, on a file that moves`)
