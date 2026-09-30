@@ -25,7 +25,14 @@ import {
   ZONES,
 } from '../src/game/table.ts'
 
-const ROUNDS = Number(process.env.ROUNDS ?? 400_000)
+/*
+ * 120,000 is a compromise, and worth naming as one: it resolves the strategies
+ * that bank early to about two tenths of a point, runs in a couple of minutes, and
+ * therefore can sit in the pre-push chain. ROUNDS=400000 tightens the resolvable
+ * ones to a tenth and does nothing for the rest, because those are limited by
+ * variance rather than by sample size - exact.ts is what covers them.
+ */
+const ROUNDS = Number(process.env.ROUNDS ?? 120_000)
 const STAKE = 1_000
 const SEED = Number(process.env.SEED ?? 0x1884)
 

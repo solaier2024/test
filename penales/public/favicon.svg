@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#05070a" />
+  <!-- The mask, which is the game's whole identity in one shape. -->
+  <ellipse cx="32" cy="32" rx="19" ry="22" fill="#22283a" />
+  <path d="M13 27 Q32 10 51 27 Q32 19 13 27 Z" fill="#e8d24a" />
+  <path d="M32 8 L32 55" stroke="#e8455f" stroke-width="5" />
+  <ellipse cx="23" cy="31" rx="5" ry="6.5" fill="#05070a" />
+  <ellipse cx="41" cy="31" rx="5" ry="6.5" fill="#05070a" />
+</svg>

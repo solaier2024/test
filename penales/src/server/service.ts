@@ -458,10 +458,18 @@ export class House {
 
     const shown = open ? shownFor(roundFloats(seed, round), taken) : null
 
+    /*
+     * A closed round prices the board from scratch rather than from where it
+     * stopped. Leaving the old ladder on it means a finished round advertises what
+     * the eleventh kick would have paid, which is an offer that does not exist -
+     * and on a real money game an offer that does not exist is the worst kind of
+     * cosmetic bug.
+     */
+    const priced = open ? survived : []
     const board: BoardRow[] = ZONES.map((zone) => ({
       zone,
       p: pGoal(zone, shown),
-      multiplier: displayMultiplier(multiplierIfScored(survived, zone, shown)),
+      multiplier: displayMultiplier(multiplierIfScored(priced, zone, shown)),
     }))
 
     const multiplier = survived.length === 0 ? 0 : multiplierAfter(survived)
