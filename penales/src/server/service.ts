@@ -54,9 +54,29 @@ import {
 import { balance, deposit, payOut, playerAccount, takeStake } from './ledger.ts'
 import { Rejected, Store, type Db, type KickRecord, type RoundRecord, type SeedRecord } from './store.ts'
 
-/** Table limits, in centavos. A real deployment reads these per jurisdiction. */
-export const MIN_STAKE: Centavos = 500
-export const MAX_STAKE: Centavos = 100_000
+/*
+ * Table limits, in centavos. A real deployment reads these per jurisdiction, and
+ * these are the grey box's.
+ *
+ * MAX_STAKE is not a free choice. MAX_WIN_MULTIPLIER x MAX_STAKE is the most the
+ * house can owe on a single round, so the two are one decision:
+ *
+ *     5,000x x 5,000 centavos = 25,000,000 centavos = 250,000 pesos
+ *
+ * Picking it this way keeps one cap doing both jobs, which is worth more than it
+ * sounds. The alternative - a high stake ceiling plus a separate absolute money
+ * cap - makes the effective multiplier ceiling depend on the stake, and therefore
+ * makes RTP depend on the stake. That is legal, and common in slots, and a
+ * genuinely unpleasant thing to have to disclose. Here the return is 96.99% at
+ * every stake the table accepts.
+ *
+ * Raising MAX_STAKE means either accepting more liability per round or lowering
+ * MAX_WIN_MULTIPLIER, and lowering that costs measurable RTP - the table in
+ * game/table.ts says how much. There is no third option, and exact.ts will price
+ * whichever one is chosen.
+ */
+export const MIN_STAKE: Centavos = 100
+export const MAX_STAKE: Centavos = 5_000
 
 /* ------------------------------------------------------------ what leaves */
 

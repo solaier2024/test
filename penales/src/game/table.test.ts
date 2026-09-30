@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { MAX_STAKE } from '../server/service.ts'
+import { exactReturn, uncappedIsExact, worstCase } from './exact.ts'
 import { floatsOf } from './fair.ts'
 import {
   cursorFor,
@@ -163,19 +165,53 @@ describe('the house edge is the same everywhere', () => {
 })
 
 describe('the liability cap', () => {
-  it('cannot be reached, which is the only kind of cap worth having', () => {
-    /* A reachable cap silently cuts RTP on the one path a player worked hardest
-     * for. The best possible run is the hardest zone every time, so that is the
-     * number to check - and this test is here so that a future edit to TABLE
-     * cannot create an unbounded payout without turning something red. */
-    const hardest = Math.min(...ZONES.map(pGoalBlind))
-    const best = multiplierAfter(Array.from({ length: MAX_KICKS }, () => hardest))
-    expect(best).toBeLessThan(MAX_WIN_MULTIPLIER)
+  it('is reachable, and this test is the correction of a wrong claim', () => {
+    /*
+     * The first version of this file asserted the cap could never be reached,
+     * and reasoned from the blind probabilities: the hardest zone is 0.56, ten of
+     * those is 322x, so a cap above that is decoration.
+     *
+     * That reasoning is wrong because it forgets the tell. Shooting where the
+     * keeper has just shown he is going is a 9.4% shot down the middle, and it
+     * pays accordingly, so the real peak is ten orders of magnitude higher. The
+     * mistake was caught by the simulation reporting a 500.00x best win on a
+     * strategy whose arithmetic cannot exceed 322x.
+     *
+     * Both numbers are pinned here so neither claim can be quietly reintroduced.
+     */
+    const blindPeak = multiplierAfter(Array.from({ length: MAX_KICKS }, () => Math.min(...ZONES.map(pGoalBlind))))
+    expect(blindPeak).toBeLessThan(400)
+
+    const truePeak = exactReturn('bc', MAX_KICKS, Infinity).peak
+    expect(truePeak).toBeGreaterThan(MAX_WIN_MULTIPLIER)
   })
 
-  it('still clamps, in case it ever becomes reachable', () => {
-    expect(payoutFor(10_000, MAX_WIN_MULTIPLIER * 4)).toBe(10_000 * MAX_WIN_MULTIPLIER)
+  it('costs less than a hundredth of a percentage point of return', () => {
+    /*
+     * The number a lab is handed, computed by enumeration rather than measured -
+     * the events the cap touches have probability around 1e-9, which no
+     * simulation will ever resolve.
+     *
+     * Bounded rather than pinned, so that retuning TABLE, MAX_KICKS, TELL_RATE or
+     * the cap itself is allowed as long as it stays honest. Any of those four
+     * moves this number.
+     */
+    expect(uncappedIsExact()).toBe(true)
+
+    const worst = worstCase()
+    expect(worst.exact.costOfCap).toBeLessThan(0.0001)
+    expect(worst.exact.rtp).toBeGreaterThan(RTP - 0.0001)
+  })
+
+  it('clamps both the payout and the figure on the board', () => {
+    expect(payoutFor(1_000, MAX_WIN_MULTIPLIER * 4)).toBe(1_000 * MAX_WIN_MULTIPLIER)
     expect(displayMultiplier(MAX_WIN_MULTIPLIER * 4)).toBe(MAX_WIN_MULTIPLIER)
+  })
+
+  it('bounds what the house can owe on one round', () => {
+    /* The cap and the stake ceiling are one decision, so they are checked
+     * together: 5,000x of the largest stake the table takes is 250,000 pesos. */
+    expect(payoutFor(MAX_STAKE, MAX_WIN_MULTIPLIER)).toBe(25_000_000)
   })
 })
 

@@ -4,17 +4,26 @@ import { measure, mulberry32, STRATEGIES, type Situation } from './strategies.ts
 import { MAX_KICKS, RTP, type Zone } from './table.ts'
 
 /*
- * The measurement that decides whether the paytable is what the paperwork says.
+ * The measured half of the RTP argument. exact.test.ts is the strict half, and it
+ * is the one to believe.
  *
- * Two scales, on purpose:
+ * What a simulation is good for here is catching a disagreement between the
+ * arithmetic and the code that runs - a threshold compared the wrong way round, a
+ * cursor off by one, a probability recorded that is not the one that was priced.
+ * What it is NOT good for is settling the third decimal place of RTP: a strategy
+ * that banks a quarter of a percent of the time has a per-round variance that no
+ * practical sample size averages away, so its error bars stay several points
+ * wide. Those cases are enumerated exactly in exact.ts instead, which is why the
+ * bands below are allowed to be loose without anything resting on them.
  *
- *   - Every strategy over 60,000 rounds against the paytable and the real
- *     derivation, which is enough to catch a bias and fast enough to sit in the
- *     pre-push chain. `npm run rtp` runs the same code at 400,000 and prints the
- *     table PENALES.md quotes.
- *   - One strategy over 4,000 rounds through the actual House, transactions and
- *     all, to show the plumbing does not bend the number. It is the small one
- *     because a copy-on-write store is not the thing being measured.
+ * Two scales:
+ *
+ *   - Every strategy over 25,000 rounds against the real derivation and paytable.
+ *     `npm run rtp` runs the same code bigger and prints the table PENALES.md
+ *     quotes, alongside the exact figures.
+ *   - One strategy through the actual House - store, ledger, idempotency keys and
+ *     redaction all in the way - to show the plumbing does not bend the number.
+ *     Small, because a copy-on-write store is not what is being measured.
  */
 
 const STAKE = 1_000
@@ -34,13 +43,12 @@ describe('no way of playing beats the house edge, and none is punished by it', (
       /*
        * Tolerance from the measurement, not from taste: 4 standard errors of the
        * per-round return, floored at half a point so a very low-variance strategy
-       * does not get an absurdly tight bound. A ladder game's variance is large,
-       * so an honest band here is wider than people expect - and quoting RTP
-       * without one is how noise gets read as drift.
+       * does not get an absurdly tight bound.
        *
-       * Truncation to the centavo is the only systematic bias, and it only ever
-       * rounds toward the house, which is why the upper bound is tight against
-       * RTP and the lower bound is not.
+       * For the strategies that bank early this is a real check - a few tenths of a
+       * point. For `escuadra-all` it is several points wide and catches only a gross
+       * error, which is honest about what 25,000 rounds of a ladder game can tell
+       * you and is why exact.test.ts exists.
        */
       const tolerance = Math.max(4 * m.stderr, 0.005)
       expect(m.rtp).toBeLessThanOrEqual(RTP + tolerance)

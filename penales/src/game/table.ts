@@ -121,15 +121,38 @@ export const REGULATION_KICKS = 5
 export const MAX_KICKS = 10
 
 /**
- * A liability cap, and it is asserted NON-BINDING in table.test.ts.
+ * The most a round can pay, as a multiple of the stake.
  *
- * A cap that can be reached is a cap that silently cuts RTP on the one path a
- * player worked hardest for, and that is the sort of thing that gets found by a
- * player before it gets found by us. The most a perfect run can pay is about
- * 322x, so this sits well clear of it and exists only so that a future edit to
- * TABLE cannot create an unbounded payout without a red test.
+ * THIS CAP IS REACHABLE, AND THE FIRST VERSION OF THIS FILE SAID IT WAS NOT.
+ *
+ * The reasoning was: the hardest zone scores 56% of the time, ten of those is
+ * 322x, so a cap at 500x can never bite. That is true of the blind
+ * probabilities and false of the game. A player who shoots where the keeper has
+ * just shown he is going faces a probability as low as 9.4%, and is paid for it -
+ * so the real peak, over ten kicks straight down the middle into his hands, is
+ * about 1.8e10. The cap binds, and at 500x it cost 0.35 percentage points of
+ * return on the worst-affected way of playing. It was found by `npm run rtp`
+ * reporting a 500.00x best win on a strategy whose arithmetic tops out at 322x.
+ *
+ * So the cap is set from the exact figures in exact.ts rather than from
+ * intuition:
+ *
+ *     cap        cost to the worst-affected play
+ *     500x       0.3494 pp     <- what this used to be
+ *     1,000x     0.1234 pp
+ *     5,000x     0.0063 pp     <- here
+ *     50,000x    0.0002 pp
+ *
+ * 5,000x costs less than a hundredth of a percentage point, which is below the
+ * resolution of any measurement a lab will make, and it is a top prize worth
+ * printing on the front of the game.
+ *
+ * It is also the liability bound, which is why MAX_STAKE is what it is: 5,000x
+ * times the largest stake the table accepts is the most the house can owe on one
+ * round, and the two numbers have to be chosen together. See MAX_STAKE in
+ * server/service.ts.
  */
-export const MAX_WIN_MULTIPLIER = 500
+export const MAX_WIN_MULTIPLIER = 5_000
 
 /**
  * How often he commits early - the amago, the tell.
@@ -248,6 +271,15 @@ export const pGoalKnowing = (z: Zone, dive: Dive): number => {
   const m = TABLE[z]
   return m.onTarget * (1 - (z === dive ? m.reach : 0))
 }
+
+/**
+ * P(goal | shooting here, and he has shown he is going somewhere else).
+ *
+ * Which is just the shooter's own accuracy - there is nothing else left in the
+ * way. Named because it is the ceiling every other probability in the game sits
+ * under, and the one MAX_ON_TARGET constrains.
+ */
+export const onTargetOf = (z: Zone): number => TABLE[z].onTarget
 
 /**
  * The probability the payout is priced against, given what the player can see.

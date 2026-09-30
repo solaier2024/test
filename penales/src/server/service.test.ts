@@ -19,6 +19,9 @@ const table = (start = 0x10, funds = 1_000_000) => {
 let keys = 0
 const key = () => `k${++keys}`
 
+/** A stake in the middle of the table's range. */
+const BET = 2_000
+
 /** Plays until the round closes, or until `zones` runs out. */
 function play(house: House, stake: number, zones: readonly Zone[]) {
   const opened = house.open('ana', stake, key())
@@ -45,7 +48,7 @@ describe('the client is never given anything it could compute an outcome with', 
     const seed = [...house.store.read().seeds.values()][0].serverSeed
     expect(seed).toHaveLength(64)
 
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     house.kick('ana', opened.round!.id, 'bc', key())
 
     /*
@@ -70,7 +73,7 @@ describe('the client is never given anything it could compute an outcome with', 
     /* The other half of not being asked to trust us: every multiplier on the
      * board comes with the probability it was derived from. */
     const house = table()
-    const view = house.open('ana', 10_000, key())
+    const view = house.open('ana', BET, key())
     for (const row of view.round!.board) {
       expect(row.p).toBeGreaterThan(0)
       expect(row.p).toBeLessThan(1)
@@ -80,7 +83,7 @@ describe('the client is never given anything it could compute an outcome with', 
 
   it('reveals the seed only when the player retires it', () => {
     const house = table()
-    playOut(house, 10_000, ['bc'])
+    playOut(house, BET, ['bc'])
 
     expect(house.view('ana').revealed).toHaveLength(0)
 
@@ -94,7 +97,7 @@ describe('the client is never given anything it could compute an outcome with', 
 
   it('refuses to retire a seed with a round still running', () => {
     const house = table()
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     house.kick('ana', opened.round!.id, 'tl', key())
     if (house.view('ana').round!.status !== 'open') return
 
@@ -119,7 +122,7 @@ describe('nothing adapts to the shot', () => {
 
     const reveal = (zones: Zone[]) => {
       const house = table(0x55)
-      const round = playOut(house, 10_000, zones)
+      const round = playOut(house, BET, zones)
       const after = house.rotateSeed('ana', 'next', key())
       const seed = after.revealed[0]
       return recompute(seed.serverSeed, round.fair.clientSeed, round.fair.nonce, []).map(
@@ -132,7 +135,7 @@ describe('nothing adapts to the shot', () => {
 
   it('recomputes, off the revealed seed, exactly what the player was shown', () => {
     const house = table(0x77)
-    const round = playOut(house, 10_000, ['tl', 'bc', 'br', 'tc', 'bl', 'tr', 'bc', 'bl', 'tl', 'bc'])
+    const round = playOut(house, BET, ['tl', 'bc', 'br', 'tc', 'bl', 'tr', 'bc', 'bl', 'tl', 'bc'])
     const after = house.rotateSeed('ana', 'next', key())
     const seed = after.revealed[0]
 
@@ -177,10 +180,10 @@ describe('the money moves with the round or not at all', () => {
   it('debits the stake and creates the round in one transaction', () => {
     const house = table()
     const before = house.view('ana').balance
-    const view = house.open('ana', 25_000, key())
-    expect(view.balance).toBe(before - 25_000)
+    const view = house.open('ana', MAX_STAKE, key())
+    expect(view.balance).toBe(before - MAX_STAKE)
     expect(view.round!.status).toBe('open')
-    expect(view.round!.stake).toBe(25_000)
+    expect(view.round!.stake).toBe(MAX_STAKE)
   })
 
   it('charges nothing when the process dies opening a round', () => {
@@ -188,7 +191,7 @@ describe('the money moves with the round or not at all', () => {
     house.store.crashBeforeCommit = () => {
       throw new Error('gone')
     }
-    expect(() => house.open('ana', 25_000, key())).toThrow(/gone/)
+    expect(() => house.open('ana', MAX_STAKE, key())).toThrow(/gone/)
 
     house.store.crashBeforeCommit = null
     /* No charge, no round, and crucially no burnt nonce - the seed is untouched,
@@ -200,7 +203,7 @@ describe('the money moves with the round or not at all', () => {
 
   it('credits the payout and closes the round in one transaction', () => {
     const house = table(0x21)
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     const id = opened.round!.id
 
     house.kick('ana', id, 'bc', key())
@@ -218,7 +221,7 @@ describe('the money moves with the round or not at all', () => {
 
   it('pays nothing and closes nothing when the process dies cashing out', () => {
     const house = table(0x21)
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     const id = opened.round!.id
     house.kick('ana', id, 'bc', key())
     if (house.view('ana').round!.status !== 'open') return
@@ -248,7 +251,7 @@ describe('the money moves with the round or not at all', () => {
 
   it('pays a cash-out exactly once however many times the button is pressed', () => {
     const house = table(0x21)
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     const id = opened.round!.id
     house.kick('ana', id, 'bc', key())
     if (house.view('ana').round!.status !== 'open') return
@@ -265,7 +268,7 @@ describe('the money moves with the round or not at all', () => {
      * a new key per press would slip past the key and has to be stopped by the
      * round's own state. Both defences are needed and neither is sufficient. */
     const house = table(0x21)
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     const id = opened.round!.id
     house.kick('ana', id, 'bc', key())
     if (house.view('ana').round!.status !== 'open') return
@@ -278,11 +281,11 @@ describe('the money moves with the round or not at all', () => {
   it('takes no second money move when a kick is missed or saved', () => {
     const house = table(0x33)
     const before = house.view('ana').balance
-    const round = play(house, 10_000, Array.from({ length: MAX_KICKS }, () => 'tl'))
+    const round = play(house, BET, Array.from({ length: MAX_KICKS }, () => 'tl'))
     if (round.status !== 'busted') return
 
     expect(round.payout).toBe(0)
-    expect(house.view('ana').balance).toBe(before - 10_000)
+    expect(house.view('ana').balance).toBe(before - BET)
     /* A loss is one money move, taken when the round opened. There is no second
      * leg to lose, which is why a crash on a losing kick cannot cost anyone. */
     expect(house.store.read().journal.filter((e) => e.kind === 'payout')).toHaveLength(0)
@@ -311,8 +314,8 @@ describe('the money moves with the round or not at all', () => {
 describe('the rules of the round', () => {
   it('allows one shootout at a time', () => {
     const house = table()
-    house.open('ana', 10_000, key())
-    expect(() => house.open('ana', 10_000, key())).toThrow(/already a shootout/)
+    house.open('ana', BET, key())
+    expect(() => house.open('ana', BET, key())).toThrow(/already a shootout/)
   })
 
   it('holds the table limits', () => {
@@ -323,29 +326,29 @@ describe('the rules of the round', () => {
   })
 
   it('refuses a stake the player cannot cover, without moving anything', () => {
-    const house = table(0x10, 10_000)
-    expect(() => house.open('ana', 50_000, key())).toThrow(Rejected)
-    expect(house.view('ana').balance).toBe(10_000)
+    const house = table(0x10, BET - 1)
+    expect(() => house.open('ana', BET, key())).toThrow(Rejected)
+    expect(house.view('ana').balance).toBe(BET - 1)
     expect(house.view('ana').round).toBeNull()
   })
 
   it('refuses a zone that is not on the goal', () => {
     const house = table()
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     expect(() => house.kick('ana', opened.round!.id, 'moon' as Zone, key())).toThrow(/no such zone/)
   })
 
   it('refuses another player reaching into the round', () => {
     const house = table()
     house.fund('beto', 100_000, 'fund:beto')
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     expect(() => house.kick('beto', opened.round!.id, 'bc', key())).toThrow(/not your round/)
     expect(() => house.cashOut('beto', opened.round!.id, key())).toThrow(/not your round/)
   })
 
   it('will not pay out a round with no goals in it', () => {
     const house = table()
-    const opened = house.open('ana', 10_000, key())
+    const opened = house.open('ana', BET, key())
     expect(() => house.cashOut('ana', opened.round!.id, key())).toThrow(/score one first/)
   })
 
@@ -437,11 +440,11 @@ describe('a shared store', () => {
     house.fund('ana', 100_000, 'f:ana')
     house.fund('beto', 100_000, 'f:beto')
 
-    house.open('ana', 10_000, key())
-    house.open('beto', 20_000, key())
+    house.open('ana', BET, key())
+    house.open('beto', MAX_STAKE, key())
 
-    expect(house.view('ana').round!.stake).toBe(10_000)
-    expect(house.view('beto').round!.stake).toBe(20_000)
+    expect(house.view('ana').round!.stake).toBe(BET)
+    expect(house.view('beto').round!.stake).toBe(MAX_STAKE)
     expect(house.view('ana').fair.commitment).not.toBe(house.view('beto').fair.commitment)
     expect(house.view('ana').history).toHaveLength(1)
   })
