@@ -29,13 +29,20 @@
  * bought a louder piano than it used to, and the measured gap to the room
  * closed to 5dB. The upright is furniture; it does not get to spend the room's
  * headroom on being more characterful.
+ *
+ * Back up a little when the piano became a band, and it is not a change of
+ * mind about furniture. The arrangement now spends a lot of its energy above
+ * the wall's corner - a banjo is nearly all offbeat and overtone - so the
+ * same bus gain measured 2.3dB quieter than the solo piano did, and what was
+ * meant to be something you could tap a foot to arrived as a rumour. 0.125
+ * puts the band back where the piano was, which is still 11dB under the room.
  */
-const PIANO_LEVEL = 0.1
+const BAND_LEVEL = 0.125
 
 let ctx: AudioContext | null = null
 let master: GainNode
 let sfxNode: GainNode
-let pianoNode: GainNode
+let bandNode: GainNode
 let roomIn: GainNode
 let noise: AudioBuffer | null = null
 let muted = false
@@ -56,19 +63,24 @@ export function ac(): AudioContext {
   sfxNode.connect(master)
 
   /*
-   * The upright is across the room: quieter, dulled by the distance, and it
-   * is FURNITURE. Measured on its own bus it used to peak at -35.8 against an
-   * ambience of -39.8, which is to say the table had a soundtrack with a
-   * saloon behind it rather than a saloon with a piano in the corner. The
-   * sound of this table is the room and the machine; the piano is one of the
-   * things the room is doing.
+   * The band is at the other end of the bar: quieter, dulled by the distance,
+   * and it is the FLOOR rather than the feature. Measured on its own bus it
+   * used to peak at -35.8 against an ambience of -39.8, which is to say the
+   * table had a soundtrack with a saloon behind it rather than a saloon with
+   * a band in it. The sound of this table is the room and the machine; the
+   * band is one of the things the room is doing.
+   *
+   * The wall was at 1500Hz when there was only a piano behind it. A banjo is
+   * almost entirely made of what lives above that - it is a drum with strings
+   * over it - so at 1500 the band arrangement arrived as a rumour of itself.
+   * 2600 lets the offbeat through and is still unmistakably through a wall.
    */
-  pianoNode = ctx.createGain()
-  pianoNode.gain.value = PIANO_LEVEL
+  bandNode = ctx.createGain()
+  bandNode.gain.value = BAND_LEVEL
   const wall = ctx.createBiquadFilter()
   wall.type = 'lowpass'
-  wall.frequency.value = 1500
-  pianoNode.connect(wall).connect(master)
+  wall.frequency.value = 2600
+  bandNode.connect(wall).connect(master)
 
   roomIn = ctx.createGain()
   roomIn.gain.value = 0.9
@@ -113,7 +125,7 @@ export function noiseBuffer(c: BaseAudioContext, seconds = 2): AudioBuffer {
 }
 
 export const sfxBus = () => (ac(), sfxNode)
-export const pianoBus = () => (ac(), pianoNode)
+export const bandBus = () => (ac(), bandNode)
 export const reverbIn = () => (ac(), roomIn)
 
 /** tanh, as a curve a WaveShaper can use, for the soft edge on a struck sound. */
@@ -130,28 +142,28 @@ export function softClip(c: BaseAudioContext, drive = 2.2): WaveShaperNode {
 /** Leans on the upright so whatever just happened is the loudest thing. */
 export function duck(amount: number, hold: number, release: number): void {
   const c = ac()
-  const g = pianoNode.gain
+  const g = bandNode.gain
   const now = c.currentTime
   g.cancelScheduledValues(now)
   g.setValueAtTime(g.value, now)
-  g.linearRampToValueAtTime(PIANO_LEVEL * (1 - amount), now + 0.03)
-  g.setValueAtTime(PIANO_LEVEL * (1 - amount), now + 0.03 + hold)
-  g.linearRampToValueAtTime(PIANO_LEVEL, now + 0.03 + hold + release)
+  g.linearRampToValueAtTime(BAND_LEVEL * (1 - amount), now + 0.03)
+  g.setValueAtTime(BAND_LEVEL * (1 - amount), now + 0.03 + hold)
+  g.linearRampToValueAtTime(BAND_LEVEL, now + 0.03 + hold + release)
 }
 
 /**
  * The oldest gesture in the genre: something happens and the piano stops. It is
  * free here because the upright already has its own bus.
  */
-export function stopThePiano(seconds: number): void {
+export function stopTheBand(seconds: number): void {
   const c = ac()
-  const g = pianoNode.gain
+  const g = bandNode.gain
   const now = c.currentTime
   g.cancelScheduledValues(now)
   g.setValueAtTime(g.value, now)
   g.linearRampToValueAtTime(0.0001, now + 0.08)
   g.setValueAtTime(0.0001, now + seconds)
-  g.linearRampToValueAtTime(PIANO_LEVEL, now + seconds + 1.6)
+  g.linearRampToValueAtTime(BAND_LEVEL, now + seconds + 1.6)
 }
 
 /**

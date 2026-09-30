@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource/rye/400.css'
 import './index.css'
 import App from './App'
-import { ac, pianoBus, sfxBus, tapOutput, unlock } from './audio/engine'
+import { ac, bandBus, sfxBus, tapOutput, unlock } from './audio/engine'
 import { react, startRoom, talkBus } from './audio/crowd'
 import { setIntensity, startMusic } from './audio/music'
 import { libertyBell, leverPull, payoutCoins } from './audio/sfx'
@@ -41,7 +41,7 @@ window.__audio = {
    * These are the live nodes the game plays through, not a second graph built
    * for measuring.
    */
-  buses: () => ({ sfx: sfxBus(), piano: pianoBus(), talk: talkBus() }),
+  buses: () => ({ sfx: sfxBus(), band: bandBus(), talk: talkBus() }),
 }
 
 createRoot(document.getElementById('root')!).render(

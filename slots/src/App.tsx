@@ -12,7 +12,7 @@ import type { ClipRequest } from './components/Clip'
 import { useNarrow, useReducedMotion } from './platform'
 import { prefetchClips } from './prefetch'
 import { unlock } from './audio/engine'
-import { pianoStops, setIntensity, startMusic } from './audio/music'
+import { bandStops, setIntensity, startMusic } from './audio/music'
 import { callOut, hush, react, setRoomDensity, startRoom } from './audio/crowd'
 import { coinIn, leverPull, leverReturn, libertyBell, notch, payoutCoins, reelStop, shutDown } from './audio/sfx'
 import { useSoundState } from './audio/useSound'
@@ -206,7 +206,7 @@ export default function App() {
     prefetchClips(small)
   }, [small])
 
-  // The room and the piano follow how hard you are being looked at.
+  // The room and the band follow how hard you are being looked at.
   const attention = Math.min(1, session.heat * 0.8 + (session.evidence > 0 ? Math.min(0.3, session.evidence / PROOF * 0.3) : 0))
   useEffect(() => {
     if (screen !== 'table') return
@@ -373,7 +373,7 @@ export default function App() {
     setWanted(null)
     callOut()
     hush(1.7)
-    pianoStops(2.4)
+    bandStops(2.4)
     /* The room turns round to watch you accuse the house, which is the same
      * shot as it turning round to watch a reel hang. */
     setRoom('in')
