@@ -3,22 +3,37 @@
  * audio file in this project - so there is no third-party sample to license and
  * nothing to download before the room has a sound.
  *
- *   voices -> [music bus | sfx bus] -> duck -> master -> out
- *                    \-> room (convolution) -----^
+ *   the saloon and the machine -> sfx bus ----.
+ *   the upright in the corner --> piano bus --+-> master -> out
+ *                            \-> room (convolution) ------^
  *
- * Clips are silent on purpose. If the room tone were baked into the video the
- * score could not duck under a card, could not change with the shoe, and could
- * not follow the room when the piano stops.
+ * Clips are silent on purpose. If the room tone were baked into the video it
+ * could not duck under a reel, could not fill up as the night goes on, and
+ * could not stop dead when somebody calls the house.
+ *
+ * There were three buses until the music was rebuilt. The third carried a low
+ * sawtooth drone that came up under the floor as the room's attention rose -
+ * and that was the one genuinely non-diegetic thing on the table, a film score
+ * cue with no source in the picture. The room pressing in is now the room
+ * pressing in: more talkers, less space between them. Nothing was left on the
+ * music bus afterwards, so it went too, and duck() - which every machine sound
+ * calls and which had quietly been ducking nothing but that drone - now does
+ * what its name says and leans on the upright.
  */
 
-/** Resting level of the music bus; the ducking curve returns to exactly this. */
-const MUSIC_LEVEL = 0.92
-/** Resting level of the upright, which the room shutting it up returns to. */
-const PIANO_LEVEL = 0.13
+/**
+ * Resting level of the upright, which everything leaning on it returns to.
+ *
+ * Came down from 0.13 when the instrument got its second string: a
+ * honky-tonk unison pair is two strings' worth of energy, so the same number
+ * bought a louder piano than it used to, and the measured gap to the room
+ * closed to 5dB. The upright is furniture; it does not get to spend the room's
+ * headroom on being more characterful.
+ */
+const PIANO_LEVEL = 0.1
 
 let ctx: AudioContext | null = null
 let master: GainNode
-let musicNode: GainNode
 let sfxNode: GainNode
 let pianoNode: GainNode
 let roomIn: GainNode
@@ -35,10 +50,6 @@ export function ac(): AudioContext {
   master = ctx.createGain()
   master.gain.value = muted ? 0 : 0.85
   master.connect(ctx.destination)
-
-  musicNode = ctx.createGain()
-  musicNode.gain.value = MUSIC_LEVEL
-  musicNode.connect(master)
 
   sfxNode = ctx.createGain()
   sfxNode.gain.value = 0.9
@@ -101,7 +112,6 @@ export function noiseBuffer(c: BaseAudioContext, seconds = 2): AudioBuffer {
   return buf
 }
 
-export const musicBus = () => (ac(), musicNode)
 export const sfxBus = () => (ac(), sfxNode)
 export const pianoBus = () => (ac(), pianoNode)
 export const reverbIn = () => (ac(), roomIn)
@@ -117,16 +127,16 @@ export function softClip(c: BaseAudioContext, drive = 2.2): WaveShaperNode {
   return shaper
 }
 
-/** Pulls the music down so whatever just happened is the loudest thing. */
+/** Leans on the upright so whatever just happened is the loudest thing. */
 export function duck(amount: number, hold: number, release: number): void {
   const c = ac()
-  const g = musicNode.gain
+  const g = pianoNode.gain
   const now = c.currentTime
   g.cancelScheduledValues(now)
   g.setValueAtTime(g.value, now)
-  g.linearRampToValueAtTime(MUSIC_LEVEL * (1 - amount), now + 0.03)
-  g.setValueAtTime(MUSIC_LEVEL * (1 - amount), now + 0.03 + hold)
-  g.linearRampToValueAtTime(MUSIC_LEVEL, now + 0.03 + hold + release)
+  g.linearRampToValueAtTime(PIANO_LEVEL * (1 - amount), now + 0.03)
+  g.setValueAtTime(PIANO_LEVEL * (1 - amount), now + 0.03 + hold)
+  g.linearRampToValueAtTime(PIANO_LEVEL, now + 0.03 + hold + release)
 }
 
 /**

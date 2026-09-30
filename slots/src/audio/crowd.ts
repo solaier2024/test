@@ -49,14 +49,22 @@ interface VoiceOpts {
   send: number
 }
 
-function voice(o: VoiceOpts): void {
+/**
+ * @param into  where the dry signal goes. The sfx bus for a reaction, the
+ *        bed's ducking gain for anything that belongs to the room.
+ * @param wetTo where the reverb send goes. Anything in the bed has to send
+ *        through the bed's own ducked send rather than straight at the
+ *        convolver, or hushing the room leaves its reflections running - see
+ *        startRoom().
+ */
+function voice(o: VoiceOpts, into?: AudioNode, wetTo?: AudioNode): void {
   const c = ac()
   const out = c.createGain()
   out.gain.value = 1
-  out.connect(sfxBus())
+  out.connect(into ?? sfxBus())
   const room = c.createGain()
   room.gain.value = o.send
-  out.connect(room).connect(reverbIn())
+  out.connect(room).connect(wetTo ?? reverbIn())
 
   const env = c.createGain()
   env.gain.setValueAtTime(0.0001, o.at)
@@ -246,7 +254,197 @@ export function react(kind: Reaction, density = 0.6): void {
 
 /* ------------------------------------------------------------------- the bed */
 
-let bed: { gain: GainNode; duck: GainNode; stop: () => void } | null = null
+let bed: { talk: GainNode; duck: GainNode[]; stop: () => void } | null = null
+
+/* ----------------------------------------------------------------- the talkers */
+
+/*
+ * A dozen conversations, two tables away.
+ *
+ * This is the part of the room that used to be a bandpass on a noise buffer -
+ * a 520Hz hum with the odd syllable dropped on top of it. It measured fine
+ * and it was wrong, and the way it was wrong is worth writing down: a noise
+ * bed and a crowd have roughly the same long-term spectrum, so nothing that
+ * averages over a few seconds can tell them apart. What separates them is
+ * ENTIRELY in how the level moves. Speech turns on and off four or five times
+ * a second, because that is how fast a mouth can change shape, and it is the
+ * one property a filtered hiss cannot fake at any level or bandwidth.
+ *
+ * So each talker is a mouth rather than a texture: one glottal sawtooth, its
+ * pitch falling across a phrase the way a sentence does, through two moving
+ * formants that pick out a vowel, gated into syllables, with a hiss on the
+ * front of about half of them for the consonant. Nobody is saying words -
+ * there is no language in here - but the RHYTHM is speech, and that is what
+ * the ear uses to decide it is hearing people.
+ *
+ * Cheap on purpose. The nodes are built once per talker and live for the
+ * session; a syllable is six scheduled automation events on parameters that
+ * already exist, not six new nodes. Six talkers is about fifty nodes in total
+ * and the page still renders at 30fps under a screen recorder, which a
+ * voice-per-syllable version did not.
+ */
+
+/** [F1, F2] in Hz. Two formants is the least that still reads as a vowel. */
+const BABBLE: [number, number][] = [
+  [730, 1090], // "aah"
+  [570, 840], // "aww"
+  [520, 1190], // "uh"
+  [660, 1720], // "eh"
+  [400, 1900], // "ih"
+  [300, 870], // "oo"
+]
+
+interface Talker {
+  /** Fills the schedule with syllables up to `until` on the audio clock. */
+  say: (until: number) => void
+  stop: () => void
+}
+
+/**
+ * @param f0   where this throat sits. A bar in 1899 is mostly men, so mostly
+ *             low, but a room of one pitch is a chord and not a crowd.
+ * @param far  0 near, 1 at the other end of the room: duller and wetter.
+ * @param pan  where they are standing.
+ */
+function talker(into: AudioNode, wetTo: AudioNode, f0: number, far: number, pan: number): Talker {
+  const c = ac()
+
+  const out = c.createGain()
+  out.gain.value = 1
+  /* Distance is a low-pass and a reverb send, which between them are most of
+   * what tells you somebody is across a room rather than next to you. */
+  const dull = c.createBiquadFilter()
+  dull.type = 'lowpass'
+  dull.frequency.value = 3600 - far * 2100
+  const where = c.createStereoPanner()
+  where.pan.value = pan
+  out.connect(dull).connect(where).connect(into)
+  const send = c.createGain()
+  send.gain.value = 0.3 + far * 0.6
+  where.connect(send).connect(wetTo)
+
+  /** The syllable gate. Everything voiced goes through here. */
+  const env = c.createGain()
+  env.gain.value = 0.0001
+  env.connect(out)
+
+  const src = c.createOscillator()
+  src.type = 'sawtooth'
+  src.frequency.value = f0
+
+  /* F1 and F2 move with the vowel; F3 is a property of the throat and stays
+   * put, which saves a third of the automation for something nobody hears. */
+  const mouth = [
+    { hz: 700, q: 6, level: 1 },
+    { hz: 1200, q: 5, level: 0.5 },
+    { hz: 2500 + Math.random() * 500, q: 3, level: 0.16 },
+  ].map(({ hz, q, level }) => {
+    const band = c.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = hz
+    band.Q.value = q
+    const g = c.createGain()
+    g.gain.value = level
+    src.connect(band).connect(g).connect(env)
+    return band
+  })
+  src.start()
+
+  /* The consonant. One shared hiss, gated in 20ms spits before a vowel - it
+   * is the difference between "aaa-aaa-aaa" and somebody talking. */
+  const air = c.createBufferSource()
+  air.buffer = noiseBuffer(c, 4)
+  air.loop = true
+  const sibilance = c.createBiquadFilter()
+  sibilance.type = 'bandpass'
+  sibilance.frequency.value = 2600 + Math.random() * 1800
+  sibilance.Q.value = 0.7
+  const fric = c.createGain()
+  fric.gain.value = 0.0001
+  air.connect(sibilance).connect(fric).connect(out)
+  air.start(0, Math.random() * 3)
+
+  const level = 0.08 * (1 - far * 0.35)
+  let at = c.currentTime + Math.random() * 3
+
+  return {
+    stop: () => {
+      src.stop()
+      air.stop()
+    },
+    say: (until: number) => {
+      while (at < until) {
+        /* One phrase: a few syllables at a steady rate, then a breath. Nobody
+         * talks in an unbroken stream, and the gaps are what let the glasses
+         * and the boots through. */
+        const count = 2 + Math.floor(Math.random() * 7)
+        const rate = 0.13 + Math.random() * 0.09
+        const base = f0 * (0.93 + Math.random() * 0.14)
+        /* A question now and then, which rises instead of falling. */
+        const rising = Math.random() < 0.18
+        for (let i = 0; i < count; i++) {
+          const t = at + i * rate
+          const held = rate * (0.5 + Math.random() * 0.32)
+          /* Declination: a spoken sentence drifts down about a fifth from
+           * start to finish, and putting that in is most of the difference
+           * between talking and chanting. */
+          const arc = rising ? 1 + 0.18 * (i / Math.max(1, count - 1)) : 1 - 0.24 * (i / Math.max(1, count - 1))
+          src.frequency.setTargetAtTime(base * arc * (0.96 + Math.random() * 0.08), t, 0.03)
+          const [f1, f2] = BABBLE[Math.floor(Math.random() * BABBLE.length)]
+          mouth[0].frequency.setTargetAtTime(f1, t, 0.022)
+          mouth[1].frequency.setTargetAtTime(f2, t, 0.022)
+          const loud = level * (0.55 + Math.random() * 0.75) * (i === 0 ? 1.2 : 1)
+          env.gain.setTargetAtTime(loud, t, 0.011)
+          env.gain.setTargetAtTime(0.0001, t + held, 0.018)
+          if (Math.random() < 0.45) {
+            fric.gain.setTargetAtTime(level * 0.42, t - 0.026, 0.005)
+            fric.gain.setTargetAtTime(0.0001, t - 0.006, 0.011)
+          }
+        }
+        at += count * rate + 0.45 + Math.random() * gap()
+      }
+    },
+  }
+}
+
+/**
+ * How long a talker waits before starting again, which is the only thing
+ * density changes.
+ *
+ * Deliberately not a level. The lesson from the last pass was that you make a
+ * background come forward by giving it events rather than gain, and the same
+ * thing applies to making it come forward MORE: a room fills up by there
+ * being less silence in it, not by everyone shouting.
+ */
+let density = 0.35
+const gap = () => 3.6 - density * 2.6
+
+/**
+ * Somebody at the far end finds something funny.
+ *
+ * The one thing in the bed that is allowed to be a whole crowd sound rather
+ * than one throat, and it is kept well across the room - dull, wet, and off
+ * to one side - because laughter close up reads as a reaction to what YOU
+ * just did, and it is not: it is four men at another table.
+ */
+function laughOver(into: AudioNode, wetTo: AudioNode): void {
+  const c = ac()
+  const n = 2 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < n; i++) {
+    voice({
+      at: c.currentTime + Math.random() * 0.4,
+      f0: 145 + Math.random() * 120,
+      glide: 0.86 + Math.random() * 0.22,
+      vowel: i % 2 ? 'a' : 'o',
+      attack: 0.04,
+      seconds: 0.6 + Math.random() * 0.7,
+      gain: 0.055,
+      breath: 0.32,
+      tremor: 6.4 + Math.random() * 2.8,
+      send: 0.9,
+    }, into, wetTo)
+  }
+}
 
 /**
  * One piece of saloon furniture making a noise: a glass set down, a bottle
@@ -264,7 +462,7 @@ let bed: { gain: GainNode; duck: GainNode; stop: () => void } | null = null
  * stops to watch a reel, the bar stops with it. A glass landing in the middle
  * of a held breath would be the one thing in the mix that had not noticed.
  */
-function clatter(into: AudioNode): void {
+function clatter(into: AudioNode, wetTo: AudioNode): void {
   const c = ac()
   const at = c.currentTime
   const pick = Math.random()
@@ -274,7 +472,7 @@ function clatter(into: AudioNode): void {
   /* Everything in here is across the room, so it is mostly reverb. A dry clink
    * sits in front of the crowd instead of behind it. */
   room.gain.value = 0.8
-  out.connect(room).connect(reverbIn())
+  out.connect(room).connect(wetTo)
 
   const ring = (freq: number, gain: number, decay: number) => {
     const o = c.createOscillator()
@@ -304,11 +502,11 @@ function clatter(into: AudioNode): void {
     s.stop(at + decay + 0.05)
   }
 
-  if (pick < 0.3) {
+  if (pick < 0.24) {
     // A glass down on the bar: the wood first, then what is left ringing in it.
     knock(900, 1.4, 0.05, 0.05)
     ring(1650 + Math.random() * 900, 0.016, 0.28)
-  } else if (pick < 0.5) {
+  } else if (pick < 0.4) {
     // Bottle against glass, twice, the way pouring sounds from across a room.
     for (let i = 0; i < 2; i++) {
       const t = i * 0.09
@@ -323,7 +521,7 @@ function clatter(into: AudioNode): void {
       o.start(at + t)
       o.stop(at + t + 0.25)
     }
-  } else if (pick < 0.78) {
+  } else if (pick < 0.62) {
     // Boots on boards. Two or three steps, never evenly spaced.
     const steps = 2 + Math.floor(Math.random() * 2)
     for (let i = 0; i < steps; i++) {
@@ -341,7 +539,7 @@ function clatter(into: AudioNode): void {
       s.start(at + t, Math.random() * 1.4)
       s.stop(at + t + 0.2)
     }
-  } else if (pick < 0.92) {
+  } else if (pick < 0.74) {
     // A chair going back: wood dragging, which is noise with a slope on it.
     const s = c.createBufferSource()
     s.buffer = noiseBuffer(c)
@@ -357,6 +555,40 @@ function clatter(into: AudioNode): void {
     s.connect(f).connect(g).connect(out)
     s.start(at, Math.random() * 1.4)
     s.stop(at + 0.4)
+  } else if (pick < 0.86) {
+    /* Somebody pouring. A bottle emptying is a resonator getting shorter, so
+     * the glugs climb - that rise is the whole recognition, and a series of
+     * identical blips reads as dripping instead. */
+    const glugs = 3 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < glugs; i++) {
+      const t = i * (0.1 + Math.random() * 0.05)
+      const o = c.createOscillator()
+      o.type = 'sine'
+      const f = 210 + i * 46 + Math.random() * 30
+      o.frequency.setValueAtTime(f, at + t)
+      o.frequency.exponentialRampToValueAtTime(f * 1.5, at + t + 0.07)
+      const g = c.createGain()
+      g.gain.setValueAtTime(0.0001, at + t)
+      g.gain.linearRampToValueAtTime(0.03, at + t + 0.006)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + t + 0.09)
+      o.connect(g).connect(out)
+      o.start(at + t)
+      o.stop(at + t + 0.12)
+    }
+  } else if (pick < 0.95) {
+    // Somebody clearing his throat. Voiced, so it is a person and not a prop.
+    voice({
+      at,
+      f0: 105 + Math.random() * 45,
+      glide: 0.7,
+      vowel: 'o',
+      attack: 0.012,
+      seconds: 0.22 + Math.random() * 0.14,
+      gain: 0.05,
+      breath: 0.75,
+      tremor: 0,
+      send: 0.8,
+    }, out, wetTo)
   } else {
     // The street door, and the town for a second, then it shuts.
     knock(140, 0.9, 0.07, 0.22)
@@ -365,29 +597,25 @@ function clatter(into: AudioNode): void {
 }
 
 /**
- * The room when nothing is happening: a dozen conversations two tables away,
- * the odd syllable poking through, and the bar going about its business.
- * Without this the saloon sounds like an empty room with a machine in it, and
- * every reaction arrives out of silence.
+ * The room when nothing is happening: half a dozen conversations two tables
+ * away, the bar going about its business, and somebody laughing at the far
+ * end now and then. Without this the saloon is an empty room with a machine
+ * in it, and every reaction arrives out of silence.
  *
  * Three things hang off one duck:
  *
- *     muttering (level follows density) -.
- *     the bar, glasses and boots --------+-> duck -> sfx bus
- *     a syllable now and then -----------'        \-> reverb
+ *     six people talking, all at once -.
+ *     glasses, boots, a chair, a door -+-> duck -> sfx bus
+ *     laughter from the far end -------'        \-> reverb
  *
  * They share the duck because when the room stops to watch a reel it ALL
  * stops - a glass landing in the middle of a held breath would be the one
  * thing in the mix that had not noticed. They do not share a level, because
- * density is about how many people are talking, and the barman keeps pouring
- * either way.
+ * the barman keeps pouring however busy the conversation is.
  */
 export function startRoom(): void {
   if (bed) return
   const c = ac()
-  const mutter = c.createGain()
-  mutter.gain.value = 0.0001
-  mutter.gain.linearRampToValueAtTime(0.1, c.currentTime + 2.5)
 
   /* Density, hush and duck all want to move the bed's level and they arrive
    * within milliseconds of each other, so they get a node each rather than
@@ -398,7 +626,27 @@ export function startRoom(): void {
   const room = c.createGain()
   room.gain.value = 0.7
   ducked.connect(room).connect(reverbIn())
-  mutter.connect(ducked)
+
+  /*
+   * And a second ducking gain in front of the reverb, because a talker two
+   * tables away is mostly reflections and the amount of reflection is HOW you
+   * know they are two tables away. That means per-source sends, and a
+   * per-source send aimed at the shared convolver goes round the duck above.
+   *
+   * Which is exactly what it did. The silence check - the one that asks
+   * whether calling the house stops the room - wants 20dB and measured 12:
+   * the dry conversation stopped dead and its reflections carried on washing
+   * about the building, which is not a room falling silent, it is a room with
+   * the speech muted. Everything in the bed sends through here instead.
+   */
+  const wet = c.createGain()
+  wet.gain.value = 1
+  wet.connect(reverbIn())
+
+  const talk = c.createGain()
+  talk.gain.value = 0.0001
+  talk.gain.linearRampToValueAtTime(1, c.currentTime + 2.5)
+  talk.connect(ducked)
 
   /* The bar's own noises, at their own level. Set by ear against the machine
    * and then checked: verify-audio insists the ambience leads an idle table
@@ -407,79 +655,80 @@ export function startRoom(): void {
   bar.gain.value = 2
   bar.connect(ducked)
 
-  const src = c.createBufferSource()
-  src.buffer = noiseBuffer(c, 4)
-  src.loop = true
-  const band = c.createBiquadFilter()
-  band.type = 'bandpass'
-  band.frequency.value = 520
-  band.Q.value = 0.85
-  const wobble = c.createGain()
-  wobble.gain.value = 0.55
-  const lfo = c.createOscillator()
-  lfo.type = 'sine'
-  lfo.frequency.value = 0.23
-  const depth = c.createGain()
-  depth.gain.value = 0.3
-  lfo.connect(depth).connect(wobble.gain)
-  src.connect(band).connect(wobble).connect(mutter)
-  src.start()
-  lfo.start()
+  /* And the other end of the room, which only laughter comes from. Dull and
+   * far enough back that it never sounds like it is about you. */
+  const across = c.createGain()
+  across.gain.value = 0.5
+  const wall = c.createBiquadFilter()
+  wall.type = 'lowpass'
+  wall.frequency.value = 1150
+  across.connect(wall).connect(ducked)
 
-  // A syllable now and then, so it is people and not weather.
+  /*
+   * Six. Below about four the ear starts following individual conversations
+   * and the illusion becomes "some men talking near a microphone"; much above
+   * six and the gaps between phrases fill in, which is the hum again by a
+   * longer route. Pitches, distances and places in the stereo field are all
+   * spread, because a room of one voice repeated is a chorus.
+   */
+  const talkers = [
+    talker(talk, wet, 118, 0.15, -0.55),
+    talker(talk, wet, 142, 0.45, 0.35),
+    talker(talk, wet, 97, 0.7, -0.15),
+    talker(talk, wet, 176, 0.55, 0.7),
+    talker(talk, wet, 131, 0.9, 0.1),
+    talker(talk, wet, 205, 0.8, -0.8),
+  ]
+
   let alive = true
-  const blip = () => {
+  /* Two seconds of syllables, topped up four times a second. Scheduling
+   * further ahead would be cheaper and would also mean the room carries on
+   * talking for two seconds after somebody calls the house. */
+  const keepTalking = window.setInterval(() => {
     if (!alive) return
-    /* Not over a reaction. A blip is one man talking at conversational level,
-     * and it is the loudest thing the bed does - letting one land in the
-     * middle of a groan puts a stray syllable on top of the sound the whole
-     * room is supposed to be making together. */
-    if (ac().currentTime < quietUntil) {
-      window.setTimeout(blip, 600)
-      return
-    }
-    voice({
-      at: ac().currentTime,
-      f0: 110 + Math.random() * 90,
-      glide: 0.9 + Math.random() * 0.2,
-      vowel: 'u',
-      attack: 0.05,
-      seconds: 0.18 + Math.random() * 0.3,
-      gain: 0.013,
-      breath: 0.5,
-      tremor: 0,
-      send: 0.7,
-    })
-    window.setTimeout(blip, 700 + Math.random() * 2600)
-  }
-  window.setTimeout(blip, 1200)
+    const until = ac().currentTime + 2
+    for (const t of talkers) t.say(until)
+  }, 250)
 
-  /* And the bar itself, on its own clock. Same rule as a blip: nothing lands
-   * on top of a reaction, because the room holding its breath has to include
-   * the man pouring the drinks. */
+  /* The bar, on its own clock. Nothing lands on top of a reaction, because
+   * the room holding its breath has to include the man pouring the drinks. */
   const knockAbout = () => {
     if (!alive) return
-    if (ac().currentTime >= quietUntil) clatter(bar)
+    if (ac().currentTime >= quietUntil) clatter(bar, wet)
     window.setTimeout(knockAbout, 900 + Math.random() * 2200)
   }
   window.setTimeout(knockAbout, 800)
 
+  const laughing = () => {
+    if (!alive) return
+    if (ac().currentTime >= quietUntil) laughOver(across, wet)
+    window.setTimeout(laughing, 9000 + Math.random() * 16000)
+  }
+  window.setTimeout(laughing, 6000 + Math.random() * 8000)
+
   bed = {
-    gain: mutter,
-    duck: ducked,
+    talk,
+    duck: [ducked, wet],
     stop: () => {
       alive = false
-      src.stop()
-      lfo.stop()
+      window.clearInterval(keepTalking)
+      for (const t of talkers) t.stop()
     },
   }
 }
 
-/** The room pressing in, as a level. Driven by heat and by the last reaction. */
-export function setRoomDensity(density: number): void {
+/**
+ * The room pressing in. Driven by heat and by the last reaction.
+ *
+ * It buys less silence rather than more volume - see gap(). The level moves a
+ * little too, but only a little: the audible change between a quiet bar and a
+ * busy one is that nobody is ever not talking, not that everybody is shouting.
+ */
+export function setRoomDensity(next: number): void {
+  density = Math.max(0, Math.min(1, next))
   if (!bed) return
   const c = ac()
-  bed.gain.gain.linearRampToValueAtTime(0.07 + density * 0.16, c.currentTime + 0.8)
+  bed.talk.gain.linearRampToValueAtTime(0.8 + density * 0.45, c.currentTime + 0.8)
 }
 
 /** Until when the bed is under a reaction, on the audio clock. */
@@ -489,9 +738,10 @@ let quietUntil = 0
  * The muttering stops while the room reacts.
  *
  * This is not polish, it is the difference between the brief being met and
- * not. The bed is conversation at 520Hz and a groan is an "aww" gliding down
- * through 130Hz with its formants at 570 and 840 - they are the same sound in
- * the same octaves, so the bed masks it almost exactly. Measured at the
+ * not. The bed is six men talking and a groan is an "aww" gliding down
+ * through 130Hz with its formants at 570 and 840 - literally the same
+ * instrument in the same octaves, so the bed masks it almost exactly, and
+ * more so now the bed is voices in earnest. Measured at the
  * destination before this existed, a win added 2.4x as much energy above
  * 1.2kHz as below it and was 8dB clear of the room, while a groan added 0.001
  * in three bands and a gasp was not distinguishable from the room at all. The
@@ -504,13 +754,16 @@ let quietUntil = 0
 function bedDuck(amount: number, hold: number, release: number): void {
   if (!bed || amount <= 0) return
   const c = ac()
-  const g = bed.duck.gain
   const now = c.currentTime
-  g.cancelScheduledValues(now)
-  g.setValueAtTime(g.value, now)
-  g.linearRampToValueAtTime(1 - amount, now + 0.07)
-  g.setValueAtTime(1 - amount, now + 0.07 + hold)
-  g.linearRampToValueAtTime(1, now + 0.07 + hold + release)
+  /* Both of them, dry and send, on one curve - see startRoom(). */
+  for (const node of bed.duck) {
+    const g = node.gain
+    g.cancelScheduledValues(now)
+    g.setValueAtTime(g.value, now)
+    g.linearRampToValueAtTime(1 - amount, now + 0.07)
+    g.setValueAtTime(1 - amount, now + 0.07 + hold)
+    g.linearRampToValueAtTime(1, now + 0.07 + hold + release)
+  }
   quietUntil = Math.max(quietUntil, now + 0.07 + hold)
 }
 
@@ -520,24 +773,36 @@ export function stopRoom(): void {
 }
 
 /**
+ * The conversation on its own, for verify-audio.mjs.
+ *
+ * Handed over because the claim being checked is specifically about THIS
+ * layer - that it is people and not a noise generator - and the sfx bus has
+ * the glasses, the boots and the machine on it too. Measuring the mixture
+ * would leave the interesting part provable only by elimination.
+ */
+export const talkBus = () => bed?.talk ?? null
+
+/**
  * Everything stops. Used when the count is called - the oldest gesture in the
  * genre and the only moment on this table where the room is silent.
  *
- * On the duck rather than on the muttering, because EVERYTHING means the
- * barman too. When the bar got its own level under the same duck, hushing the
- * muttering alone left the glasses going: the check measured a "silence" only
- * 8dB below the room, which is not a room stopping, it is a room getting
- * quieter. quietUntil then stops anything new from starting during it.
+ * On the ducks rather than on the conversation, because EVERYTHING means the
+ * barman too, and the reflections as well as the sound that caused them.
+ * Hushing one layer at a time has failed this check twice now, 8dB short when
+ * the glasses were outside the duck and 12dB short when the talkers' reverb
+ * sends were. quietUntil then stops anything new from starting during it.
  */
 export function hush(seconds: number): void {
   const c = ac()
   if (!bed) return
-  const g = bed.duck.gain
-  g.cancelScheduledValues(c.currentTime)
-  g.setValueAtTime(g.value, c.currentTime)
-  g.linearRampToValueAtTime(0.0001, c.currentTime + 0.14)
-  g.setValueAtTime(0.0001, c.currentTime + seconds)
-  g.linearRampToValueAtTime(1, c.currentTime + seconds + 1.2)
+  for (const node of bed.duck) {
+    const g = node.gain
+    g.cancelScheduledValues(c.currentTime)
+    g.setValueAtTime(g.value, c.currentTime)
+    g.linearRampToValueAtTime(0.0001, c.currentTime + 0.14)
+    g.setValueAtTime(0.0001, c.currentTime + seconds)
+    g.linearRampToValueAtTime(1, c.currentTime + seconds + 1.2)
+  }
   quietUntil = Math.max(quietUntil, c.currentTime + seconds)
 }
 

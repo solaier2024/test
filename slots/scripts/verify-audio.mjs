@@ -15,7 +15,14 @@
  * heard nothing at all. Every reading in this file is there because that was
  * invisible until something measured it.
  *
- * Three kinds of check, in order.
+ * Four kinds of check, in order.
+ *
+ *   0. What the table is MADE of: the balance between the layers, whether the
+ *      ambience is people or a noise generator, and whether the upright plays
+ *      numbers or a loop. The last two are here because the brief was
+ *      tightened to say so, and because every check in this file passed on a
+ *      bed of filtered noise and a four-bar turnaround - a level cannot tell
+ *      a crowd from a hiss, and it cannot tell a pianist from a loop either.
  *
  *   1. Each reaction on its own, fired through the game's own react() on the
  *      game's own graph, so the six can be compared against each other and
@@ -35,18 +42,18 @@
  * numbers from the same session, which survives a change of mix.
  *
  * What the table sounds like now, peak-hold at the destination against a room
- * whose average level is -45dBFS, and what it sounded like before any of this
+ * whose average level is -47dBFS, and what it sounded like before any of this
  * was measured:
  *
  *                       was     now      above 1.2kHz
- *     roar            -37.4   -24.9          0.71
- *     cheer               -   -26.4          0.79
- *     gasp            -37.0   -27.4          0.92   <- brighter
- *     sigh            -37.7   -26.9          0.58   <- darker
- *     jeer                -   -27.4          0.60
- *     murmur              -   -34.6          0.73
- *     the coin fall   -30.1   -30.8          1.40
- *     the bell        -28.4   -28.6          0.98
+ *     roar            -37.4   -24.4          0.59
+ *     cheer               -   -27.0          0.71
+ *     gasp            -37.0   -27.7          0.52   <- brighter
+ *     sigh            -37.7   -27.7          0.35   <- darker
+ *     jeer                -   -28.3          0.55
+ *     murmur              -   -33.3          0.66
+ *     the coin fall   -30.1   -31.0          1.40
+ *     the bell        -28.4   -28.8          0.98
  *
  * The left column is the whole problem in one place: the three reactions that
  * were measurable were all quieter than the room they were supposed to be
@@ -155,9 +162,9 @@ const PROBE = () => {
    * graph for measuring.
    */
   window.__layers = async (ms) => {
-    const { sfx, piano, music } = window.__audio.buses()
+    const { sfx, piano } = window.__audio.buses()
     const c = window.__audio.ctx()
-    const taps = Object.entries({ sfx, piano, music }).map(([name, node]) => {
+    const taps = Object.entries({ sfx, piano }).map(([name, node]) => {
       const a = c.createAnalyser()
       a.fftSize = 2048
       a.smoothingTimeConstant = 0
@@ -180,6 +187,238 @@ const PROBE = () => {
     const db = (v) => (v > 0 ? 20 * Math.log10(v) : -200)
     return Object.fromEntries(taps.map((t) => [t.name, { peak: db(t.peak), mean: db(t.sum / t.n) }]))
   }
+  /**
+   * Is the ambience PEOPLE, or is it a filter on a noise generator?
+   *
+   * This is the one question about the room that no level, no spectrum and no
+   * peak-to-mean ratio can answer, because a crowd and a band of noise have
+   * roughly the same long-term spectrum - that is why a noise bed is the
+   * standard cheat in the first place, and why it survived here for as long
+   * as it did while every other check passed.
+   *
+   * Two things separate them, and this measures both.
+   *
+   * IN TIME: speech switches on and off four or five times a second, because
+   * that is how fast a mouth can change shape. The amplitude envelope of a
+   * room with talking in it therefore carries real energy at 2-8Hz. Noise has
+   * none there at any bandwidth or level - its envelope wanders, and
+   * wandering is slow.
+   *
+   * IN FREQUENCY: a voice is a buzz through resonances, so its spectrum is
+   * harmonics under formant peaks. Noise has no peaks. Spectral flatness -
+   * the geometric mean of the spectrum over its arithmetic mean - is near 1
+   * for noise and small for anything with structure, and "flat" is literally
+   * what the word "white" in "white noise" means.
+   *
+   * Both numbers are taken off the conversation layer, and both are taken
+   * again off a bed of bandpassed noise built right here from the numbers the
+   * old implementation used, played into a gain of zero so that it is
+   * measured and never heard. Four numbers, one instrument, one run; nothing
+   * to calibrate and nothing to take on trust.
+   */
+  window.__speechiness = async (ms) => {
+    const c = window.__audio.ctx()
+    const { sfx, talk } = window.__audio.buses()
+    const people = talk ?? sfx
+
+    /* The control: 520Hz bandpassed noise under a 0.23Hz wobble, which is
+     * what this table used to call a saloon. Silent by construction. */
+    const n = Math.floor(c.sampleRate * 4)
+    const buf = c.createBuffer(1, n, c.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1
+    const src = c.createBufferSource()
+    src.buffer = buf
+    src.loop = true
+    const band = c.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = 520
+    band.Q.value = 0.85
+    const wobble = c.createGain()
+    wobble.gain.value = 0.55
+    const lfo = c.createOscillator()
+    lfo.type = 'sine'
+    lfo.frequency.value = 0.23
+    const depth = c.createGain()
+    depth.gain.value = 0.3
+    lfo.connect(depth).connect(wobble.gain)
+    const silent = c.createGain()
+    silent.gain.value = 0
+    src.connect(band).connect(wobble).connect(silent).connect(c.destination)
+    src.start()
+    lfo.start()
+
+    const tap = (node) => {
+      /* Short window for the envelope: this is measuring how fast the level
+       * moves, so the instrument has to be quicker than the thing it is
+       * looking for. 512 samples is 12ms, and a syllable is 200. */
+      const fast = c.createAnalyser()
+      fast.fftSize = 512
+      fast.smoothingTimeConstant = 0
+      node.connect(fast)
+      /* And a long one for the spectrum, because resolving the harmonics of a
+       * 120Hz throat needs bins narrower than 120Hz. 4096 gives 11. */
+      const fine = c.createAnalyser()
+      fine.fftSize = 4096
+      fine.smoothingTimeConstant = 0
+      node.connect(fine)
+      return {
+        fast,
+        fine,
+        buf: new Float32Array(fast.fftSize),
+        bins: new Float32Array(fine.frequencyBinCount),
+        power: new Float64Array(fine.frequencyBinCount),
+        env: [],
+        frames: 0,
+      }
+    }
+    const room = tap(people)
+    const hiss = tap(wobble)
+
+    const at = []
+    const t0 = performance.now()
+    while (performance.now() - t0 < ms) {
+      for (const p of [room, hiss]) {
+        p.fast.getFloatTimeDomainData(p.buf)
+        let sq = 0
+        for (const s of p.buf) sq += s * s
+        p.env.push(Math.sqrt(sq / p.buf.length))
+        /* Only frames with signal in them go into the average spectrum. A
+         * talker is silent between phrases, and the flatness of a gap is the
+         * flatness of the measuring noise floor. */
+        if (sq / p.buf.length > 1e-10) {
+          p.fine.getFloatFrequencyData(p.bins)
+          for (let i = 0; i < p.bins.length; i++) p.power[i] += 10 ** (p.bins[i] / 10)
+          p.frames++
+        }
+      }
+      at.push((performance.now() - t0) / 1000)
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    src.stop()
+    lfo.stop()
+
+    /*
+     * Flatness over the band a vowel lives in. Below 180Hz is the throat
+     * rather than the mouth and above 4kHz there is nothing but the
+     * consonants, and including either would be measuring the filter that
+     * puts the talker across the room rather than the talker.
+     */
+    const hzPerBin = c.sampleRate / 2 / room.power.length
+    const flatness = (p) => {
+      let logs = 0
+      let sum = 0
+      let n = 0
+      for (let i = Math.ceil(180 / hzPerBin); i < Math.min(p.power.length, 4000 / hzPerBin); i++) {
+        const v = Math.max(1e-20, p.power[i] / Math.max(1, p.frames))
+        logs += Math.log(v)
+        sum += v
+        n++
+      }
+      return Math.exp(logs / n) / (sum / n)
+    }
+
+    /* rAF does not tick evenly, so put the envelope on a real time base
+     * before taking its spectrum - otherwise a dropped frame reads as
+     * modulation. */
+    const RATE = 60
+    const span = at[at.length - 1] - at[0]
+    const count = Math.floor(span * RATE)
+    const spectrum = (env) => {
+      const even = new Float64Array(count)
+      let k = 0
+      for (let i = 0; i < count; i++) {
+        const t = at[0] + i / RATE
+        while (k < at.length - 2 && at[k + 1] < t) k++
+        const f = (t - at[k]) / Math.max(1e-6, at[k + 1] - at[k])
+        even[i] = env[k] + (env[k + 1] - env[k]) * Math.min(1, Math.max(0, f))
+      }
+      let mean = 0
+      for (const v of even) mean += v
+      mean /= count
+      /* Relative to the mean level, so this says nothing about how loud
+       * anything is - only about how much it moves. */
+      for (let i = 0; i < count; i++) even[i] = (even[i] - mean) / Math.max(1e-9, mean)
+      const out = []
+      for (let hz = 0.25; hz <= 16.001; hz += 0.25) {
+        let re = 0
+        let im = 0
+        for (let i = 0; i < count; i++) {
+          const w = (2 * Math.PI * hz * i) / RATE
+          re += even[i] * Math.cos(w)
+          im += even[i] * Math.sin(w)
+        }
+        out.push({ hz, power: (re * re + im * im) / (count * count) })
+      }
+      return out
+    }
+    const measure = (p) => {
+      const s = spectrum(p.env)
+      const sum = (lo, hi) => s.filter((b) => b.hz >= lo && b.hz <= hi).reduce((a, b) => a + b.power, 0)
+      return {
+        /* Energy at a syllable rate against the slow wander that any signal
+         * has, so this is a shape and not a level. */
+        ratio: sum(2.5, 8) / Math.max(1e-12, sum(0.25, 1.25)),
+        flat: flatness(p),
+      }
+    }
+    return { room: measure(room), noise: measure(hiss) }
+  }
+
+  /**
+   * Watches the upright until it has been caught both playing and not.
+   *
+   * "The music is furniture" was asserted with a level, and a level cannot
+   * tell the difference between a piano in a bar and a loop turned down. The
+   * difference is that a number ENDS. So this one waits for a stretch of real
+   * playing and a gap of at least six seconds, and reports how long each took
+   * - which also fails, by timing out, if somebody puts a loop back.
+   */
+  window.__watchPiano = async (ms) => {
+    const c = window.__audio.ctx()
+    const { piano } = window.__audio.buses()
+    const a = c.createAnalyser()
+    a.fftSize = 1024
+    a.smoothingTimeConstant = 0
+    piano.connect(a)
+    const buf = new Float32Array(a.fftSize)
+    const t0 = performance.now()
+    const seen = []
+    /*
+     * An absolute threshold, not a fraction of the loudest thing seen. The
+     * first version of this scaled against the maximum in the window, and on
+     * a run that opened inside a gap the maximum WAS the noise floor, so the
+     * check reported a piano that had been playing all along and found no
+     * playing at all. Between numbers this bus is digitally silent - nothing
+     * is connected to it - so -80dBFS separates the two states with 20dB to
+     * spare either way.
+     */
+    const FLOOR = 1e-4
+    const tally = () => {
+      let quiet = 0
+      let silence = 0
+      let playing = 0
+      for (const s of seen) {
+        quiet = s.rms < FLOOR ? quiet + 0.12 : 0
+        silence = Math.max(silence, quiet)
+        if (s.rms >= FLOOR) playing += 0.12
+      }
+      return { watched: seen.length * 0.12, silence, playing }
+    }
+    while (performance.now() - t0 < ms) {
+      a.getFloatTimeDomainData(buf)
+      let sq = 0
+      for (const s of buf) sq += s * s
+      seen.push({ rms: Math.sqrt(sq / buf.length) })
+      await new Promise((r) => setTimeout(r, 120))
+      /* Stop as soon as the question is answered, so a run that catches the
+       * piano early does not sit out the rest of the number. */
+      const got = tally()
+      if (got.silence > 6 && got.playing > 4) break
+    }
+    return tally()
+  }
+
   /** Waits for the room to say something on screen, then measures from there. */
   window.__onReaction = async (ms) => {
     const text = () => document.querySelector('.said')?.textContent?.trim() ?? ''
@@ -274,6 +513,60 @@ expect('an idle table is the saloon, not the piano', saloon > upright + 4,
  */
 expect('and it is a room rather than a hum', saloon - layer('sfx', 'mean') > 5,
   `${(saloon - layer('sfx', 'mean')).toFixed(1)}dB between the loudest thing in it and its average`)
+
+/*
+ * And the part that no level can reach: the ambience is PEOPLE.
+ *
+ * The brief says the saloon noise must not be a noise floor - it has to be
+ * conversation, glasses, boots, laughter. The last three of those are events
+ * and the peak-to-mean check above sees them. Conversation is not an event,
+ * it is continuous, and a continuous voice-shaped signal and a band of noise
+ * measure the same on everything the rest of this file knows how to ask.
+ * That is exactly why the bed got away with being 520Hz noise through a slow
+ * wobble for as long as it did: every check in this file passed on it.
+ *
+ * Two properties separate them - how fast the level moves, and whether the
+ * spectrum has peaks in it - and both are measured against a bed of that
+ * same 520Hz noise, generated on the spot and played into a gain of zero.
+ */
+const speech = await page.evaluate((ms) => window.__speechiness(ms), 12000)
+expect(
+  'the room moves at a syllable rate, which noise cannot',
+  speech.room.ratio > speech.noise.ratio * 3,
+  `${speech.room.ratio.toFixed(2)} of its movement is at 2-8Hz against ${speech.noise.ratio.toFixed(2)} for noise`,
+)
+/*
+ * And it is voices rather than a filter, which is the other half of the same
+ * claim and the one the word "white" in "white noise" is literally about: a
+ * flat spectrum. A buzz through formants is not flat, and no amount of
+ * filtering noise makes it unflat - a filter shapes a spectrum, it cannot put
+ * harmonics into one.
+ */
+expect(
+  'and it is voices, not a flat spectrum with a filter on it',
+  speech.room.flat < speech.noise.flat * 0.5,
+  `spectral flatness ${speech.room.flat.toFixed(3)} against ${speech.noise.flat.toFixed(3)} for noise`,
+)
+
+/*
+ * And the upright plays NUMBERS.
+ *
+ * "The music is furniture" was asserted with a level for as long as there
+ * was music here, and a level cannot tell a piano in a bar from a loop
+ * turned down - which is what it was: four bars going round for as long as
+ * the table was open. A loop has no beginning and no end, and that is the
+ * property that makes a thing a soundtrack, not its volume.
+ *
+ * So the claim is now about time rather than level: somebody plays a number,
+ * finishes it, and the piano stops. The check waits for both states and
+ * times out if it only ever finds one.
+ */
+const numbers = await page.evaluate((ms) => window.__watchPiano(ms), 80000)
+expect(
+  'the upright plays numbers and then stops',
+  numbers.silence > 6 && numbers.playing > 4,
+  `${numbers.playing.toFixed(0)}s of playing and a ${numbers.silence.toFixed(0)}s gap inside ${numbers.watched.toFixed(0)}s`,
+)
 
 /* ---- 1. the room, and the six things it does -------------------------- */
 

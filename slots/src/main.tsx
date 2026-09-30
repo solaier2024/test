@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource/rye/400.css'
 import './index.css'
 import App from './App'
-import { ac, pianoBus, sfxBus, musicBus, tapOutput, unlock } from './audio/engine'
-import { react, startRoom } from './audio/crowd'
+import { ac, pianoBus, sfxBus, tapOutput, unlock } from './audio/engine'
+import { react, startRoom, talkBus } from './audio/crowd'
 import { setIntensity, startMusic } from './audio/music'
 import { libertyBell, leverPull, payoutCoins } from './audio/sfx'
 
@@ -32,14 +32,16 @@ window.__audio = {
   coins: (n: number) => payoutCoins(n),
   bell: (n = 3) => libertyBell(n),
   /*
-   * The three buses, so a script can measure one layer at a time.
+   * The layers, so a script can measure one at a time.
    *
-   * The brief is about the BALANCE between layers - the room and the machine
-   * in front, the upright behind them - and a probe on the output can only
-   * ever report their sum. These are the live nodes the game plays through,
-   * not a second graph built for measuring.
+   * The brief is about the BALANCE between them - the room and the machine in
+   * front, the upright behind them - and a probe on the output can only ever
+   * report their sum. `talk` is the conversation inside the saloon bus, which
+   * verify-audio needs on its own to show it is voices rather than noise.
+   * These are the live nodes the game plays through, not a second graph built
+   * for measuring.
    */
-  buses: () => ({ sfx: sfxBus(), piano: pianoBus(), music: musicBus() }),
+  buses: () => ({ sfx: sfxBus(), piano: pianoBus(), talk: talkBus() }),
 }
 
 createRoot(document.getElementById('root')!).render(
