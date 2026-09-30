@@ -452,19 +452,33 @@ running order 是 `build-clips.mjs` 里的一个数组——**这三样里任何
 在那条路上它只断言身份、报出倍数但不设下限，**并且把用的是哪种参照打印出来**，
 所以两条路证明的强度不同这件事是看得见的，不是心里有数。
 
+每句字幕在它**亮着的那段时间里采三个点**（前 30%、中间、后 70%），
+因为一句只压到接点一头的字幕，只看中点是看不出来的：
+
 ```
 276 frames, 11.50s at 24fps, against the source takes
 
 caption      at       bar    room    band machine   reads as  margin
 1          1.25s       1.4    16.2    34.0    22.4        bar    12.0
+1          1.63s       1.3    18.0    34.2    23.0        bar    14.4
+1          1.96s       1.2    18.7    34.3    23.3        bar    15.4
+2          3.79s      19.0     1.1    36.1    21.6       room    17.7
 2          4.25s      20.6     1.1    37.6    23.4       room    18.3
+2          4.67s      21.1     1.2    36.8    22.0       room    17.7
+3          6.42s      35.0    38.5     1.0    37.3       band    34.2
 3          6.92s      34.4    37.9     1.1    37.3       band    29.9
+3          7.42s      34.5    37.5     1.1    37.4       band    32.5
+4          9.08s      23.4    19.9    34.5     1.1    machine    17.6
 4          9.42s      23.4    19.9    34.5     1.1    machine    17.6
+4          9.71s      23.4    19.9    34.5     1.1    machine    17.6
 title     10.88s      23.4    19.9    34.5     1.1    machine    17.6
 
 OK: 4 shots, all of them inside the saloon, each caption on the shot it was
     written for, and the film ends on the machine
 ```
+
+它跑 1.3 秒，离线、不需要浏览器，所以**它在 CI 里**——和预算检查同一类：
+读的是已经编码好的交付产物，而那正是会悄悄腐坏的东西。
 
 ---
 

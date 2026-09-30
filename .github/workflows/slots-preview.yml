@@ -74,6 +74,14 @@ jobs:
       - run: npm run verify:budget
         working-directory: slots
 
+      # And which shot each caption in the opening actually lands on, asked of
+      # the encoded film rather than of the arithmetic that placed them. Same
+      # family as the budget above: it reads the committed delivery artefacts,
+      # and it runs in a second and a half. It caught two captions sitting on
+      # the wrong side of a cut the first time it was ever run.
+      - run: npm run verify:opening
+        working-directory: slots
+
       # Two things that can only be checked by running the game in a browser,
       # against one dev server.
       #
