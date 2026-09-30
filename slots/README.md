@@ -1202,22 +1202,24 @@ ffmpeg 把 x11grab 和那个 monitor 合成一个文件。三样都由脚本启�
 （录着房间底噪也能过），而是那几个响的时刻加一个静的时刻：
 
 ```
-recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:02.87
-  the room sits at -46.3 dBFS
-  the opening film carries it at -45.4 dBFS over its first 10s
-   23.0s  -36.2 dBFS      差一格，房间的气被抽走
-   32.0s  -24.7 dBFS      中了，全片最响的一下
-   41.0s  -33.5 dBFS
-   50.5s  -35.4 dBFS
-   54.8s  -35.7 dBFS      对一次太早的叫破的判决
-   55.5s  -68.0 dBFS  <-  叫破的一瞬间房间死寂
-  the picture changes 26.0 times a second, over 1886 frames
+recorded demo-capture/walkthrough_sound.mp4  1440x900  00:01:02.90
+  the room sits at -45.9 dBFS
+  the opening film carries it at -44.9 dBFS over its first 10s
+   23.5s  -36.0 dBFS      差一格，房间的气被抽走
+   32.0s  -24.5 dBFS      中了，全片最响的一下
+   37.5s  -37.4 dBFS
+   41.0s  -33.7 dBFS
+   46.0s  -37.6 dBFS
+   50.5s  -35.8 dBFS
+   56.5s  -34.2 dBFS      对一次太早的叫破的判决
+   51.0s  -61.5 dBFS  <-  叫破的一瞬间房间死寂
+  the picture changes 26.1 times a second, over 1887 frames
 
-OK: a film with the room under it, 5 reactions and a hush, on a file that moves
+OK: a film with the room under it, 7 reactions and a hush, on a file that moves
 ```
 
 第二行是这一版加的，**而它是"片头有声"这件事在交付物上的证据**：片子那十秒
-量到 -45.4，房间中位数 -46.3，**两个数差 0.9dB**——片头底下跑的就是同一间屋子。
+量到 -44.9，房间中位数 -45.9，**两个数差 1.0dB**——片头底下跑的就是同一间屋子。
 片头无声的那一版，这一行会读到 -180。这一条**故意放在这里而不是只放在浏览器里**：
 这个脚本存在的全部理由就是"浏览器里是对的"不能当成"文件里是对的"的证据，
 而它的第一版录出来的正是一部漂亮的、完全无声的片子。
