@@ -74,15 +74,46 @@ export const toLuma = (rgb) => {
  * filled by repeating the edge pixel rather than with black, because these
  * shifts are single digits and the repeated strip lands under the vignette,
  * whereas a black strip is a hard line that VP9 will happily spend bits on.
+ *
+ * dx and dy may be fractional, in which case the sample is bilinear. A whole
+ * number takes the exact path and copies bytes, so a frame that needs no
+ * sub-pixel correction is never resampled and never softened.
  */
 export function shiftRGB(rgb, dx, dy) {
   if (!dx && !dy) return rgb
   const out = Buffer.allocUnsafe(W * H * 3)
+  if (Number.isInteger(dx) && Number.isInteger(dy)) {
+    for (let y = 0; y < H; y++) {
+      const sy = Math.min(H - 1, Math.max(0, y - dy))
+      for (let x = 0; x < W; x++) {
+        const sx = Math.min(W - 1, Math.max(0, x - dx))
+        out.writeUIntBE(rgb.readUIntBE((sy * W + sx) * 3, 3), (y * W + x) * 3, 3)
+      }
+    }
+    return out
+  }
+  const clampX = (v) => Math.min(W - 1, Math.max(0, v))
+  const clampY = (v) => Math.min(H - 1, Math.max(0, v))
   for (let y = 0; y < H; y++) {
-    const sy = Math.min(H - 1, Math.max(0, y - dy))
+    const fy = y - dy
+    const y0 = clampY(Math.floor(fy))
+    const y1 = clampY(y0 + 1)
+    const wy = fy - Math.floor(fy)
     for (let x = 0; x < W; x++) {
-      const sx = Math.min(W - 1, Math.max(0, x - dx))
-      out.writeUIntBE(rgb.readUIntBE((sy * W + sx) * 3, 3), (y * W + x) * 3, 3)
+      const fx = x - dx
+      const x0 = clampX(Math.floor(fx))
+      const x1 = clampX(x0 + 1)
+      const wx = fx - Math.floor(fx)
+      const i00 = (y0 * W + x0) * 3
+      const i01 = (y0 * W + x1) * 3
+      const i10 = (y1 * W + x0) * 3
+      const i11 = (y1 * W + x1) * 3
+      const o = (y * W + x) * 3
+      for (let c = 0; c < 3; c++) {
+        const top = rgb[i00 + c] + (rgb[i01 + c] - rgb[i00 + c]) * wx
+        const bot = rgb[i10 + c] + (rgb[i11 + c] - rgb[i10 + c]) * wx
+        out[o + c] = Math.round(top + (bot - top) * wy)
+      }
     }
   }
   return out
@@ -104,9 +135,38 @@ function cost(ref, cand, dx, dy) {
 }
 
 /**
+ * The vertex of the parabola through three costs, as an offset from the
+ * middle one, or 0 if they do not describe a minimum.
+ *
+ * A camera drifts continuously and pixels do not, so the true alignment of a
+ * moving frame is almost never a whole number. The cost surface around the
+ * integer minimum still knows where the real one is - it is lopsided towards
+ * it - and three samples are enough to say by how much.
+ */
+function vertex(before, at, after) {
+  const curve = before - 2 * at + after
+  if (curve <= 0) return 0
+  return Math.max(-0.5, Math.min(0.5, (0.5 * (before - after)) / curve))
+}
+
+/**
  * Coarse-to-fine so a wider search stays cheap: generated frames can wander
  * further than the stills ever did, and an exhaustive +/-16 per frame over a
  * hundred frames is not worth paying for when two passes find the same answer.
+ *
+ * The answer is then refined off the integer grid, and that last step is not
+ * a nicety. The rim is composited back over a 22px feather, so the ring
+ * around it is a blend of the plate and the frame, and half a pixel of
+ * leftover misalignment there is a visible edge in a region whose whole job
+ * is to have no edges. Two takes in this set have the camera swing eight
+ * pixels and come back - real, smooth motion, correctly found and then
+ * rounded away - and verify-lock.mjs read the rounding as the window moving:
+ * 3.77 against a limit of 3.5, on exactly the frames where the swing was
+ * fastest and the fractional part largest. Everywhere the camera was still
+ * the same frames measured 1.3.
+ *
+ * Returns dx and dy as real numbers. shiftRGB samples bilinearly when they
+ * are not whole, and copies bytes when they are.
  */
 export function bestShiftRGB(refLuma, candLuma, range = 16) {
   let best = { dx: 0, dy: 0, cost: Infinity }
@@ -120,7 +180,17 @@ export function bestShiftRGB(refLuma, candLuma, range = 16) {
       }
     }
   }
-  return best
+  const fx = vertex(
+    cost(refLuma, candLuma, best.dx - 1, best.dy),
+    best.cost,
+    cost(refLuma, candLuma, best.dx + 1, best.dy),
+  )
+  const fy = vertex(
+    cost(refLuma, candLuma, best.dx, best.dy - 1),
+    best.cost,
+    cost(refLuma, candLuma, best.dx, best.dy + 1),
+  )
+  return { ...best, dx: best.dx + fx, dy: best.dy + fy }
 }
 
 /*

@@ -338,7 +338,7 @@ function generatedFrames(use) {
   closeSync(dst)
   writeSequence(outRaw, dir)
   rmSync(stage, { recursive: true, force: true })
-  console.log(`  ${use}: ${count} generated frames, worst drift taken out ${worst}px`)
+  console.log(`  ${use}: ${count} generated frames, worst drift taken out ${worst.toFixed(1)}px`)
 
   return readdirSync(dir).sort().map((f) => join(dir, f))
 }
