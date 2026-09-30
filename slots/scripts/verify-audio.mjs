@@ -1114,21 +1114,61 @@ for (const n of [1, 2, 3]) {
    * 1.2x was a fail by two hundredths. It still bounds something: a groan in
    * a jackpot's caption measures 0.14.
    *
-   * The two reactions that pay nothing keep the tight band, and those are
-   * the ones this check is really for: a gasp and a groan are both a losing
-   * pull, so the difference between them cannot be the payout - it is the
-   * vowel, and the gap between them is now in the throat rather than borrowed
-   * from the room. See VoiceOpts.top in src/audio/crowd.ts.
+   * The two reactions that pay nothing are the ones this check is really
+   * for: a gasp and a groan are both a losing pull, so the difference
+   * between them cannot be the payout - it is the vowel, and the gap between
+   * them is in the throat rather than borrowed from the room. See
+   * VoiceOpts.top in src/audio/crowd.ts.
+   *
+   * Those two used to be held inside a [0.5x, 2x] band around the solo
+   * median, and that failed in CI on a groan reading 0.16 against 0.35 -
+   * under the floor by two hundredths. Nothing was wrong with the mix. The
+   * band was narrower than the noise it was measuring, and this is the third
+   * time that mistake has been made in this file in a different place.
+   *
+   * Sampled sixteen times each, a single firing's colour spans:
+   *
+   *     gasp    0.799   (0.621 - 1.070)
+   *     sigh    0.275   (0.201 - 0.442)
+   *
+   * A 2.2x spread on the groan on its own, against a window of 4x total -
+   * so a fixed band around the median cannot hold, and the asymmetry makes
+   * it worse: `solo` is a MEDIAN OF FIVE firings and `got.bright` is ONE
+   * draw taken in context, so the two sides of the comparison are not even
+   * estimates of the same quality.
+   *
+   * What the check is for does not need a band. reactionTo() returns a gasp
+   * or a groan and nothing else when a pull pays nothing, so on an unpaid
+   * pull there are exactly TWO sounds this could be, and the question is
+   * which - a classification, not a tolerance. So ask whether the reading is
+   * nearer the named one than the other, in log ratio because these are
+   * ratios. The two part at their geometric mean, 0.469, which is 1.7x clear
+   * of either median and still 1.06x above the loudest groan ever measured
+   * here. Both margins are wider than the spread, which is what the band it
+   * replaces could not say.
+   *
+   * The paying three keep the ceiling above, because up there the coin fall
+   * and the bell are legitimately inside the window and the thing worth
+   * bounding is the mixture.
    */
   if (got.kind) {
     const solo = heard[got.kind].bright
-    const paid = ['roar', 'cheer', 'murmur'].includes(got.kind)
-    const ceiling = paid ? Math.max(solo, heard.coins.bright, heard.bell.bright) * 1.5 : solo * 2
-    expect(
-      `pull ${n}: and it is the ${got.kind} it says it is`,
-      got.bright > solo * 0.5 && got.bright < ceiling,
-      `${got.bright.toFixed(2)} against ${solo.toFixed(2)} alone${paid ? ` and ${heard.coins.bright.toFixed(2)} for the money that fell with it` : ''}`,
-    )
+    if (['roar', 'cheer', 'murmur'].includes(got.kind)) {
+      const ceiling = Math.max(solo, heard.coins.bright, heard.bell.bright) * 1.5
+      expect(
+        `pull ${n}: and it is the ${got.kind} it says it is`,
+        got.bright > solo * 0.5 && got.bright < ceiling,
+        `${got.bright.toFixed(2)} against ${solo.toFixed(2)} alone and ${heard.coins.bright.toFixed(2)} for the money that fell with it`,
+      )
+    } else {
+      const other = got.kind === 'sigh' ? 'gasp' : 'sigh'
+      const rival = heard[other].bright
+      expect(
+        `pull ${n}: and it is the ${got.kind} it says it is`,
+        Math.abs(Math.log(got.bright / solo)) < Math.abs(Math.log(got.bright / rival)),
+        `${got.bright.toFixed(2)} is nearer the ${got.kind}'s ${solo.toFixed(2)} than the ${other}'s ${rival.toFixed(2)}, which part at ${Math.sqrt(solo * rival).toFixed(2)}`,
+      )
+    }
   }
 }
 
