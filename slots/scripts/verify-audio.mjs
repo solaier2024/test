@@ -398,12 +398,24 @@ const PROBE = () => {
       let quiet = 0
       let silence = 0
       let playing = 0
+      let sum = 0
+      let n = 0
       for (const s of seen) {
         quiet = s.rms < FLOOR ? quiet + 0.12 : 0
         silence = Math.max(silence, quiet)
-        if (s.rms >= FLOOR) playing += 0.12
+        if (s.rms >= FLOOR) {
+          playing += 0.12
+          sum += s.rms
+          n++
+        }
       }
-      return { watched: seen.length * 0.12, silence, playing }
+      /*
+       * And how loud it is WHILE IT IS PLAYING, which is the only reading of
+       * this bus the balance can be argued from. Averaged over the whole
+       * watch it would be a number about how long the gaps are.
+       */
+      const level = n ? 20 * Math.log10(sum / n) : -200
+      return { watched: seen.length * 0.12, silence, playing, level }
     }
     while (performance.now() - t0 < ms) {
       a.getFloatTimeDomainData(buf)
@@ -494,25 +506,46 @@ await page.waitForTimeout(3000)
  *
  * Medians of three windows, for the same reason the reactions below are: an
  * idle saloon is EVENTS - a glass down, boots, a chair - and which ones fall
- * inside a six second window swings the peak by 6dB. That spread is the room
+ * inside a six second window swings its PEAK by 6dB. That spread is the room
  * being a room, and the median is what the room is like.
+ *
+ * Both sides of the comparison are levels that converge, and getting there
+ * cost a second CI failure in the same spot as the first. This used to be
+ * peak against peak, and it failed on the deployed build at exactly 4.0dB
+ * with the room at -40.0 and the upright at -44.0. Nothing was wrong with
+ * the mix: the same build read -33.4 against -44.5 locally. The room's PEAK
+ * moved 6.6dB between two machines and the upright's did not, for the reason
+ * written out at the room tone below - a peak-hold reading of a room with
+ * sparse transients in it is the loudest event that happened to land in the
+ * window, and that is an extreme value, not a level.
+ *
+ * So the room is its MEAN, and the upright is its mean WHILE IT IS PLAYING
+ * (from the watch below, which is why that runs first). The second half
+ * matters as much as the first: the upright now plays a number and then sits
+ * out fourteen to forty-two seconds, so its mean over any window long enough
+ * to be stable is mostly a measurement of the silence, and comparing the
+ * room against that would pass no matter how loud the piano was.
  */
 const idle = []
 for (let i = 0; i < 3; i++) idle.push(await page.evaluate((ms) => window.__layers(ms), 6000))
 const layer = (bus, field = 'peak') => median(idle.map((m) => m[bus][field]))
-const saloon = layer('sfx')
-const upright = layer('piano')
+const saloon = layer('sfx', 'mean')
+const loudest = layer('sfx')
+const numbers = await page.evaluate((ms) => window.__watchPiano(ms), 80000)
+const upright = numbers.level
 
 expect('an idle table is the saloon, not the piano', saloon > upright + 4,
-  `the room ${saloon.toFixed(1)} dBFS against an upright at ${upright.toFixed(1)}`)
+  `the room ${saloon.toFixed(1)} dBFS against an upright that reaches ${upright.toFixed(1)} while it plays`)
 /*
  * And the room is a ROOM, not a hiss. A bed of filtered noise loud enough to
  * lead the mix is just tape hiss; what makes a saloon read as busy at a much
  * lower level is that things happen in it. A wide gap between peak and mean
- * is what "things happen in it" looks like as a number.
+ * is what "things happen in it" looks like as a number - and here the peak
+ * being an extreme value is the point rather than a problem, because the
+ * claim is about the distance between the loudest event and the average.
  */
-expect('and it is a room rather than a hum', saloon - layer('sfx', 'mean') > 5,
-  `${(saloon - layer('sfx', 'mean')).toFixed(1)}dB between the loudest thing in it and its average`)
+expect('and it is a room rather than a hum', loudest - saloon > 5,
+  `${(loudest - saloon).toFixed(1)}dB between the loudest thing in it and its average`)
 
 /*
  * And the part that no level can reach: the ambience is PEOPLE.
@@ -559,9 +592,9 @@ expect(
  *
  * So the claim is now about time rather than level: somebody plays a number,
  * finishes it, and the piano stops. The check waits for both states and
- * times out if it only ever finds one.
+ * times out if it only ever finds one. (The watch itself ran up at the top
+ * of this section, because the balance needs the level it measures.)
  */
-const numbers = await page.evaluate((ms) => window.__watchPiano(ms), 80000)
 expect(
   'the upright plays numbers and then stops',
   numbers.silence > 6 && numbers.playing > 4,
@@ -750,6 +783,25 @@ expect(
  * and coins in front of the saloon, and the upright still behind both. The
  * window is one whole pull, so what it catches is the ratchet, the three
  * bands landing and whatever the room says about it.
+ *
+ * The iron and the saloon share the sfx bus - there is no separate machine
+ * bus, because the machine IS something in the room - so "the machine leads"
+ * is that bus with the machine working, against the room's ongoing level.
+ *
+ * Which makes this a peak against a mean, for the same reason the reactions
+ * above are: a pull is EVENTS - the ratchet, three bands landing, coins in
+ * the hopper - and asking whether an event is audible over an ongoing room
+ * is exactly a peak against a level. Measured with the mean on both sides it
+ * reads -44.8 against -48.4, because seven seconds of a pull is mostly seven
+ * seconds of room; the peak is 21dB clear and repeats to a dB between
+ * machines, because it is the loudest sound the machine is BUILT to make
+ * rather than whichever glass happened to land in the window.
+ *
+ * The second line is a different measurement from "an idle table is the
+ * saloon, not the piano" rather than a restatement of it: it is the two
+ * buses inside ONE window, so it is the only thing here that can see the
+ * duck. Take the duck out and raise the piano and the idle comparison can
+ * still pass while this one does not.
  */
 const working = page.evaluate((ms) => window.__layers(ms), 7000)
 await page.locator('button.lever').click()
@@ -757,8 +809,8 @@ const played = await working
 await page.waitForTimeout(2500)
 expect('the machine leads while it is working', played.sfx.peak > saloon + 5,
   `${played.sfx.peak.toFixed(1)} dBFS against an idle saloon of ${saloon.toFixed(1)}`)
-expect('and the upright is behind both of them', played.piano.peak < saloon - 2,
-  `upright ${played.piano.peak.toFixed(1)}, saloon ${saloon.toFixed(1)}, machine ${played.sfx.peak.toFixed(1)} dBFS`)
+expect('and the upright is behind both of them', played.piano.mean < played.sfx.mean - 10,
+  `upright ${played.piano.mean.toFixed(1)}, saloon ${saloon.toFixed(1)}, machine ${played.sfx.mean.toFixed(1)} dBFS`)
 
 /*
  * Reaction lines, as regexes, so a pull can be checked against the reaction
