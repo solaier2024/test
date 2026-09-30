@@ -37,6 +37,9 @@
     "//probe:spread": "Not a check. Fires one cue sixteen times and prints the distribution verify:audio reads one sample of, for when a threshold fails on one machine and passes on another.",
     "probe:spread": "node scripts/probe-spread.mjs",
 
+    "//probe:fingerprint": "Not a check either. Records the SHAPE of every sound in the mix - octave bands relative to each sound's own total, so level drops out - and diffs two recordings of it. The one question verify:audio cannot answer is 'is this the same soundtrack', because every threshold in it is a ratio between two numbers from the same run.",
+    "probe:fingerprint": "node scripts/probe-fingerprint.mjs",
+
     "//odds": "The engine is TypeScript and the scripts import it directly rather than keeping a second copy of the bands. Node 22.14 needs to be told to strip the types; 22.18 and up does it unasked.",
     "odds": "node --experimental-strip-types scripts/odds.mjs"
   },

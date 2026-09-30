@@ -35,9 +35,21 @@
  * the wall's corner - a banjo is nearly all offbeat and overtone - so the
  * same bus gain measured 2.3dB quieter than the solo piano did, and what was
  * meant to be something you could tap a foot to arrived as a rumour. 0.125
- * puts the band back where the piano was, which is still 11dB under the room.
+ * put the band back where the piano was.
+ *
+ * And then back DOWN by 3.9dB when a fiddle took the tune, which is the same
+ * correction in the opposite direction and for a better-defined reason than
+ * either of the two before it. Every instrument on this bus until now was
+ * struck or plucked: all the energy goes in at one instant and the note is a
+ * spike followed by a decay, so most of the time a piano is playing, most of
+ * what it is doing is getting quieter. A bow pours energy in for as long as
+ * the arm moves, so a bowed note has no decay at all and its average level is
+ * close to its peak. At 0.125 the new arrangement measured -50.5 dBFS against
+ * a room mean of -48.7, and "the upright is furniture" wants at least 4dB of
+ * daylight; the fiddle had eaten it without one number in music.ts being about
+ * loudness. 0.08 restores 5.7dB, which is more room than the piano ever had.
  */
-const BAND_LEVEL = 0.125
+const BAND_LEVEL = 0.08
 
 let ctx: AudioContext | null = null
 let master: GainNode
