@@ -416,13 +416,20 @@ const VP9 = ['-c:v', 'libvpx-vp9', '-row-mt', '1', '-cpu-used', '2',
  *   2-pass 260k      356 KB   0.8482   <- this
  *
  * The same quality as CRF 45 in 62% of the bytes, and it is the row that fits.
+ *
+ * Both codecs go through this. The VP9 numbers above are what it was written
+ * for; x264 was added when a busier opening pushed the mp4 fallback over the
+ * same ceiling the webm had already been brought under. See encode().
  */
-function vp9ToBudget(input, vf, out, kb, seconds) {
-  // 8 bits a byte, and a little back for container overhead the encoder is
-  // not accounting for.
-  const kbps = Math.floor(((kb * 8) / seconds) * 0.92)
+const H264 = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an']
+
+/** 8 bits a byte, and a little back for container overhead the encoder is not
+ *  accounting for. */
+const bitrate = (kb, seconds) => `${Math.floor(((kb * 8) / seconds) * 0.92)}k`
+
+function toBudget(codec, input, vf, out, kb, seconds) {
   const log = join(CACHE, `pass-${digest(out)}`)
-  const common = [...input, '-vf', vf, ...VP9, '-b:v', `${kbps}k`, '-passlogfile', log]
+  const common = [...input, '-vf', vf, ...codec, '-b:v', bitrate(kb, seconds), '-passlogfile', log]
   ff([...common, '-pass', '1', '-f', 'null', '-'])
   ff([...common, '-pass', '2', out])
 }
@@ -444,14 +451,33 @@ function encode(name, frames, { fps = FPS, budget = null } = {}) {
   ]) {
     const vf = `scale=${w}:${h}`
     const webm = join(OUT, `${name}${suffix}.webm`)
-    if (kb) vp9ToBudget(input, vf, webm, kb, seconds)
-    else ff([...input, '-vf', vf, ...VP9, '-crf', String(crf), '-b:v', '0', webm])
-    /* The mp4 is the fallback for a browser that will not decode VP9, and x264
-     * at these CRFs comes in under every budget here on its own, so it is left
-     * quality-targeted. If that ever stops being true verify-budget.mjs says so
-     * before anything ships. */
-    ff([...input, '-vf', vf, '-c:v', 'libx264', '-crf', String(crf - 6),
-      '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', join(OUT, `${name}${suffix}.mp4`)])
+    const mp4 = join(OUT, `${name}${suffix}.mp4`)
+    /*
+     * The mp4 is the fallback for a browser that will not decode VP9. It used
+     * to be left quality-targeted with a note saying x264 at these CRFs came
+     * in under every budget on its own, and that if it ever stopped being true
+     * verify-budget.mjs would say so before anything shipped.
+     *
+     * It stopped being true and verify-budget.mjs said so. Replacing the
+     * opening's exterior street with a crowded bar put twenty moving people
+     * where there had been an empty street and an empty hall, and x264 at CRF
+     * 29 went from 367 KB to 484 KB against the 400 KB ceiling - while the
+     * webm beside it, which was already budget-targeted, landed at 335 KB and
+     * noticed nothing. A quality target is a promise about how the picture
+     * looks and no promise at all about what it costs, and a picture with a
+     * crowd in it costs more than a picture of a street.
+     *
+     * So both encodes of a budgeted clip are now budgeted, and the stated
+     * ceilings are properties of this repository rather than of how busy the
+     * shot happens to be.
+     */
+    if (kb) {
+      toBudget(VP9, input, vf, webm, kb, seconds)
+      toBudget(H264, input, vf, mp4, kb, seconds)
+    } else {
+      ff([...input, '-vf', vf, ...VP9, '-crf', String(crf), '-b:v', '0', webm])
+      ff([...input, '-vf', vf, ...H264, '-crf', String(crf - 6), mp4])
+    }
   }
   ff(['-i', join(stage, '00000.png'), '-vf', `scale=${W}:${H}`, '-q:v', '4', join(OUT, `${name}.jpg`)])
   rmSync(stage, { recursive: true, force: true })
