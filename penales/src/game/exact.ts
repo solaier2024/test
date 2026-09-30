@@ -7,8 +7,8 @@
  * enough to size it. A ladder game's per-round variance is enormous - the
  * standard error on a strategy that never banks is several percentage points
  * even over hundreds of thousands of rounds - so "97.0% plus or minus noise"
- * cannot distinguish a correct paytable from one whose top end is quietly
- * clipped. A certification lab asks for an analytic RTP for exactly this reason.
+ * cannot distinguish a correct paytable from one whose top end is quietly clipped.
+ * The only way to know is to stop measuring and start counting.
  *
  * WHAT THE SIMULATION FOUND
  *
@@ -131,9 +131,8 @@ export function worstCase(cap = MAX_WIN_MULTIPLIER): { zone: Zone; bank: number;
 /**
  * How much return the cap costs the worst-affected way of playing.
  *
- * This is the number to put in front of a lab, and the number to check before
- * changing MAX_WIN_MULTIPLIER, MAX_KICKS, TELL_RATE or any row of TABLE - all
- * four move it.
+ * The number to check before changing MAX_WIN_MULTIPLIER, MAX_KICKS, TELL_RATE or
+ * any row of TABLE - all four move it.
  */
 export const costOfCap = (cap = MAX_WIN_MULTIPLIER): number => worstCase(cap).exact.costOfCap
 

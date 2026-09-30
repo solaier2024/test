@@ -69,6 +69,21 @@ describe('the client is never given anything it could compute an outcome with', 
     expect(house.view('ana').fair.commitment).toHaveLength(64)
   })
 
+  it('prints the odds on the goal before anybody has played', () => {
+    /* The goal has odds on it whether or not a round is open, and a player deciding
+     * what to ante wants to read them. Without this the first load showed "x 0%" in
+     * all six corners - which is what asking a round that does not exist what it pays
+     * will get you. */
+    const house = table()
+    expect(house.view('ana').round).toBeNull()
+    const board = house.view('ana').openingBoard
+    expect(board).toHaveLength(ZONES.length)
+    for (const row of board) {
+      expect(row.multiplier).toBeGreaterThan(1)
+      expect(row.p).toBeGreaterThan(0)
+    }
+  })
+
   it('publishes the odds it is pricing against', () => {
     /* The other half of not being asked to trust us: every multiplier on the
      * board comes with the probability it was derived from. */
@@ -322,7 +337,7 @@ describe('the rules of the round', () => {
     const house = table()
     expect(() => house.open('ana', MIN_STAKE - 1, key())).toThrow(/stake must be/)
     expect(() => house.open('ana', MAX_STAKE + 1, key())).toThrow(/stake must be/)
-    expect(() => house.open('ana', 1000.5, key())).toThrow(/whole centavos/)
+    expect(() => house.open('ana', 1000.5, key())).toThrow(/whole chips/)
   })
 
   it('refuses a stake the player cannot cover, without moving anything', () => {

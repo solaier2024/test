@@ -12,10 +12,11 @@
  *
  * WHY IT LOOKS LIKE THIS
  *
- * The state is in memory because this is a grey box. The SHAPE is not a grey
- * box, and that is the point - the brief is right that writing client-authority
- * first and fixing it later is a rewrite, and the same is true of the wallet.
- * Every construct below maps onto exactly one SQL construct:
+ * The state is in memory because this is a grey box, and the chips are chips - there
+ * is no money anywhere in this project. The SHAPE is not a grey box, and that is the
+ * point: the brief is right that writing client-authority first and fixing it later
+ * is a rewrite, and the same is true of the books. Every construct below maps onto
+ * exactly one SQL construct:
  *
  *   transact(fn)        BEGIN ... COMMIT, one statement of isolation
  *   draft               the uncommitted transaction's view
@@ -23,30 +24,37 @@
  *   commit()            the single pointer swap below, which is the COMMIT
  *   invariants()        a deferred CHECK constraint, run before commit lands
  *
- * Swapping this for Postgres means reimplementing four methods. It does not
+ * Swapping this for something durable means reimplementing four methods. It does not
  * mean touching a line of game logic, a line of ledger logic, or a line of the
- * service - and that is the only property worth defending at this stage,
- * because it is the one that decides whether the real wallet integration is an
- * adapter or a rewrite.
+ * service.
  *
- * WHAT IS DELIBERATELY NOT HERE
+ * WHY BOTHER, FOR A GAME WITH NO MONEY IN IT
  *
- * The real thing needs a distributed story this cannot have: the wallet is a
- * separate service, so the debit and the round live in different databases and
- * "commit together" stops being free. PENALES.md section 6 spells out the
- * reserve/commit/rollback protocol that replaces it and why the idempotency key
- * below is the part that survives unchanged. Read that before wiring this to a
- * real wallet.
+ * Two reasons, and the first is enough on its own.
+ *
+ * A chip count that can drift is a game that cannot be trusted about anything else
+ * either. The whole point of the table is that the player can check the house, and
+ * "your balance is occasionally wrong in our favour" is not a thing a verifier panel
+ * can argue its way out of. Double entry means the books either balance or the
+ * transaction does not land, and nobody has to be careful.
+ *
+ * The second: this is the cheap end of the problem. If chips ever became anything
+ * other than chips, the debit and the round would live in different databases and
+ * "commit together" would stop being free - that needs a reserve/commit/rollback
+ * protocol and an outbox, and it is a project of its own rather than an afternoon.
+ * The one piece that survives that move unchanged is the idempotency key below, and
+ * it is much easier to have designed for it now than to retrofit it into a ledger
+ * that never needed it.
  */
 
-import type { Centavos } from '../game/table.ts'
+import type { Chips } from '../game/table.ts'
 
 /* ------------------------------------------------------------- the journal */
 
 /** One leg of a money move. Positive credits the account, negative debits it. */
 export interface Posting {
   account: string
-  amount: Centavos
+  amount: Chips
 }
 
 export interface JournalEntry {
@@ -87,20 +95,20 @@ export interface KickRecord {
 export interface RoundRecord {
   readonly id: string
   readonly playerId: string
-  readonly stake: Centavos
+  readonly stake: Chips
   /** Which seed and which nonce produced this round. The audit trail. */
   readonly seedCommitment: string
   readonly clientSeed: string
   readonly nonce: number
   readonly kicks: readonly KickRecord[]
   readonly status: 'open' | 'cashed' | 'busted'
-  readonly payout: Centavos
+  readonly payout: Chips
   readonly openedAt: number
   readonly closedAt: number | null
 }
 
 export interface Db {
-  readonly accounts: Map<string, Centavos>
+  readonly accounts: Map<string, Chips>
   readonly journal: JournalEntry[]
   /** Idempotency key -> the serialised result the first call returned. */
   readonly applied: Map<string, string>
@@ -175,12 +183,12 @@ export const RETAIN_ROUNDS = 16
 /**
  * How many idempotency keys are remembered.
  *
- * Not a cache size - a retention policy, and it is one a real deployment has to
- * pick a number for too. An idempotency key cannot be honoured forever, so the
- * question is only whether the window is chosen deliberately or discovered when
- * the table runs out of disk. It has to comfortably outlive any client's retry
- * budget; the real answer is a time window rather than a count, which is a thing
- * a database can express and a Map cannot.
+ * Not a cache size - a retention policy, and every store that keeps these has to
+ * pick a number. An idempotency key cannot be honoured forever, so the question is
+ * only whether the window is chosen deliberately or discovered when something runs
+ * out of room. It has to comfortably outlive any client's retry budget; the better
+ * answer is a time window rather than a count, which is a thing a database can
+ * express and a Map cannot.
  */
 export const RETAIN_KEYS = 4096
 
@@ -276,7 +284,7 @@ export class Store {
     }
   }
 
-  balance(account: string): Centavos {
+  balance(account: string): Chips {
     return this.db.accounts.get(account) ?? 0
   }
 }
@@ -302,5 +310,5 @@ export function invariants(db: Db): void {
   /* Double entry: the house's books are the negative of everyone's balances, so
    * the world sums to zero. If it ever does not, money was invented or lost and
    * the journal is the only place to find out where. */
-  if (total !== 0) throw new Error(`the books are out by ${total} centavos`)
+  if (total !== 0) throw new Error(`the books are out by ${total} chips`)
 }

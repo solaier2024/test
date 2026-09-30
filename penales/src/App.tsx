@@ -14,9 +14,9 @@
  * the round is lost because a packet was slow.
  *
  * Nothing on screen is ever derived from a guess about the outcome. There is no
- * optimistic update anywhere in this file, and on a real money game there must
- * not be: an optimistic goal that turns out to be a save is a player who watched
- * their money appear and then vanish.
+ * optimistic update anywhere in this file, and there must not be: an optimistic goal
+ * that turns out to be a save is a player who watched their chips appear and then
+ * vanish, which is worse than waiting a beat for the answer.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -35,11 +35,18 @@ const FLIGHT_MS = 780
 const VERDICT_MS = 700
 
 const PLAYER = 'invitado'
-const DEMO_BALANCE = 50_000
+const STARTING_CHIPS = 50_000
 
-const STAKES = [100, 250, 500, 1_000, 2_500, 5_000]
+const STAKES = [500, 1_000, 2_000, 3_500, 5_000]
 
-const pesos = (centavos: number) => (centavos / 100).toFixed(2)
+/*
+ * Chips are counted, not priced. No decimal point and no currency mark anywhere in
+ * this file, because there is no currency - the fine subdivision exists so that
+ * truncating a 1.18x payout to the whole chip does not quietly eat a tenth of a
+ * percent of the return, which is the same reason a cash game would price in minor
+ * units. See MIN_STAKE in server/service.ts.
+ */
+const chips = (n: number) => n.toLocaleString('en-US')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -55,20 +62,20 @@ function connect(): Api {
   if (typeof remote === 'string' && remote.length > 0) return overHttp(remote)
 
   const house = new House(cryptoRandom)
-  house.fund(PLAYER, DEMO_BALANCE, 'demo')
+  house.fund(PLAYER, STARTING_CHIPS, 'demo')
   return inProcess(house, PLAYER)
 }
 
 export default function App() {
   const api = useMemo(() => connect(), [])
-  const [locale, setLocale] = useState<Locale>('es')
+  const [locale, setLocale] = useState<Locale>('en')
   const t = LOCALES[locale]
 
   const [view, setView] = useState<PlayerView | null>(null)
   const [shot, setShot] = useState<Shot | null>(null)
   /* Remounts the ball between kicks. See Pitch's `ballKey`. */
   const [ballKey, setBallKey] = useState(0)
-  const [stake, setStake] = useState(500)
+  const [stake, setStake] = useState(1_000)
   const [busy, setBusy] = useState(false)
   const [refused, setRefused] = useState<string | null>(null)
 
@@ -168,21 +175,21 @@ export default function App() {
         </div>
         <div className="purse">
           <span className="label">{t.balance}</span>
-          <strong>${pesos(view.balance)}</strong>
+          <strong>{chips(view.balance)}</strong>
         </div>
         <button
           type="button"
           className="lang"
-          onClick={() => setLocale(locale === 'es' ? 'en' : 'es')}
+          onClick={() => setLocale(locale === 'en' ? 'es' : 'en')}
           aria-label="Language"
         >
-          {locale === 'es' ? 'EN' : 'ES'}
+          {locale === 'en' ? 'ES' : 'EN'}
         </button>
       </header>
 
       <Pitch
         t={t}
-        board={round?.board ?? []}
+        board={round?.board ?? view.openingBoard}
         shown={open ? round?.shown ?? null : null}
         shot={shot}
         live={live}
@@ -208,7 +215,7 @@ export default function App() {
                   disabled={s > view.balance}
                   onClick={() => setStake(s)}
                 >
-                  ${pesos(s)}
+                  {chips(s)}
                 </button>
               ))}
             </div>
@@ -218,7 +225,7 @@ export default function App() {
               disabled={busy || stake > view.balance}
               onClick={() => void run(() => api.open(stake))}
             >
-              {t.newRound} &middot; ${pesos(stake)}
+              {t.newRound} &middot; {chips(stake)}
             </button>
           </div>
         ) : (
@@ -251,7 +258,7 @@ export default function App() {
               disabled={busy || shot !== null || round.cashOut === 0}
               onClick={() => void run(() => api.cashOut(round.id))}
             >
-              {t.cashOut} &middot; ${pesos(round.cashOut)}
+              {t.cashOut} &middot; {chips(round.cashOut)}
             </button>
           </div>
         )}
@@ -259,7 +266,7 @@ export default function App() {
         {round !== null && !open && (
           <p className={`outcome ${round.status}`}>
             {round.status === 'cashed' && round.payout > 0
-              ? `${t.cashed} ${round.multiplier.toFixed(2)}x · $${pesos(round.payout)}`
+              ? `${t.cashed} ${round.multiplier.toFixed(2)}x · ${chips(round.payout)}`
               : t.busted}
           </p>
         )}

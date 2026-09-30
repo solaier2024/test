@@ -1,8 +1,8 @@
 /*
  * Ways of playing, and a simulator to run them through.
  *
- * This exists for one assertion, and it is the assertion a certification lab
- * cares about more than any other:
+ * This exists for one assertion, and it is the one that decides whether the six
+ * corners are a real choice:
  *
  *   No way of playing returns more than the configured RTP, and none returns
  *   less.
@@ -30,7 +30,7 @@ import {
   pGoal,
   resolveKick,
   rollsFor,
-  type Centavos,
+  type Chips,
   type Dive,
   type Zone,
   ZONES,
@@ -110,8 +110,8 @@ export const STRATEGIES: Strategy[] = [
 /* ------------------------------------------------------------- the simulator */
 
 export interface Played {
-  stake: Centavos
-  payout: Centavos
+  stake: Chips
+  payout: Chips
   scored: number
   ended: 'cashed' | 'busted'
 }
@@ -130,7 +130,7 @@ export function simulate(
   serverSeed: string,
   clientSeed: string,
   nonce: number,
-  stake: Centavos,
+  stake: Chips,
   rnd: () => number,
 ): Played {
   const at = floatsFor(serverSeed, clientSeed, nonce)
@@ -188,8 +188,8 @@ export function mulberry32(seed: number): () => number {
 export interface Measured {
   strategy: Strategy
   rounds: number
-  staked: Centavos
-  returned: Centavos
+  staked: Chips
+  returned: Chips
   rtp: number
   /** 1 standard error on rtp, so the report can say whether a gap is real. */
   stderr: number
@@ -198,7 +198,7 @@ export interface Measured {
   bestMultiplier: number
 }
 
-export function measure(strategy: Strategy, rounds: number, stake: Centavos, seed: number): Measured {
+export function measure(strategy: Strategy, rounds: number, stake: Chips, seed: number): Measured {
   const rnd = mulberry32(seed)
   /* One server seed across the run with the nonce walking, which is exactly how
    * a real session consumes a seed. */

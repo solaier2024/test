@@ -87,9 +87,9 @@ describe('the House pays what the paytable says', () => {
      * the redaction all in the way. Smaller, because that machinery is O(state)
      * per transaction by design and this test is not what measures it.
      *
-     * Every peso here moves through takeStake and payOut, so the assertion is
-     * really about the ledger: what the paytable promises and what the books say
-     * are the same number.
+     * Every chip here moves through takeStake and payOut, so the assertion is really
+     * about the ledger: what the paytable promises and what the books say are the
+     * same number.
      */
     const rounds = 1_500
     const house = new House((n) => new Uint8Array(n).fill(0x5a))

@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#05070a" />
-  <!-- The mask, which is the game's whole identity in one shape. -->
-  <ellipse cx="32" cy="32" rx="19" ry="22" fill="#22283a" />
-  <path d="M13 27 Q32 10 51 27 Q32 19 13 27 Z" fill="#e8d24a" />
-  <path d="M32 8 L32 55" stroke="#e8455f" stroke-width="5" />
-  <ellipse cx="23" cy="31" rx="5" ry="6.5" fill="#05070a" />
-  <ellipse cx="41" cy="31" rx="5" ry="6.5" fill="#05070a" />
+  <rect width="64" height="64" rx="12" fill="#0d0b07" />
+  <!-- Hat brim, kerchief, and no face between them: the whole identity in three shapes. -->
+  <ellipse cx="32" cy="38" rx="15" ry="17" fill="#2b241a" />
+  <path d="M17 38 q15 9 30 0 q-2 18 -15 20 q-13 -2 -15 -20 z" fill="#a8452f" />
+  <circle cx="26" cy="33" r="1.9" fill="#d9c9a4" />
+  <circle cx="38" cy="33" r="1.9" fill="#d9c9a4" />
+  <path d="M18 25 q-1 -16 14 -16 q15 0 14 16 z" fill="#463726" />
+  <ellipse cx="32" cy="26" rx="28" ry="7" fill="#513f2b" />
 </svg>

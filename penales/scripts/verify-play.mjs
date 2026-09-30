@@ -94,9 +94,13 @@ for (let attempt = 0; attempt < 12 && banked === null; attempt++) {
   /* The verdict is the only thing worth waiting on: it appears when the server has
    * answered and the flight has finished, which is the contract. */
   await page.waitForSelector('.verdict.goal, .verdict.saved, .verdict.missed', { timeout: 10_000 })
-  const verdict = await page.locator('.verdict').first().innerText()
 
-  if (!/GOL|GOAL/.test(verdict)) {
+  /* Read the class, not the words. This used to match the verdict's text against
+   * /GOL|GOAL/, and retheming the copy from "GOAL" to "IN" turned the whole check
+   * into a timeout: every kick took the missed branch and waited for a round that was
+   * still open. A browser check that breaks when the wording changes is a browser
+   * check nobody will keep. */
+  if ((await page.locator('.verdict.goal').count()) === 0) {
     await page.waitForSelector('.outcome', { timeout: 10_000 })
     continue
   }

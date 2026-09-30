@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_STAKE } from '../server/service.ts'
+import { MAX_STAKE, MIN_STAKE } from '../server/service.ts'
 import { exactReturn, uncappedIsExact, worstCase } from './exact.ts'
 import { floatsOf } from './fair.ts'
 import {
@@ -188,9 +188,8 @@ describe('the liability cap', () => {
 
   it('costs less than a hundredth of a percentage point of return', () => {
     /*
-     * The number a lab is handed, computed by enumeration rather than measured -
-     * the events the cap touches have probability around 1e-9, which no
-     * simulation will ever resolve.
+     * Computed by enumeration rather than measured: the events the cap touches have
+     * probability around 1e-9, which no simulation will ever resolve.
      *
      * Bounded rather than pinned, so that retuning TABLE, MAX_KICKS, TELL_RATE or
      * the cap itself is allowed as long as it stays honest. Any of those four
@@ -208,9 +207,19 @@ describe('the liability cap', () => {
     expect(displayMultiplier(MAX_WIN_MULTIPLIER * 4)).toBe(MAX_WIN_MULTIPLIER)
   })
 
-  it('bounds what the house can owe on one round', () => {
-    /* The cap and the stake ceiling are one decision, so they are checked
-     * together: 5,000x of the largest stake the table takes is 250,000 pesos. */
+  it('keeps truncation to the whole chip below a tenth of a percent', () => {
+    /*
+     * What MIN_STAKE is actually for. A payout is floored, so the smallest stake
+     * decides how much return the flooring eats - and it eats it at the tightest
+     * multiplier on the board, not the widest. At a stake of five chips it would be
+     * four percent and the table would be advertising a return it does not pay.
+     */
+    const tightest = Math.min(...ZONES.map((z) => multiplierAfter([pGoalBlind(z)])))
+    const exact = MIN_STAKE * tightest
+    expect((exact - payoutFor(MIN_STAKE, tightest)) / exact).toBeLessThan(0.001)
+  })
+
+  it('still bounds the biggest single payout', () => {
     expect(payoutFor(MAX_STAKE, MAX_WIN_MULTIPLIER)).toBe(25_000_000)
   })
 })
@@ -226,7 +235,7 @@ describe('money arithmetic', () => {
     }
   })
 
-  it('pays whole centavos', () => {
+  it('pays whole chips', () => {
     for (const z of ZONES) {
       const out = payoutFor(1337, multiplierAfter([pGoalBlind(z)]))
       expect(Number.isInteger(out)).toBe(true)
@@ -355,9 +364,8 @@ describe('resolving a kick', () => {
 
 describe('the configured numbers', () => {
   it('are the ones the documentation quotes', () => {
-    /* PENALES.md prints these, a lab would be handed these, and a player would
-     * be shown these. Pinning them means a tuning change has to walk past a
-     * red test and update the paperwork. */
+    /* The README prints these and the footer of the game shows them. Pinning them
+     * means a tuning change has to walk past a red test and update both. */
     expect(HOUSE_EDGE).toBe(0.03)
     expect(RTP).toBeCloseTo(0.97, 12)
     expect(MAX_KICKS).toBe(10)

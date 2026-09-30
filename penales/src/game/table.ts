@@ -3,19 +3,19 @@
  *
  * THE PROBLEM THIS FILE SOLVES
  *
- * The brief said: the server decides the outcome, and the player's aim only
- * affects presentation. The first half is non-negotiable. The second half, left
- * as written, builds a slot machine with a lie painted on it - the player is
- * given a joystick that does nothing, and sooner or later somebody proves it
- * and the operator has no answer. A certification lab will also read a skill
- * surface over a pure RNG as misleading, which is a licence problem and not a
- * taste problem.
+ * The brief said: the engine decides the outcome, and the player's aim only
+ * affects presentation. The first half is non-negotiable. The second half, left as
+ * written, builds a slot machine with a lie painted on it - the player is handed a
+ * joystick that does nothing, and a joystick that does nothing is found out. It is
+ * also the exact failure the first table in this series was built against: the
+ * README there says the problem with web casino games is that the player has no
+ * decision, only a wait for the result.
  *
  * So the aim is not cosmetic here. It is a bet.
  *
  *   The RNG decides THE KEEPER - which way he goes, and whether he gets there.
  *   The player decides WHERE TO SHOOT, and that genuinely changes the outcome.
- *   The house edge is identical in all six zones, so no zone is a trap and
+ *   The house edge is identical in all six corners, so no corner is a trap and
  *   none is exploitable.
  *
  * This is the shape of Mines and of Dice: the randomness is committed up front,
@@ -41,8 +41,8 @@
 
 import type { Floats } from './fair.ts'
 
-/** Minor units. Every amount in this codebase is centavos, never a float. */
-export type Centavos = number
+/** Minor units. Every amount in this codebase is chips, never a float. */
+export type Chips = number
 
 export const ZONES = ['tl', 'tc', 'tr', 'bl', 'bc', 'br'] as const
 export type Zone = (typeof ZONES)[number]
@@ -143,14 +143,12 @@ export const MAX_KICKS = 10
  *     5,000x     0.0063 pp     <- here
  *     50,000x    0.0002 pp
  *
- * 5,000x costs less than a hundredth of a percentage point, which is below the
- * resolution of any measurement a lab will make, and it is a top prize worth
- * printing on the front of the game.
+ * 5,000x costs less than a hundredth of a percentage point, which is finer than any
+ * measurement will resolve, and it is a top prize worth printing on the front of the
+ * game.
  *
- * It is also the liability bound, which is why MAX_STAKE is what it is: 5,000x
- * times the largest stake the table accepts is the most the house can owe on one
- * round, and the two numbers have to be chosen together. See MAX_STAKE in
- * server/service.ts.
+ * It still bounds the biggest single payout, which is the other thing a cap is for -
+ * with the largest ante the table takes, 5,000x is the most one round can hand back.
  */
 export const MAX_WIN_MULTIPLIER = 5_000
 
@@ -309,11 +307,11 @@ export const multiplierIfScored = (survived: readonly number[], z: Zone, shown: 
   multiplierAfter([...survived, pGoal(z, shown)])
 
 /**
- * Centavos out. Truncated, not rounded: a half-centavo cannot be paid, and the
+ * Chips out. Truncated, not rounded: a half-centavo cannot be paid, and the
  * direction it is dropped has to be decided once, here, rather than falling out
  * of whatever the display layer does.
  */
-export const payoutFor = (stake: Centavos, multiplier: number): Centavos =>
+export const payoutFor = (stake: Chips, multiplier: number): Chips =>
   Math.floor(stake * Math.min(multiplier, MAX_WIN_MULTIPLIER))
 
 /** Two decimals, floored, so the board never promises more than it will pay. */

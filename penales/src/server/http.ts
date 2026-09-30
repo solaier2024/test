@@ -6,10 +6,10 @@
  * is an adapter and not a refactor. This file is the whole adapter. Nothing in
  * service.ts, ledger.ts, store.ts or the game knows it is here.
  *
- * It is not a production server. There is no authentication, no TLS, no rate
- * limit, no request log, no wallet - the player is whoever the header says. All of
- * those belong in front of it, and none of them change it. What it does get right
- * is the two things that would be expensive to change later:
+ * It is not a production server. There is no authentication, no TLS, no rate limit
+ * and no request log - the player is whoever the header says. All of those belong in
+ * front of it, and none of them change it. What it does get right is the two things
+ * that would be expensive to change later:
  *
  *   - The idempotency key comes from the client and is passed through untouched,
  *     so a retry over a dropped connection lands on the same settlement.
@@ -100,7 +100,7 @@ const required = <T>(value: T | undefined, name: string): T => {
 
 /**
  * @param house one House, shared by every connection - which is the whole point.
- *        Two Houses over one wallet would be two sets of books.
+ *        Two Houses over one set of chips would be two sets of books.
  */
 export function handler(house: House): (req: HttpRequest, res: HttpResponse) => void {
   return (req, res) => {

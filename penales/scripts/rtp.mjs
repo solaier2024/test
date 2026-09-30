@@ -49,7 +49,7 @@ const NAMES = {
   br: 'baja der',
 }
 
-console.log(`\nLA TANDA - ${ROUNDS.toLocaleString('en-US')} rounds per strategy, stake ${STAKE} centavos, seed ${SEED}`)
+console.log(`\nLA TANDA - ${ROUNDS.toLocaleString('en-US')} rounds per strategy, stake ${STAKE} chips, seed ${SEED}`)
 console.log(`configured: RTP ${pct(RTP)} (edge ${pct(HOUSE_EDGE)}), ${MAX_KICKS} kicks, tell ${pct(TELL_RATE)}\n`)
 
 console.log(`${pad('zone', 15)}${padL('on target', 11)}${padL('he dives', 10)}${padL('he reaches', 12)}${padL('P(goal)', 10)}${padL('1 kick', 9)}`)

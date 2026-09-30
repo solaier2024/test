@@ -16,7 +16,7 @@
  * that is ahead, which looks wrong for about a day and then stops.
  */
 
-import type { Centavos } from '../game/table.ts'
+import type { Chips } from '../game/table.ts'
 import { Rejected, type Db, type JournalEntry, type Posting } from './store.ts'
 
 export const playerAccount = (playerId: string): string => `player:${playerId}`
@@ -28,7 +28,7 @@ export const HOUSE_PAYOUTS = 'house:payouts'
 /** Grey-box only: the faucet that funds a demo balance. See PENALES.md §6. */
 export const HOUSE_DEPOSITS = 'house:deposits'
 
-function move(db: Db, account: string, amount: Centavos): void {
+function move(db: Db, account: string, amount: Chips): void {
   db.accounts.set(account, (db.accounts.get(account) ?? 0) + amount)
 }
 
@@ -45,7 +45,7 @@ export function post(
   postings: readonly Posting[],
 ): JournalEntry {
   const sum = postings.reduce((a, p) => a + p.amount, 0)
-  if (sum !== 0) throw new Error(`a ${kind} posting is out by ${sum} centavos; it would invent money`)
+  if (sum !== 0) throw new Error(`a ${kind} posting is out by ${sum} chips; it would invent money`)
   for (const p of postings) {
     if (!Number.isInteger(p.amount)) throw new Error(`${p.account} would move ${p.amount}, which is not a whole centavo`)
   }
@@ -59,29 +59,29 @@ export function post(
   for (const p of postings) {
     if (!p.account.startsWith('player:')) continue
     const left = db.accounts.get(p.account) ?? 0
-    if (left < 0) throw new Rejected('insufficient_funds', `${p.account} is short by ${-left} centavos`)
+    if (left < 0) throw new Rejected('insufficient_funds', `${p.account} is short by ${-left} chips`)
   }
 
   return entry
 }
 
-export const balance = (db: Db, account: string): Centavos => db.accounts.get(account) ?? 0
+export const balance = (db: Db, account: string): Chips => db.accounts.get(account) ?? 0
 
 /* ------------------------------------------------------ the three movements */
 
-export const takeStake = (db: Db, key: string, playerId: string, roundId: string, stake: Centavos): JournalEntry =>
+export const takeStake = (db: Db, key: string, playerId: string, roundId: string, stake: Chips): JournalEntry =>
   post(db, 'stake', key, `stake on ${roundId}`, [
     { account: playerAccount(playerId), amount: -stake },
     { account: HOUSE_WAGERS, amount: stake },
   ])
 
-export const payOut = (db: Db, key: string, playerId: string, roundId: string, amount: Centavos): JournalEntry =>
+export const payOut = (db: Db, key: string, playerId: string, roundId: string, amount: Chips): JournalEntry =>
   post(db, 'payout', key, `payout on ${roundId}`, [
     { account: HOUSE_PAYOUTS, amount: -amount },
     { account: playerAccount(playerId), amount: amount },
   ])
 
-export const deposit = (db: Db, key: string, playerId: string, amount: Centavos): JournalEntry =>
+export const deposit = (db: Db, key: string, playerId: string, amount: Chips): JournalEntry =>
   post(db, 'deposit', key, `deposit for ${playerId}`, [
     { account: HOUSE_DEPOSITS, amount: -amount },
     { account: playerAccount(playerId), amount: amount },
@@ -97,13 +97,13 @@ export const deposit = (db: Db, key: string, playerId: string, amount: Centavos)
  * impossible in this implementation - because the real one will not be this
  * implementation, and this is the check that survives the port.
  */
-export function reconcile(db: Db): { account: string; fromJournal: Centavos; fromBalance: Centavos }[] {
-  const replayed = new Map<string, Centavos>()
+export function reconcile(db: Db): { account: string; fromJournal: Chips; fromBalance: Chips }[] {
+  const replayed = new Map<string, Chips>()
   for (const entry of db.journal) {
     for (const p of entry.postings) replayed.set(p.account, (replayed.get(p.account) ?? 0) + p.amount)
   }
 
-  const out: { account: string; fromJournal: Centavos; fromBalance: Centavos }[] = []
+  const out: { account: string; fromJournal: Chips; fromBalance: Chips }[] = []
   for (const account of new Set([...replayed.keys(), ...db.accounts.keys()])) {
     const fromJournal = replayed.get(account) ?? 0
     const fromBalance = db.accounts.get(account) ?? 0
@@ -113,4 +113,4 @@ export function reconcile(db: Db): { account: string; fromJournal: Centavos; fro
 }
 
 /** The house's take. Stakes in, payouts out, deposits ignored - they are float. */
-export const houseNet = (db: Db): Centavos => balance(db, HOUSE_WAGERS) + balance(db, HOUSE_PAYOUTS)
+export const houseNet = (db: Db): Chips => balance(db, HOUSE_WAGERS) + balance(db, HOUSE_PAYOUTS)

@@ -109,7 +109,7 @@ describe('the idempotency key', () => {
   it('does not memoise a refusal', () => {
     const store = funded(1_000)
 
-    /* A refusal is an answer about a moment, not about a key. "You had 10 pesos
+    /* A refusal is an answer about a moment, not about a key. "You had 10 chips
      * at 12:04" must not still be the answer at 12:09 after a deposit, or the
      * retry that should succeed is permanently poisoned by the one that failed. */
     expect(() => store.transact('bet', (db) => takeStake(db, 'bet', 'ana', 'r1', 50_000))).toThrow(Rejected)

@@ -46,7 +46,7 @@ import {
   resolveKick,
   rollsFor,
   TABLE,
-  type Centavos,
+  type Chips,
   type Dive,
   type Zone,
   ZONES,
@@ -55,28 +55,21 @@ import { balance, deposit, payOut, playerAccount, takeStake } from './ledger.ts'
 import { Rejected, Store, type Db, type KickRecord, type RoundRecord, type SeedRecord } from './store.ts'
 
 /*
- * Table limits, in centavos. A real deployment reads these per jurisdiction, and
- * these are the grey box's.
+ * Table limits, in chips.
  *
- * MAX_STAKE is not a free choice. MAX_WIN_MULTIPLIER x MAX_STAKE is the most the
- * house can owe on a single round, so the two are one decision:
+ * The floor is not a house rule, it is arithmetic. A payout is truncated to the
+ * whole chip, so the smallest stake decides how much return truncation quietly
+ * eats: the tightest multiplier on the board is 1.18x, and at a stake of 500 the
+ * half-chip that gets dropped is under a tenth of a percent. At a stake of 5 it
+ * would be four percent, and the table would be advertising a return it does not
+ * pay. Chips are subdivided finely for the same reason a cash game would price in
+ * minor units - not because anybody counts them one at a time.
  *
- *     5,000x x 5,000 centavos = 25,000,000 centavos = 250,000 pesos
- *
- * Picking it this way keeps one cap doing both jobs, which is worth more than it
- * sounds. The alternative - a high stake ceiling plus a separate absolute money
- * cap - makes the effective multiplier ceiling depend on the stake, and therefore
- * makes RTP depend on the stake. That is legal, and common in slots, and a
- * genuinely unpleasant thing to have to disclose. Here the return is 96.99% at
- * every stake the table accepts.
- *
- * Raising MAX_STAKE means either accepting more liability per round or lowering
- * MAX_WIN_MULTIPLIER, and lowering that costs measurable RTP - the table in
- * game/table.ts says how much. There is no third option, and exact.ts will price
- * whichever one is chosen.
+ * The ceiling is a house rule, and a soft one. There is no money here, so the
+ * only thing it bounds is how quickly a bankroll can end.
  */
-export const MIN_STAKE: Centavos = 100
-export const MAX_STAKE: Centavos = 5_000
+export const MIN_STAKE: Chips = 500
+export const MAX_STAKE: Chips = 5_000
 
 /* ------------------------------------------------------------ what leaves */
 
@@ -98,7 +91,7 @@ export interface FairView {
 
 export interface RoundView {
   id: string
-  stake: Centavos
+  stake: Chips
   status: RoundRecord['status']
   kicks: readonly KickRecord[]
   /** Kicks taken. Also the index of the next one. */
@@ -107,11 +100,11 @@ export interface RoundView {
   maxKicks: number
   /** Banked if the player walks now. Zero before the first goal. */
   multiplier: number
-  cashOut: Centavos
+  cashOut: Chips
   /** He has tipped his hand for the next kick. This is the read. */
   shown: Dive | null
   board: readonly BoardRow[]
-  payout: Centavos
+  payout: Chips
   fair: FairView
 }
 
@@ -125,9 +118,18 @@ export interface RevealedSeed {
 
 export interface PlayerView {
   playerId: string
-  balance: Centavos
+  balance: Chips
   /** The open round, or the last one played - so a player can see what happened. */
   round: RoundView | null
+  /**
+   * What the six corners pay on the first kick of a round that has not started.
+   *
+   * Here because the goal has odds printed on it whether or not anybody is playing,
+   * and a player deciding what to ante wants to see them. Before this existed the
+   * board on a first load read "x 0%" in all six corners, which is what you get for
+   * asking a round that does not exist what it pays.
+   */
+  openingBoard: readonly BoardRow[]
   fair: FairView
   /** Newest first. What the verify panel reads. */
   history: readonly RoundView[]
@@ -152,6 +154,14 @@ const roundOf = (db: Db, roundId: string): RoundRecord => {
   if (round === undefined) throw new Rejected('no_round', `no round ${roundId}`)
   return round
 }
+
+/** The six corners, priced against a ladder so far and what the keeper has shown. */
+const boardFor = (survived: readonly number[], shown: Dive | null): BoardRow[] =>
+  ZONES.map((zone) => ({
+    zone,
+    p: pGoal(zone, shown),
+    multiplier: displayMultiplier(multiplierIfScored(survived, zone, shown)),
+  }))
 
 /** The probabilities of the goals already scored, in order. */
 const survivedOf = (round: RoundRecord): number[] => round.kicks.filter((k) => k.result === 'goal').map((k) => k.p)
@@ -208,8 +218,8 @@ export class House {
 
   /* ------------------------------------------------------------- accounts */
 
-  /** Grey box only. In production the balance arrives from the wallet service. */
-  fund(playerId: string, amount: Centavos, key = `fund:${playerId}:${amount}:${this.nextId('f')}`): PlayerView {
+  /** Puts chips in front of a player. There is nowhere else for them to come from. */
+  fund(playerId: string, amount: Chips, key = `fund:${playerId}:${amount}:${this.nextId('f')}`): PlayerView {
     return this.store.transact(key, (db) => {
       deposit(db, key, playerId, amount)
       this.ensureSeed(db, playerId, playerId)
@@ -284,10 +294,10 @@ export class House {
    * money left and the round did not appear. That sentence is the entire reason
    * store.ts exists.
    */
-  open(playerId: string, stake: Centavos, key: string): PlayerView {
-    if (!Number.isInteger(stake)) throw new Rejected('bad_stake', 'stakes are whole centavos')
+  open(playerId: string, stake: Chips, key: string): PlayerView {
+    if (!Number.isInteger(stake)) throw new Rejected('bad_stake', 'stakes are whole chips')
     if (stake < MIN_STAKE || stake > MAX_STAKE) {
-      throw new Rejected('bad_stake', `stake must be between ${MIN_STAKE} and ${MAX_STAKE} centavos`)
+      throw new Rejected('bad_stake', `stake must be between ${MIN_STAKE} and ${MAX_STAKE} chips`)
     }
 
     const roundId = this.nextId('r')
@@ -437,6 +447,7 @@ export class House {
       playerId,
       balance: balance(db, playerAccount(playerId)),
       round: history[0] ?? null,
+      openingBoard: boardFor([], null),
       history,
       fair: {
         commitment: seed?.commitment ?? '',
@@ -460,17 +471,11 @@ export class House {
 
     /*
      * A closed round prices the board from scratch rather than from where it
-     * stopped. Leaving the old ladder on it means a finished round advertises what
-     * the eleventh kick would have paid, which is an offer that does not exist -
-     * and on a real money game an offer that does not exist is the worst kind of
-     * cosmetic bug.
+     * stopped. Leaving the old ladder on it means a finished round advertises what an
+     * eleventh kick would have paid - an offer that does not exist, which is the
+     * worst kind of cosmetic bug because it reads as a promise.
      */
-    const priced = open ? survived : []
-    const board: BoardRow[] = ZONES.map((zone) => ({
-      zone,
-      p: pGoal(zone, shown),
-      multiplier: displayMultiplier(multiplierIfScored(priced, zone, shown)),
-    }))
+    const board = boardFor(open ? survived : [], shown)
 
     const multiplier = survived.length === 0 ? 0 : multiplierAfter(survived)
 

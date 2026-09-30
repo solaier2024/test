@@ -7,15 +7,21 @@
  *   Every keeper in this game was decided before the player touched anything,
  *   and the player can check that afterwards without trusting us.
  *
- * It does NOT prove the paytable is fair, that the server seed was generated
- * from good entropy, or that the house is solvent. Those are a certification
- * lab's job (see PENALES.md section 7). What this buys is that the house
- * cannot look at the shot and then decide where the keeper went - which is the
- * single accusation an operator can never otherwise answer.
+ * It does NOT prove the paytable is generous, or that the entropy behind the seed
+ * was any good. What it buys is one thing, and it is the thing worth buying: the
+ * house cannot look at the shot and then decide where the keeper went.
  *
- * The scheme is the one Mexican players have already been taught by Stake
- * Originals and by Aviator, deliberately: an unfamiliar scheme would have to
- * earn trust from zero.
+ * Which matters here for a reason that has nothing to do with money, since there is
+ * none. This series is about reading an opponent - SERIES.md calls it reading the
+ * hands rather than the face - and a read is only a skill if the thing being read
+ * was already decided. If the keeper could be chosen after the kick, then studying
+ * him is superstition, the tell in table.ts is a decoration, and the game quietly
+ * becomes the one thing the first table's README said it must not be. The envelope
+ * is what makes the read real, and the player can check it themselves.
+ *
+ * The scheme is the commit-and-reveal one players of this kind of game have already
+ * been taught elsewhere, deliberately: an unfamiliar scheme would have to earn
+ * trust from zero.
  *
  *   serverSeed      32 random bytes, hex. Secret until the seed is retired.
  *   commitment      sha256 of the server seed's hex STRING. Published first.
