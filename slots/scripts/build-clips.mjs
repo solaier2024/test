@@ -343,11 +343,25 @@ function generatedFrames(use) {
   return readdirSync(dir).sort().map((f) => join(dir, f))
 }
 
+/** Where a clip's generated take lives, whether or not it has been fetched. */
+const takePath = (use) => join(ROOT, 'clipsrc', 'generated', `${use}.mp4`)
+
 /** Synthesises `steps` frames of motion from a to b and returns their paths. */
 function morph({ use, from, to }, steps) {
   const a = plate(from)
   const b = plate(to)
-  const dir = join(CACHE, `morph-${digest(a, b, use ?? '', steps)}`)
+  /*
+   * The take goes in the key by CONTENT, not by name, and that distinction
+   * cost a whole rebuild. digest() hashes a path's bytes when the path exists
+   * and otherwise hashes the string, so passing `use` alone keyed nine clips
+   * on the word "pull" and friends. Re-ordering every take against a corrected
+   * reference, re-fetching all nine and running the build then produced the
+   * OLD footage from cache, with no output to say so - the plates had not
+   * moved, the step count had not moved, and the only thing that had changed
+   * was invisible to the key. The checks downstream failed exactly as they had
+   * before, which made it look like the re-shoot had not worked.
+   */
+  const dir = join(CACHE, `morph-${digest(a, b, use ? takePath(use) : '', use ?? '', steps)}`)
   if (!force && existsSync(dir) && readdirSync(dir).length === steps + 1) {
     return readdirSync(dir).sort().map((f) => join(dir, f))
   }
