@@ -799,17 +799,35 @@ for (const n of [1, 2, 3]) {
   /*
    * The colour matches the reaction the engine named, measured the same way
    * as the isolated pass - so a groan cannot be a cheer wearing a groan's
-   * caption. The band is wide because in play the reaction shares its window
-   * with whatever the machine is doing, and the coin fall is the brightest
-   * thing on the table; the separation being checked is the 1.75x between a
-   * gasp and a groan, which is well outside it.
+   * caption.
+   *
+   * The ceiling depends on whether the pull PAID, and that is read off the
+   * engine rather than guessed: reactionTo() in src/game/engine.ts returns a
+   * roar at 20 coins or more, a cheer at 5, a murmur at anything above zero,
+   * and a groan or a gasp at nothing. So on those first three the window
+   * contains the bell and the coin fall as well as the room, and the coin
+   * fall is by measurement the brightest thing on the table - 1.40 against
+   * 0.37 for a groan. A mixture cannot be more coloured than its brightest
+   * component, so that is the ceiling, and it is a number from this same run.
+   *
+   * It was a flat 2x, which is the check failing on a jackpot for a reason
+   * that is not a defect: 1.32 measured against a roar of 0.59 alone. Both of
+   * those readings were right. What was wrong was asking a roar buried in
+   * eighteen falling coins to have the colour of a roar on its own.
+   *
+   * The two reactions that pay nothing keep the tight band, and those are
+   * the ones this check is really for: a gasp and a groan are both a losing
+   * pull, so the difference between them cannot be the payout - it is the
+   * vowel, and the 1.5x between them sits inside 2x.
    */
   if (got.kind) {
     const solo = heard[got.kind].bright
+    const paid = ['roar', 'cheer', 'murmur'].includes(got.kind)
+    const ceiling = paid ? Math.max(solo, heard.coins.bright, heard.bell.bright) * 1.2 : solo * 2
     expect(
       `pull ${n}: and it is the ${got.kind} it says it is`,
-      got.bright > solo * 0.5 && got.bright < solo * 2,
-      `${got.bright.toFixed(2)} against ${solo.toFixed(2)} measured alone`,
+      got.bright > solo * 0.5 && got.bright < ceiling,
+      `${got.bright.toFixed(2)} against ${solo.toFixed(2)} alone${paid ? ` and ${heard.coins.bright.toFixed(2)} for the money that fell with it` : ''}`,
     )
   }
 }
