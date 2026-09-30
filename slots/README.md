@@ -1336,20 +1336,24 @@ Vite 给每个产物打内容哈希，所以一个旧产物不可能顶着新文
 
 ```
 $ BUILD_SHA=$(git rev-parse HEAD) npm run verify:deploy -- <url>
-build (html): 4adabb10569ea96cdff50c419e2f9496e4675c72
-build (js):   4adabb10569ea96cdff50c419e2f9496e4675c72 2026-09-30T08:21:18.653Z
-expected:     4adabb10569ea96cdff50c419e2f9496e4675c72 - match
+build (html): 05f5aff5eff37274eed8fe4919c91f50684dda65
+build (js):   05f5aff5eff37274eed8fe4919c91f50684dda65 2026-09-30T09:12:44.377Z
+expected:     05f5aff5eff37274eed8fe4919c91f50684dda65 - match
 ...
-OK: 4adabb1 is live, film rolls, bands sit in the glass, every asset loads
+OK: 05f5aff is live, film rolls, bands sit in the glass, every asset loads
 ```
 
-**它第一次真用就抓到了东西。** 发布流水线绿了之后立刻跑这条命令，
-两个签名都是 `(unstamped)` ——githack 当时还在发这次构建之前的 `index.html`。
-同一时刻 `curl` 拿到的却是带签名的新版。也就是说：**页面能玩、每个资源都
-200、画面也对，但它不是刚推上去的那一份**，而在有这条检查之前，
-这种情况只会以"改完了怎么还是老样子"的形式出现。
+**它前两次真用，每一次都抓到了东西。** 第一次：发布流水线绿了之后立刻跑，
+两个签名都是 `(unstamped)` ——githack 当时还在发这次构建之前的 `index.html`，
+而同一时刻 `curl` 拿到的却是带签名的新版。第二次是**反过来的**：
+`curl` 读到的还是上一次的 sha，一分钟后同一条命令读到的是这一次的。
 
-也因此，**"强刷一下"不再是一个建议，而是一个可以判定真假的断言**。
+也就是说：**页面能玩、每个资源都 200、画面也对，但它不是刚推上去的那一份**，
+而且**陈旧窗口的长短并不固定，连"哪个客户端先看到新版"都不固定**。
+在有这条检查之前，这两件事都只会以"改完了怎么还是老样子"的形式出现。
+
+也因此，**"强刷一下"不再是一个建议，而是一个可以判定真假的断言**——
+而这个断言必须**重跑到它为真**，不是跑一次就算。
 
 ### verify:play：上面每一条都可以在一张没人能玩的桌子上通过
 
