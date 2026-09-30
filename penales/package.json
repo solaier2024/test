@@ -1,0 +1,42 @@
+{
+  "name": "la-tanda",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "//verify": "Everything a change has to survive that can be checked off the filesystem. Run it before pushing.",
+    "verify": "npm run lint && npm run verify:types && npm test && npm run rtp",
+    "//verify:types": "The linter does not typecheck and vitest does not either, so without this a type error reaches CI through the build and nowhere earlier.",
+    "verify:types": "tsc -b",
+    "//rtp": "Measures the return over a few hundred thousand rounds and fails if it has moved off the configured 97%. The engine is TypeScript and the script imports it rather than keeping a second copy of the paytable; node 22.14 needs telling to strip the types, 22.18 and up does it unasked.",
+    "rtp": "node --experimental-strip-types scripts/rtp.mjs",
+    "//serve": "The same House behind real HTTP, to prove the boundary is a boundary and not a naming convention. `npm run dev` on its own runs the House in the page, which is what the static preview needs.",
+    "serve": "node --experimental-strip-types scripts/serve.mjs",
+
+    "//verify:live": "Needs something serving the game, so it is not in the chain above: npm run dev -- --port 5190 --strictPort --host 127.0.0.1",
+    "//verify:play": "Plays it in a real browser and follows a coin from the balance through a payout and back. Everything in `npm test` can pass on a table nobody can play.",
+    "verify:play": "node scripts/verify-play.mjs",
+    "//shots": "Retakes the pictures in docs/ from the running game, so the README cannot drift from it.",
+    "shots": "node scripts/shots.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "playwright": "^1.63.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.2"
+  }
+}
