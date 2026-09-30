@@ -1,0 +1,62 @@
+{
+  "name": "el-bandido-manco",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "preview": "vite preview",
+
+    "clips": "node scripts/build-clips.mjs",
+    "fetch": "node scripts/fetch-generated.mjs",
+    "shots": "node scripts/shots.mjs",
+    "shots:mobile": "node scripts/shots-mobile.mjs",
+    "demo": "node scripts/record-demo.mjs",
+    "//demo:sound": "The same walkthrough with a soundtrack. Needs Xvfb, pulseaudio and ffmpeg, because a page recording cannot carry audio that the page synthesises.",
+    "demo:sound": "node scripts/record-sound.mjs",
+
+    "//verify": "Everything a change has to survive that can be checked off the filesystem. Run it before pushing.",
+    "verify": "npm run lint && npm run verify:types && npm test && npm run verify:window && npm run verify:lock && npm run verify:identity && npm run verify:opening && npm run verify:budget",
+    "//verify:types": "The linter does not typecheck and vitest does not either, so without this a type error reaches CI through the build and nowhere earlier.",
+    "verify:types": "tsc -b",
+    "verify:window": "node scripts/verify-window.mjs",
+    "verify:lock": "node scripts/verify-lock.mjs",
+    "verify:identity": "node scripts/verify-identity.mjs",
+    "//verify:opening": "Asks the encoded film which shot each caption lands on. Imports the cue table out of src/opening.ts, so it needs the type stripping that odds.mjs needs.",
+    "verify:opening": "node --experimental-strip-types scripts/verify-opening.mjs",
+    "verify:budget": "node scripts/verify-budget.mjs",
+
+    "//verify:live": "These need something serving the game, so they are not in the chain above. verify:play and verify:audio want a dev server (npm run dev); verify:deploy wants the published URL, and fails unless the commit stamped into that page is BUILD_SHA (default: local HEAD), which is how you tell a republished preview from a cached one.",
+    "verify:play": "node scripts/verify-play.mjs",
+    "verify:audio": "node scripts/verify-audio.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+
+    "//probe:spread": "Not a check. Fires one cue sixteen times and prints the distribution verify:audio reads one sample of, for when a threshold fails on one machine and passes on another.",
+    "probe:spread": "node scripts/probe-spread.mjs",
+
+    "//probe:fingerprint": "Not a check either. Records the SHAPE of every sound in the mix - octave bands relative to each sound's own total, so level drops out - and diffs two recordings of it. The one question verify:audio cannot answer is 'is this the same soundtrack', because every threshold in it is a ratio between two numbers from the same run.",
+    "probe:fingerprint": "node scripts/probe-fingerprint.mjs",
+
+    "//odds": "The engine is TypeScript and the scripts import it directly rather than keeping a second copy of the bands. Node 22.14 needs to be told to strip the types; 22.18 and up does it unasked.",
+    "odds": "node --experimental-strip-types scripts/odds.mjs"
+  },
+  "dependencies": {
+    "@fontsource/rye": "^5.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "playwright": "^1.63.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.2"
+  }
+}

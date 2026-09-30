@@ -1,0 +1,1209 @@
+/*
+ * The table.
+ *
+ * Everything is laid out against the picture rather than against the viewport:
+ * the plate is a fixed 16:9 block, the reel window is positioned inside it by
+ * the fractions in src/machine.ts, and the interface hangs off the edges of
+ * that block. Sizing the bands off the viewport instead would mean they drift
+ * out of the glass on any aspect ratio but one.
+ */
+
+.table,
+.pick,
+.intro {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #05070a;
+}
+
+/* ------------------------------------------------------------- the picture */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/*
+ * The plate, the clip and the bands all share this box, which is the only way
+ * the window fractions mean anything. A slow push driven by how hard the room
+ * is looking at you - it is real-time because attention is a continuous value
+ * and you cannot bake twenty of those.
+ */
+.frame {
+  position: relative;
+  width: min(100%, calc(100dvh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  transform: scale(calc(1 + var(--attention) * 0.035));
+  transition: transform 1.2s ease-out;
+  will-change: transform;
+}
+
+.plate,
+.clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.plate.arriving {
+  animation: arrive 0.42s ease-out both;
+}
+
+/* Asymmetric: the outgoing plate holds and leaves slowly, the incoming one is
+   quick, because a room reacting is a fast thing and a room settling is not. */
+.plate.leaving {
+  animation: leave 0.9s ease-in both;
+  z-index: 1;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes leave {
+  0%,
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.clip {
+  z-index: 2;
+}
+
+.clip.gone {
+  display: none;
+}
+
+/* ------------------------------------------------------------- the bands */
+
+.window {
+  position: absolute;
+  left: 34.77%;
+  top: 31.39%;
+  width: 17.81%;
+  height: 20.28%;
+  z-index: 3;
+}
+
+.reels {
+  position: absolute;
+  inset: 3.5%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5%;
+  overflow: hidden;
+  /* The paper the symbols are printed on, lit by the lamp above and left. */
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255, 226, 170, 0.16), transparent 70%),
+    linear-gradient(#1a1610, #0d0b08);
+}
+
+.reel {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(#efe2c4 0%, #d9c9a4 50%, #c4b28b 100%);
+  box-shadow:
+    inset 0 0.5em 0.9em rgba(0, 0, 0, 0.55),
+    inset 0 -0.5em 0.9em rgba(0, 0, 0, 0.55);
+}
+
+/*
+ * The strip has to have a DEFINITE height, and the reason is worth writing
+ * down because the bug it caused looked like a completely different bug.
+ *
+ * This was `inset: 0 0 auto 0` with `grid-auto-rows: 33.3333%`, the intent
+ * being "three stops fill the window". Both percentages resolved against the
+ * strip's own height, which was auto, so the rows fell back to their content
+ * size and - worse - the percentage in the translate3d that Reels.tsx writes
+ * every frame was measured against all twenty-three rows instead of three. One
+ * stop of travel moved the band by seven and a half stops, and at rest the
+ * band sat so far below the window that the window showed bare paper. It read
+ * as "the symbols do not render", which is why it took a while to find.
+ *
+ * So: the strip is --cells rows tall where the window is three, its rows are
+ * an exact fraction of that, and Reels.tsx moves it by 100/--cells per stop.
+ * The component sets --cells from the same constant it does that arithmetic
+ * with, so the stylesheet and the clock cannot disagree about how tall a stop
+ * is.
+ */
+.strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--cells) / 3 * 100%);
+  display: grid;
+  grid-auto-rows: calc(100% / var(--cells));
+  will-change: transform;
+}
+
+.cell {
+  display: grid;
+  place-items: center;
+  /* The bands are printed strips: a hairline between stops, not a card edge. */
+  border-bottom: 1px solid rgba(90, 70, 40, 0.28);
+}
+
+.face {
+  width: 62%;
+  height: 62%;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.25));
+}
+
+/* A symbol on the third band that would have completed the line. It really is
+   there and it really did not land, so it is allowed to glow. */
+.face.teasing {
+  filter: drop-shadow(0 0 0.35em rgba(230, 170, 60, 0.85));
+}
+
+/* The centre line is the only one that pays, so it is the only one marked. */
+.payline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0;
+  border-top: 1px solid rgba(200, 162, 74, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+  pointer-events: none;
+}
+
+/* The pane itself: a curved reflection and the shadow of the bevel. */
+.glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(103deg, transparent 38%, rgba(255, 233, 190, 0.09) 47%, transparent 56%),
+    radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* --------------------------------------------------------------- the count */
+
+.tally {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  max-width: 11rem;
+}
+
+.tally-label,
+.paycard-title,
+.hud em {
+  font-family: var(--display);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+/*
+ * Notches cut into the bar rail rather than a percentage. A number that says
+ * 71% after nine pulls looks like knowledge and is not one, and the whole table
+ * is about that difference.
+ */
+.rail {
+  position: relative;
+  display: grid;
+  grid-auto-flow: row;
+  gap: 2px;
+  padding: 0.45rem 0.5rem;
+  background: linear-gradient(90deg, rgba(28, 20, 12, 0.85), rgba(18, 13, 8, 0.6));
+  border-left: 2px solid rgba(200, 162, 74, 0.3);
+}
+
+.notch {
+  width: 1.5rem;
+  height: 2px;
+  background: rgba(240, 228, 204, 0.12);
+  transition: background 0.5s ease-out, width 0.5s ease-out;
+}
+
+.notch.cut {
+  width: 2.5rem;
+  background: rgba(200, 162, 74, 0.8);
+}
+
+/* Where the count becomes something you could say out loud in a bar. */
+.bar-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.45rem;
+  border-top: 1px dashed rgba(168, 35, 43, 0.75);
+}
+
+.tally.proven .notch.cut {
+  background: #e0a13a;
+  box-shadow: 0 0 0.4rem rgba(224, 161, 58, 0.6);
+}
+
+.tally-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.tally-hint,
+.paycard-note,
+.pick-note {
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+/* ----------------------------------------------------------- the pay card */
+
+.paycard {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  max-width: 12rem;
+  background: linear-gradient(160deg, rgba(58, 44, 24, 0.9), rgba(26, 19, 11, 0.85));
+  border: 1px solid rgba(200, 162, 74, 0.35);
+  box-shadow: 0 0.4rem 1.4rem rgba(0, 0, 0, 0.6);
+}
+
+.paycard ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.paycard li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.paycard-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+
+.paycard .face {
+  width: 0.95rem;
+  height: 0.95rem;
+  filter: none;
+}
+
+.paycard-coins {
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------- the HUD */
+
+.hud {
+  position: absolute;
+  top: max(0.8rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  gap: 1.4rem;
+  padding: 0.5rem 1rem;
+  background: rgba(8, 10, 12, 0.6);
+  backdrop-filter: blur(3px);
+  /* A readout with nothing to click in it, laid over a picture that now has
+     something to grab. Held upright the bar sits across the top of the plate
+     and the lever's knob is just under its lower edge, so without this it
+     swallows the taps aimed at the machine. */
+  pointer-events: none;
+}
+
+.hud span {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+
+.heat-bar {
+  width: 3.5rem;
+  height: 3px;
+  background: rgba(240, 228, 204, 0.15);
+}
+
+.heat-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--red));
+  transform-origin: left;
+  transition: transform 0.6s ease-out;
+}
+
+/* ------------------------------------------------------------- the crowd */
+
+/*
+ * What the room just did, in words. This is not decoration: the crowd is the
+ * opponent on this table, so a muted player, a deaf player and anyone who has
+ * not unlocked audio yet has to be able to read every reaction. Every sound the
+ * room makes has a line here and a plate behind it.
+ */
+.said {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  max-width: min(80%, 28rem);
+  text-align: center;
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink);
+  text-shadow: 0 0.15rem 0.6rem rgba(0, 0, 0, 0.95);
+  animation: said-in 0.25s ease-out both;
+}
+
+@keyframes said-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Read out by a screen reader, never shown: the same information the crowd
+   line carries, phrased as the measurement rather than as the room. */
+.heard {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- the bet */
+
+/* Inside the pay card, under a rule, because every number above it is now a
+   number per coin and the two have to be read together. */
+.stake {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(200, 162, 74, 0.28);
+}
+
+.stake h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+
+.stake-row {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.stake-coin {
+  /* A coin, and the series' thumb size, whichever is bigger. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid rgba(200, 162, 74, 0.4);
+  border-radius: 50%;
+  background: radial-gradient(70% 70% at 35% 28%, #3a2c18, #16100a);
+  font-family: var(--display);
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+  transition: color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+@media (hover: hover) {
+  .stake-coin:hover:not(:disabled) {
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+}
+
+.stake-coin.on {
+  border-color: #e0a13a;
+  color: #f4dca6;
+  box-shadow: 0 0 0.7rem rgba(224, 161, 58, 0.35), inset 0 0 0.5rem rgba(224, 161, 58, 0.18);
+}
+
+.stake-coin:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stake-note {
+  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+/* --------------------------------------------------------------- the lever */
+
+/*
+ * A hit target over the knob that is painted into the plate. It sits in the
+ * frame, so its position is a percentage of the picture and it stays on the
+ * knob at every size the picture is drawn at - including under the slow push
+ * on .frame, because that transform carries this with it.
+ *
+ * Nothing is drawn here at rest. The knob is already in the photograph and
+ * anything laid on top of it would be a worse version of it; what the ring
+ * does is say the thing is live when a pointer is near it, and then be the
+ * part of the picture that follows your hand.
+ */
+.lever-knob {
+  position: absolute;
+  z-index: 4;
+  /* 8% of the frame is 102px on the registered plate, which is the knob and
+     the fingers around it. The floor is the series' thumb size. */
+  width: max(50px, 8%);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  /* Pointer drags have to be the game's, not the browser's scroll. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.lever-knob:disabled {
+  cursor: default;
+}
+
+.lever-knob.held {
+  cursor: grabbing;
+}
+
+.lever-ring {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 161, 58, 0);
+  box-shadow: 0 0 0 0 rgba(224, 161, 58, 0);
+  transition: border-color 0.18s, box-shadow 0.18s, scale 0.18s;
+}
+
+@media (hover: hover) {
+  .lever-knob:hover:not(:disabled) .lever-ring {
+    border-color: rgba(224, 161, 58, 0.55);
+    box-shadow: 0 0 1.1rem 0.1rem rgba(224, 161, 58, 0.18);
+  }
+}
+
+.lever-knob:focus-visible {
+  outline: none;
+}
+
+.lever-knob:focus-visible .lever-ring {
+  border-color: var(--gold);
+  box-shadow: 0 0 1.1rem 0.1rem rgba(224, 161, 58, 0.3);
+}
+
+/* Asks once, before the first pull of the night, and then stops. A touch
+   screen has no hover to find an invisible control with. */
+.lever-knob.unused .lever-ring {
+  animation: knob-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes knob-breathe {
+  0%,
+  100% {
+    border-color: rgba(224, 161, 58, 0.12);
+    box-shadow: 0 0 0.6rem 0 rgba(224, 161, 58, 0.06);
+  }
+  50% {
+    border-color: rgba(224, 161, 58, 0.6);
+    box-shadow: 0 0 1.3rem 0.12rem rgba(224, 161, 58, 0.24);
+  }
+}
+
+/* Under the hand: tighter and warmer the further the spring is wound, so the
+   ring is doing the job the painted arm cannot do until the clip plays. */
+.lever-knob.held .lever-ring {
+  border-color: rgba(240, 190, 90, calc(0.5 + var(--grip) * 0.5));
+  box-shadow: 0 0 1.4rem 0.15rem rgba(224, 161, 58, calc(0.18 + var(--grip) * 0.3));
+  scale: calc(1 - var(--grip) * 0.12);
+  transition: none;
+}
+
+/* ------------------------------------------------------------ the controls */
+
+.controls {
+  position: absolute;
+  left: 50%;
+  bottom: max(1.2rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.controls button {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  /* 50px floor: every control on every table in this series is thumb-sized. */
+  min-width: 9rem;
+  min-height: 50px;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid rgba(200, 162, 74, 0.5);
+  background: linear-gradient(#2a1f12, #16100a);
+  font-family: var(--display);
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  transition: background 0.2s, border-color 0.2s, transform 0.08s;
+}
+
+.controls button em {
+  font-family: var(--serif);
+  font-style: normal;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+}
+
+@media (hover: hover) {
+  .controls button:hover:not(:disabled) {
+    background: linear-gradient(#3b2c18, #221809);
+    border-color: var(--gold);
+  }
+}
+
+.controls button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The count has cleared the bar. The button says so; it does not say you are
+   right, because that is a different question and the room settles it. */
+.callout.ready {
+  border-color: #e0a13a;
+  box-shadow: 0 0 1.2rem rgba(224, 161, 58, 0.35);
+}
+
+/* --------------------------------------------------------------- the rest */
+
+.chrome-row {
+  position: absolute;
+  top: max(0.8rem, env(safe-area-inset-top));
+  right: max(0.8rem, env(safe-area-inset-right));
+  z-index: 8;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.chrome {
+  min-height: 50px;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(200, 162, 74, 0.35);
+  background: rgba(8, 10, 12, 0.7);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chrome.waiting {
+  border-color: var(--gold);
+  animation: waiting 2.4s ease-in-out infinite;
+}
+
+@keyframes waiting {
+  50% {
+    background: rgba(200, 162, 74, 0.2);
+  }
+}
+
+.skip {
+  position: absolute;
+  right: max(0.8rem, env(safe-area-inset-right));
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  z-index: 8;
+}
+
+.ending {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.9rem;
+  padding: 2rem;
+  text-align: center;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(5, 7, 10, 0.82), rgba(5, 7, 10, 0.97));
+  animation: arrive 0.8s ease-out both;
+}
+
+.ending h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.ending p {
+  margin: 0;
+  max-width: 34rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.ending-row {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.disclaimer.floating {
+  position: absolute;
+  left: 50%;
+  bottom: 0.35rem;
+  transform: translateX(-50%);
+  z-index: 8;
+  text-align: center;
+}
+
+.hidden-stops {
+  display: none;
+}
+
+/* ------------------------------------------------------------ the openings */
+
+.intro-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.intro-line {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 3;
+  margin: 0;
+  max-width: min(84%, 40rem);
+  text-align: center;
+  font-size: clamp(0.95rem, 2.4vw, 1.3rem);
+  line-height: 1.5;
+  text-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.95);
+  animation: arrive 0.6s ease-out both;
+}
+
+.intro-line.tap {
+  bottom: 10%;
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+.intro-title {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.3rem;
+  animation: arrive 1s ease-out both;
+}
+
+.intro-title h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 7vw, 4.2rem);
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: 0 0.3rem 1.2rem rgba(0, 0, 0, 0.9);
+}
+
+.intro-title p {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.35em;
+  color: var(--gold);
+}
+
+.intro-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  z-index: 5;
+  background: var(--gold);
+  transform-origin: left;
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------- the choice */
+
+.pick {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem 1rem 3rem;
+  background:
+    radial-gradient(70% 60% at 50% 40%, rgba(46, 32, 16, 0.55), transparent 70%),
+    #05070a;
+  overflow-y: auto;
+}
+
+.pick h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 6vw, 3.4rem);
+  letter-spacing: 0.04em;
+}
+
+.pick h2 {
+  margin: 0.6rem 0 0;
+  font-family: var(--display);
+  font-size: 0.8rem;
+  letter-spacing: 0.24em;
+  color: var(--gold);
+}
+
+.tagline {
+  margin: 0;
+  max-width: 34rem;
+  text-align: center;
+  font-style: italic;
+  color: var(--ink-dim);
+}
+
+.machines {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.9rem;
+  width: min(100%, 56rem);
+}
+
+.machine-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.1rem 1rem;
+  min-height: 50px;
+  text-align: left;
+  border: 1px solid rgba(200, 162, 74, 0.3);
+  background: linear-gradient(160deg, rgba(38, 28, 16, 0.85), rgba(14, 11, 8, 0.85));
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+}
+
+@media (hover: hover) {
+  .machine-card:hover {
+    border-color: var(--gold);
+    background: linear-gradient(160deg, rgba(56, 41, 22, 0.9), rgba(20, 15, 10, 0.9));
+  }
+}
+
+.machine-card:active {
+  transform: translateY(1px);
+}
+
+.machine-name {
+  font-family: var(--display);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.machine-blurb {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+/* ------------------------------------------------------------ small screens */
+
+@media (max-width: 860px) {
+  .tally,
+  .paycard {
+    top: auto;
+    bottom: 7.5rem;
+    transform: none;
+    max-width: 8.5rem;
+  }
+
+  .rail {
+    grid-auto-flow: column;
+    grid-auto-columns: 2px;
+    gap: 2px;
+    padding: 0.4rem;
+    border-left: none;
+    border-bottom: 2px solid rgba(200, 162, 74, 0.3);
+  }
+
+  .notch {
+    width: 2px;
+    height: 0.9rem;
+  }
+
+  .notch.cut {
+    width: 2px;
+    height: 1.5rem;
+  }
+
+  .bar-mark {
+    inset: 0.4rem 0.4rem auto auto;
+    border-top: none;
+    border-right: 1px dashed rgba(168, 35, 43, 0.75);
+    width: 0;
+    height: 1.6rem;
+  }
+
+  .paycard {
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .paycard-note,
+  .tally-hint,
+  .stake-note {
+    display: none;
+  }
+
+  /* Label beside the coins rather than over them. The card is 8.5rem wide
+     here and the footer has to cost a row, not three. */
+  .stake {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.4rem;
+  }
+
+  .hud {
+    gap: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .said {
+    bottom: 12.5rem;
+    font-size: 0.9rem;
+  }
+
+  .controls {
+    flex-direction: column;
+    width: min(92%, 22rem);
+  }
+
+  .controls button {
+    width: 100%;
+  }
+
+  /* The title is centred in the viewport at full size and runs underneath the
+     language and sound buttons here, because at this width the three machine
+     cards make the page taller than the screen and centring a scrolling page
+     pushes its top off the top. */
+  .pick {
+    align-content: start;
+    padding-top: 4.8rem;
+  }
+}
+
+/* ---------------------------------------------------------------- portrait
+ *
+ * A 16:9 picture in a 9:19.5 hole, and the usual answer - letterbox it and
+ * float the interface on top - is the wrong one here for a reason specific to
+ * this table.
+ *
+ * Letterboxed at 390 CSS pixels the picture is 219 tall, which leaves the
+ * glass about 60 pixels wide to show three bands and nine symbols through.
+ * A bell at that size is not countable, and COUNTING IS THE GAME. Every other
+ * table in this series can shrink its picture and stay playable; this one
+ * stops being the thing it is.
+ *
+ * So portrait does two things differently. The picture is enlarged past the
+ * width of the screen and panned so the machine and the arm stay in shot,
+ * which roughly doubles the glass; what gets cropped is bar, shadow and more
+ * shadow. And the interface stops floating over the picture and takes the
+ * space underneath it instead, which is space a portrait screen has a great
+ * deal of and a landscape one does not.
+ *
+ * Everything below is positioned against --pic-top and --pic-h rather than
+ * against the viewport, so changing how big the picture is moves the whole
+ * stack and nothing has to be re-tuned by hand.
+ */
+@media (max-width: 860px) and (orientation: portrait) {
+  .table {
+    /* The picture starts under the language and sound buttons, and the HUD
+     * sits ON it. A phone viewport is 664 CSS pixels tall here, not the 844
+     * the hardware advertises, and giving the purse its own band costs fifty
+     * of them - which is a third of the room the count and the pay card have
+     * to share. The top of this picture is saloon ceiling in deep shadow and
+     * the HUD is already translucent, so it is the cheapest fifty pixels
+     * available. */
+    --pic-top: 4rem;
+    /* Sized by what it has to leave behind rather than by how it looks: the
+     * glass is 17.81% of the picture's width, and shots-mobile.mjs fails the
+     * layout below 90 CSS pixels of glass. 46dvh gave 96, and 44 gives 92.
+     *
+     * The three and a half pixels went to the bet. Below the picture there is
+     * room for the count, the pay card and the controls and nothing else, and
+     * the card grew a footer; the alternative was 40px coins, which is under
+     * the 44px thumb every control in this series is held to. A symbol three
+     * per cent smaller is still countable and a button that size is not still
+     * pressable, so the picture pays. */
+    --pic-h: 44dvh;
+    --pic-w: calc(var(--pic-h) * 16 / 9);
+    /* Which fraction of the plate sits at the centre of the screen. The
+     * casting spans about 0.24 to 0.56 and the arm reaches 0.8, so this is
+     * the point that keeps both and gives up the left end of the bar. */
+    --focus: 0.45;
+  }
+
+  .frame {
+    position: absolute;
+    top: var(--pic-top);
+    left: calc(50% - var(--focus) * var(--pic-w));
+    width: var(--pic-w);
+    height: var(--pic-h);
+    aspect-ratio: auto;
+  }
+
+  /* One bar across the top instead of a centred group that the language and
+     sound buttons land on top of at this width. */
+  .hud {
+    top: 4rem;
+    left: max(0.6rem, env(safe-area-inset-left));
+    right: max(0.6rem, env(safe-area-inset-right));
+    transform: none;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .chrome-row {
+    top: max(0.6rem, env(safe-area-inset-top));
+  }
+
+  /* Over the bottom of the picture, not under it. The bar top is dark and
+     empty and is where a caption belongs anyway; put below the picture it
+     runs into the pay card the moment the line wraps to two. */
+  .said {
+    top: calc(var(--pic-top) + var(--pic-h) - 3.6rem);
+    bottom: auto;
+  }
+
+  /*
+   * Both panels turn sideways and take the full width under the picture.
+   *
+   * Standing them in two narrow columns is the obvious arrangement and it
+   * does not fit: the pay card is six rows plus a note, which at half width
+   * is 260 CSS pixels tall against 233 of gap, so it climbed back up into the
+   * picture and lay across the crowd. Two columns of three rows is 130.
+   *
+   * The count goes directly under the picture and the card below it, in that
+   * order, because the count is the game and the card is reference a player
+   * reads once.
+   */
+  .tally,
+  .paycard {
+    left: max(0.6rem, env(safe-area-inset-left));
+    right: max(0.6rem, env(safe-area-inset-right));
+    max-width: none;
+    transform: none;
+  }
+
+  /* One line: label, notches, fraction. Stacked it is 62 pixels tall and the
+   * pay card needs 30 of them, and there is nothing in a row of notches that
+   * wants its own band. */
+  .tally {
+    top: calc(var(--pic-top) + var(--pic-h) + 0.6rem);
+    bottom: auto;
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .paycard {
+    top: auto;
+    /* Anchored to its bottom and left to grow upward. Anchoring the top is
+     * the obvious way round and it is how this overlapped the controls: the
+     * card's height depends on how its rows wrap, so a fixed top is a guess
+     * about where the bottom lands, and the guess was 40px short. */
+    bottom: 6.4rem;
+  }
+
+  .paycard ul {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 1rem;
+  }
+
+  /* The note stays because it is a rule - per coin, centre line only - and a
+   * player who does not know it misreads every pull. The count's caption does
+   * not, because the label, the running fraction and the notches already say
+   * it, and it is the only caption here that costs more than it explains. */
+  .paycard-note {
+    display: revert;
+  }
+
+  /*
+   * The rule and the coins share the last line.
+   *
+   * There are 225 pixels under the picture for the count, the card and the
+   * controls, and adding the bet as its own row put the card 21 pixels into
+   * the count. Given its own line the footer costs 65; sharing one with the
+   * note it costs 40, which is the difference between fitting and not. They
+   * belong together anyway - the note says what a coin buys and the coins say
+   * how many are going in.
+   */
+  .paycard {
+    grid-template-columns: 1fr auto;
+  }
+
+  .paycard-title,
+  .paycard ul {
+    grid-column: 1 / -1;
+  }
+
+  .paycard-note {
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .stake {
+    grid-column: 2;
+    grid-template-columns: auto auto;
+    border-top: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .stake h3 {
+    max-width: 4.5rem;
+    line-height: 1.2;
+  }
+
+  /*
+   * Back to a row: two buttons fit across 360px, and standing them on top of
+   * each other costs 56 vertical pixels the pay card needs. They are held to
+   * one line each, because CALL THE HOUSE wrapping to three lines is what
+   * pushed the controls up into the card in the first place.
+   */
+  .controls {
+    flex-direction: row;
+    width: auto;
+    bottom: 2.6rem;
+  }
+
+  .controls button {
+    width: auto;
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .disclaimer.floating {
+    bottom: max(0.4rem, env(safe-area-inset-bottom));
+    font-size: 0.55rem;
+    max-width: 92%;
+  }
+}
+
+/* Anything that moves for its own sake stops. The reels still turn, because
+   they are the game, but the push, the plate dissolves and the notch animation
+   are all decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+    transform: none;
+  }
+
+  .plate.arriving,
+  .plate.leaving,
+  .said,
+  .ending {
+    animation: none;
+  }
+
+  /* The knob still has to be findable without a hover, so it goes on showing
+     the ring - it just stops breathing at it. */
+  .lever-knob.unused .lever-ring {
+    animation: none;
+    border-color: rgba(224, 161, 58, 0.45);
+  }
+
+  .plate.leaving {
+    display: none;
+  }
+
+  .notch,
+  .heat-bar span {
+    transition: none;
+  }
+}
