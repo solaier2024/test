@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "purpose": "photoreal-intro-style-pilot",
+      "historyId": "KQ9mego53d8bOcrD0Ur8",
+      "status": "COMPLETED",
+      "model": "byte-plus-seedance-2",
+      "mode": "text2video",
+      "params": {
+        "prompt": "Create a single continuous six-second photorealistic live-action football broadcast shot for the opening cinematic of a penalty shootout game. An original unbranded modern football stadium at night, densely filled stands, bright neutral-white stadium floodlights, a regulation white goal with fine white netting, carefully maintained natural grass with subtle mowing stripes and worn soil around the penalty spot. Two adult male professional footballers with realistic athletic proportions: the penalty taker wears a deep teal short-sleeved jersey, dark shorts, dark socks and white boots; the goalkeeper wears a muted lime-green long-sleeved kit, dark shorts, gloves and football boots. No recognizable real player, club, sponsor or official competition branding. A single realistically sized white football rests on the penalty spot eleven metres from the goal. Start with a low three-quarter view from behind the penalty taker, showing the ball, boots and grass; slowly dolly forward and slightly rise into a composed view that keeps the goalkeeper and the full goal visible ahead. The taker shifts his weight naturally, adjusts his stance and takes one small preparation step; the goalkeeper bends his knees, adjusts his gloves and makes one small lateral readiness step on the goal line. Keep the football stationary throughout: this is anticipation before a penalty, no kick and no goal or save outcome. Capture subtle breathing, believable muscle tension, realistic skin, cloth creases, glove details, blades of grass and soft contact shadows. Use natural camera optics, restrained depth of field that still leaves the goal readable, balanced exposure, slightly cool shadows and realistic neutral highlights. This must look like actual high-end sports cinematography, not an animated game, cartoon, toy, low-poly scene, illustration or stylized CGI. Maintain consistent anatomy, identities, kits, football count, goal dimensions and spatial positions for the entire shot. No scene cuts, no slow motion, no exaggerated lens flare, no particles, no HUD, no captions, no numbers, no text, no logos, no watermark. Leave some unobstructed grass below the goal for the game's later interface overlay. Silent footage.",
+        "videoCount": 1,
+        "duration": 6,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "generateAudio": false,
+        "mode": "normal",
+        "autoEnhancePrompt": false
+      },
+      "quotedCredits": 1200,
+      "creditsCharged": null,
+      "resources": [
+        {
+          "resourceId": "fI4br4TKcTBGRNPm41vS",
+          "projectId": "dzBUOY8x5d89tygpjtpE",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179152479733600000000000000000000ffffc0a860d8f41426_1791525129308_c6ae8dee.mp4",
+          "width": 1920,
+          "height": 1080,
+          "fps": 24,
+          "frames": 145,
+          "duration": 6.041667,
+          "audio": false
+        }
+      ],
+      "review": {
+        "date": "2026-10-09",
+        "sourceFrameTimes": [0, 1.5, 3, 4.5, 5.9],
+        "portraitFrameTimes": [0, 3, 5.9],
+        "ballAndKeeperFraming": "passed",
+        "anatomyAndContinuity": "no obvious defects in reviewed frames or playback",
+        "outcomeIndependent": true,
+        "notes": "Pre-kick anticipation only. Portrait is a center crop, not a native vertical generation. Real-time athletes and celebration remain the existing Kenney-based presentation."
+      },
+      "integrated": true,
+      "outputs": {
+        "landscape": {
+          "src": "media/seedance-intro-landscape.mp4",
+          "poster": "media/seedance-intro-landscape.webp",
+          "duration": 6.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "codec": "H.264",
+          "audio": false,
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KQ9mego53d8bOcrD0Ur8",
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/seedance-intro-portrait.mp4",
+          "poster": "media/seedance-intro-portrait.webp",
+          "duration": 6.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "codec": "H.264",
+          "audio": false,
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KQ9mego53d8bOcrD0Ur8",
+          "framing": "center crop from horizontal source"
+        }
+      }
+    }
+  ]
+}

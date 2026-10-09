@@ -2,7 +2,24 @@
 
 墨西哥 / 美国市场的足球点球大战即时赢（instant-win）游戏。
 
-本分支 `cursor/penalty-shootout-7c4b` 承载该项目。
+原功能分支为 `cursor/penalty-shootout-7c4b`；`codex/penalty-pixi-playcanvas` 在该实现上重构游戏前端。
+
+## 实时 3D 前端
+
+当前使用 **PlayCanvas + PixiJS + GSAP + Vite 8 / Rolldown**。球路、人物骨骼动作和机位由实时场景控制；开场和赛后庆祝通过有横竖版及海报的视频基座播放。
+
+```sh
+npm ci
+npm run dev
+npm test
+npm run verify:math
+npm run build
+npm run preview
+```
+
+开发地址为 `http://127.0.0.1:5173/`，生产输出为 `dist/`。部署使用 `dist/index.html`；`standalone.html` 提供内联 JS/CSS 的 HTMLPreview 入口，媒体按清单外置加载，需要 HTTP 服务。
+
+实现说明：[`docs/frontend-reconstruction.md`](./docs/frontend-reconstruction.md)；浏览器检查：[`docs/browser-qa.md`](./docs/browser-qa.md)；资源授权：[`docs/asset-credits.md`](./docs/asset-credits.md)。
 
 ## 为什么是点球大赛
 
@@ -57,15 +74,15 @@ Vmin(s) = min { C(s), min_a Σ P(s'|s,a) Vmin(s') }
 ## 技术架构
 
 ```
-┌─ 表现层  Pixi + 视频播放器 + GSAP          零游戏逻辑，可整层替换
+┌─ 表现层  PlayCanvas + Pixi + 视频播放器 + GSAP    只呈现权威结果
 ├─ 游戏外壳  轮次状态机 / 攻防阶段机 / UI 状态 / 资产调度
 ├─ OutcomeProvider（接口）  ←──── 服务端接入的唯一切换缝
 │    ├─ LocalProvider   阶段一：本地 seed + 本地 PRF
 │    └─ RemoteProvider  阶段四：服务端 seed + commit/reveal
-└─ shootout-math（纯 TS，零依赖，Node 可运行，全单测 + 可模拟）
+└─ shootout-math（纯 JavaScript，零依赖，Node 可运行，全单测 + 可模拟）
 ```
 
-技术选型沿用对参考平台的实测结论：**PixiJS + GSAP + Rolldown/Vite**，**视频基座**（每种结果一条 mp4，Pixi 只负责 UI 与叠加层）。不需要骨骼动画。
+技术选型在原 **PixiJS + GSAP + Rolldown/Vite + 视频基座** 上扩展 PlayCanvas，落实实时球路、骨骼动作和镜头控制。方向相关的比赛动作由 3D 呈现，MP4 承载开场与庆祝，Pixi 绘制 UI 与叠加层。
 
 ### 服务端后期接入，且不返工
 
@@ -85,9 +102,9 @@ Vmin(s) = min { C(s), min_a Σ P(s'|s,a) Vmin(s') }
 | 兜底 | 每条 mp4 配首帧 poster（webp/png） |
 | 加载 | `media-manifest.json` 驱动按优先级渐进加载 |
 
-**竖屏方案待选定**：参考平台的 720×540 是 4:3，适合作为**竖屏 UI 内的视频窗口**，不是竖向全屏。若要真竖向全屏需另定长宽比、机位与裁切方式（参考平台另有 720×2560 全高侧栏即为此类用途）。片单冻结前必须选定。
+本次采用竖屏 UI 内的 **720×960（3:4）场景窗口短片**，控件置于下方；横版为 1280×720。上表保留参考平台实测数据，当前资源规格见媒体清单。
 
-**主片数量 16 条是预算目标，不是已冻结的结论。** 按结果类别收敛而非区域组合展开（组合展开会达 84 条，成本不可接受），但**必须先用样片验证"固定片段能否覆盖任意所选方向与门将扑向"**，通过后再冻结片单。方向差异通过镜头机位 + Pixi 球轨迹特效表达。
+原结果片预算由实时场景方案替代：当前交付 4 条静音 MP4（开场/庆祝各横、竖两版），以及对应海报。射门、扑救和单球回放均由实时 3D 编排，不展开方向组合的视频片单。
 
 ## 实施阶段
 

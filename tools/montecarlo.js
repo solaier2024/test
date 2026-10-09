@@ -4,6 +4,7 @@
 // 证明由 tools/solve.js 的完整状态求解给出。
 // 本工具报告样本量、方差、置信区间与尾部事件覆盖。
 
+import { pathToFileURL } from 'node:url';
 import { ShootoutEngine } from '../src/math/engine.js';
 import { END } from '../src/math/rules.js';
 
@@ -141,4 +142,4 @@ function run() {
   if (!pass) process.exitCode = 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) run();

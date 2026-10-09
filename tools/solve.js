@@ -19,6 +19,7 @@
 //
 // 本工具穷举实现中真实可达的状态空间并断言这一点。
 
+import { pathToFileURL } from 'node:url';
 import { PHASE, END, initialMatch, applyAttack, applyDefend, evaluateEnd } from '../src/math/rules.js';
 import {
   ARCHETYPES,
@@ -162,4 +163,4 @@ function run() {
   return pass;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) run();

@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "models": {
+    "athlete": "models/athlete.glb",
+    "texture": "models/athlete.png",
+    "strikerTexture": "models/striker.png"
+  },
+  "cinematics": {
+    "intro": {
+      "landscape": {
+        "src": "media/seedance-intro-landscape.mp4",
+        "poster": "media/seedance-intro-landscape.webp",
+        "duration": 6.04,
+        "width": 1280,
+        "height": 720,
+        "fps": 24.0,
+        "codec": "H.264",
+        "audio": false,
+        "source": "OpenArt / Seedance 2.0",
+        "historyId": "KQ9mego53d8bOcrD0Ur8",
+        "framing": "original wide shot"
+      },
+      "portrait": {
+        "src": "media/seedance-intro-portrait.mp4",
+        "poster": "media/seedance-intro-portrait.webp",
+        "duration": 6.04,
+        "width": 720,
+        "height": 1280,
+        "fps": 24.0,
+        "codec": "H.264",
+        "audio": false,
+        "source": "OpenArt / Seedance 2.0",
+        "historyId": "KQ9mego53d8bOcrD0Ur8",
+        "framing": "center crop from horizontal source"
+      }
+    },
+    "celebration": {
+      "landscape": {
+        "src": "media/celebration-landscape.mp4",
+        "poster": "media/celebration-landscape.webp",
+        "duration": 3.29,
+        "width": 1280,
+        "height": 720,
+        "fps": 24.0,
+        "codec": "H.264",
+        "audio": false
+      },
+      "portrait": {
+        "src": "media/celebration-portrait.mp4",
+        "poster": "media/celebration-portrait.webp",
+        "duration": 3.46,
+        "width": 720,
+        "height": 960,
+        "fps": 24.0,
+        "codec": "H.264",
+        "audio": false
+      }
+    }
+  },
+  "loading": {
+    "critical": [
+      "models/athlete.glb",
+      "models/athlete.png",
+      "models/striker.png"
+    ],
+    "next": ["intro"],
+    "deferred": ["celebration"]
+  }
+}

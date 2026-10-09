@@ -10,6 +10,7 @@
 // 同时检查每个动作的失败分支都确实让现金下降（d > 0），
 // 这是 v1 方案的那个硬 bug：失败不扣现金 + 五轮内不会被淘汰 = 无损增值。
 
+import { pathToFileURL } from 'node:url';
 import { PHASE, END, initialMatch, applyAttack, applyDefend, evaluateEnd } from '../src/math/rules.js';
 import {
   ARCHETYPES,
@@ -133,4 +134,4 @@ function run() {
   return pass;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) run();

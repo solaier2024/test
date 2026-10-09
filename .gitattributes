@@ -1,0 +1,7 @@
+standalone.html linguist-generated=true -whitespace
+public/assets/models/Kenney-LICENSE.txt -whitespace
+*.html text eol=lf
+*.yml text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.md text eol=lf
