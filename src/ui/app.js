@@ -5,10 +5,9 @@
 // 按架构约定，整层可在 S3 替换为 Pixi + 视频基座而不影响 shootout-math。
 
 import { LocalProvider } from '../providers/localProvider.js';
-import { DIR_LABEL } from '../math/keeper.js';
+import { DIRS, DIR_LABEL } from '../math/keeper.js';
 import { SHOT_TYPES } from '../math/actions.js';
 
-const DIRS = ['L', 'C', 'R'];
 const STAKES = [5, 10, 20, 50];
 const MONEY = (v) => v.toFixed(2);
 
@@ -574,13 +573,14 @@ async function doSubmit(actionId, quoteId) {
       state.settlement = r.settlement;
       state.screen = 'settled';
     }
-    render();
   } catch (e) {
     console.error(e);
     alert(`操作失败：${e.message}`);
-    render();
   } finally {
+    // 必须先解除 busy 再重绘：按钮的 disabled 取自 state.busy，
+    // 若顺序颠倒会渲染出一屏永久禁用的按钮。
     state.busy = false;
+    render();
   }
 }
 
@@ -592,11 +592,11 @@ async function doCashOut() {
     state.settlement = r.settlement;
     state.match = r.state;
     state.screen = 'settled';
-    render();
   } catch (e) {
     alert(`收钱失败：${e.message}`);
   } finally {
     state.busy = false;
+    render();
   }
 }
 
