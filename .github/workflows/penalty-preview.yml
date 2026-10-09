@@ -1,0 +1,61 @@
+name: Deploy penalty shootout preview
+
+on:
+  push:
+    branches: [cursor/penalty-shootout-7c4b]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # 数学门禁进 CI：任何改动都必须重新证明 EV 中性与无损区间不存在
+      - name: 单元测试
+        run: node tools/test.js
+      - name: S0-7 完整状态求解（Vmax = Vmin = W×r）
+        run: node tools/solve.js
+      - name: S0-8 无损继续区间检查
+        run: node tools/freeroll.js
+      - name: S0-9 蒙特卡洛回归
+        run: MC_ROUNDS=20000 node tools/montecarlo.js
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 组装静态站点
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r src _site/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+        with:
+          # 若仓库尚未启用 Pages，由本 workflow 的令牌自动启用
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
