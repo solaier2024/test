@@ -34,18 +34,8 @@
       ],
       "review": {
         "date": "2026-10-09",
-        "sourceFrameTimes": [
-          0,
-          1.5,
-          3,
-          4.5,
-          5.9
-        ],
-        "portraitFrameTimes": [
-          0,
-          3,
-          5.9
-        ],
+        "sourceFrameTimes": [0, 1.5, 3, 4.5, 5.9],
+        "portraitFrameTimes": [0, 3, 5.9],
         "ballAndKeeperFraming": "passed",
         "anatomyAndContinuity": "no obvious defects in reviewed frames or playback",
         "outcomeIndependent": true,
@@ -130,21 +120,7 @@
         "date": "2026-10-09",
         "status": "approved",
         "representativeTimes": [
-          0,
-          0.8,
-          1.4,
-          1.8,
-          2.2,
-          2.4,
-          2.5,
-          2.6,
-          2.9,
-          3.0,
-          3.1,
-          3.2,
-          3.4,
-          3.6,
-          4,
+          0, 0.8, 1.4, 1.8, 2.2, 2.4, 2.5, 2.6, 2.9, 3.0, 3.1, 3.2, 3.4, 3.6, 4,
           4.8
         ],
         "ballDir": "L",
@@ -152,7 +128,8 @@
         "saved": false,
         "kickAt": 2.45,
         "impactAt": 3.3,
-        "notes": "Actual footage reaches the higher left net, not the low corner in the prompt. Keeper dives screen right and misses. One continuous moving match ball. Browser playback reaches 5.041667 seconds with ended=true; landscape and phone packaging reviewed."
+        "notes": "Actual footage reaches the higher left net, not the low corner in the prompt. Keeper dives screen right and misses. One continuous moving match ball. Browser playback reaches 5.041667 seconds with ended=true; landscape and phone packaging reviewed.",
+        "crowdMotion": "needs replacement: spectator motion insufficient for latest requirement"
       }
     }
   ],
@@ -160,18 +137,21 @@
     "type": "video",
     "date": "2026-10-09",
     "idleHistoryId": "KQ9mego53d8bOcrD0Ur8",
-    "shotPackStatus": "partial: 1 of 7 reviewed",
-    "legacyRealtimePlayback": false
+    "shotPackStatus": "partial: 1 of 7 ball/action reviews, pilot crowd needs replacement",
+    "legacyRealtimePlayback": false,
+    "crowdMotionRequired": true,
+    "crowdMotionStatus": "pending: idle and 0 of 7 action clips reviewed",
+    "plannedBatchQuotedCredits": 8600
   },
   "plannedShots": [
     {
-      "id": "save-L-L",
+      "id": "goal-L-R",
       "status": "PLANNED",
       "model": "byte-plus-seedance-2",
       "mode": "image2video",
       "projectId": "dzBUOY8x5d89tygpjtpE",
       "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes to SCREEN LEFT at medium-low height inside the left post. The goalkeeper moves and dives decisively to SCREEN LEFT, meets this same ball with both gloved hands before it crosses the goal line, and visibly traps it securely against his chest on the grass on the left side. The ball never enters the net. Show clear glove-to-ball contact and keep the same ball visible in the keeper hands in the final hold. The striker stops in disappointment. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot to SCREEN LEFT inside the left post at knee height. Keeper commits and dives to SCREEN RIGHT, misses and never touches the ball. The same ball visibly crosses the goal line, pushes the left net back and drops inside the goal. Hold the keeper grounded at screen right, ball in the left net and striker raising one arm. At the instant of actual net contact, multiple visible seating sections spring up, lift arms, clap vigorously and wave scarves in an unmistakable goal celebration, continuing through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
         "videoCount": 1,
         "duration": 5,
         "aspectRatio": "16:9",
@@ -194,74 +174,11 @@
         "visible correct keeper direction",
         "goal line crossing/net contact or real glove contact/no goal",
         "output kickAt/impactAt calibration",
-        "landscape and portrait full playback"
-      ]
-    },
-    {
-      "id": "save-C-C",
-      "status": "PLANNED",
-      "model": "byte-plus-seedance-2",
-      "mode": "image2video",
-      "projectId": "dzBUOY8x5d89tygpjtpE",
-      "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes straight down the CENTER at waist height. The goalkeeper STAYS IN THE CENTER, takes one small step forward and visibly catches the same ball with both gloved hands against his chest before the ball crosses the goal line, then bends his knees with the ball held securely. No dive to either side. The ball never enters the net. Keep the ball visible in his hands in the final hold. The striker stops in disappointment. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
-        "videoCount": 1,
-        "duration": 5,
-        "aspectRatio": "16:9",
-        "resolution": "1080p",
-        "mode": "normal",
-        "generateAudio": false,
-        "startFrame": {
-          "type": "image",
-          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
-          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
-          "label": "Last Kick full-resolution reference"
-        }
-      },
-      "quotedCredits": 1000,
-      "creditsCharged": null,
-      "integrated": false,
-      "reviewRequired": [
-        "continuous single ball and natural anatomy",
-        "visible shot direction",
-        "visible correct keeper direction",
-        "goal line crossing/net contact or real glove contact/no goal",
-        "output kickAt/impactAt calibration",
-        "landscape and portrait full playback"
-      ]
-    },
-    {
-      "id": "save-R-R",
-      "status": "PLANNED",
-      "model": "byte-plus-seedance-2",
-      "mode": "image2video",
-      "projectId": "dzBUOY8x5d89tygpjtpE",
-      "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes to SCREEN RIGHT at medium-low height inside the right post. The goalkeeper moves and dives decisively to SCREEN RIGHT, meets this same ball with both gloved hands before it crosses the goal line, and visibly traps it securely against his chest on the grass on the right side. The ball never enters the net. Show clear glove-to-ball contact and keep the same ball visible in the keeper hands in the final hold. The striker stops in disappointment. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
-        "videoCount": 1,
-        "duration": 5,
-        "aspectRatio": "16:9",
-        "resolution": "1080p",
-        "mode": "normal",
-        "generateAudio": false,
-        "startFrame": {
-          "type": "image",
-          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
-          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
-          "label": "Last Kick full-resolution reference"
-        }
-      },
-      "quotedCredits": 1000,
-      "creditsCharged": null,
-      "integrated": false,
-      "reviewRequired": [
-        "continuous single ball and natural anatomy",
-        "visible shot direction",
-        "visible correct keeper direction",
-        "goal line crossing/net contact or real glove contact/no goal",
-        "output kickAt/impactAt calibration",
-        "landscape and portrait full playback"
-      ]
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
+      ],
+      "replacesHistoryId": "mrpClMk6FrB6jLh4QZRB"
     },
     {
       "id": "goal-C-R",
@@ -270,7 +187,7 @@
       "mode": "image2video",
       "projectId": "dzBUOY8x5d89tygpjtpE",
       "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes straight down the CENTER into the center goal net at knee height. The goalkeeper commits decisively to SCREEN RIGHT and misses, with no ball contact. Keep the ball path visible just to the side of the striker silhouette as necessary while retaining the locked camera. The ball visibly crosses the goal line at the center, pushes the center net back, then drops inside the goal. Final hold: keeper on the grass on screen right, ball in the center net, striker raises one arm. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot straight down the CENTER into the center net at knee height. Keeper commits and dives to SCREEN RIGHT, misses and never touches the ball. The same ball visibly crosses the goal line, pushes the center net back and drops inside the goal. Keep its path visible beside the striker silhouette. Hold the keeper grounded at screen right, ball in the center net and striker raising one arm. At the instant of actual net contact, multiple visible seating sections spring up, lift arms, clap vigorously and wave scarves in an unmistakable goal celebration, continuing through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
         "videoCount": 1,
         "duration": 5,
         "aspectRatio": "16:9",
@@ -293,7 +210,9 @@
         "visible correct keeper direction",
         "goal line crossing/net contact or real glove contact/no goal",
         "output kickAt/impactAt calibration",
-        "landscape and portrait full playback"
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
       ]
     },
     {
@@ -303,7 +222,7 @@
       "mode": "image2video",
       "projectId": "dzBUOY8x5d89tygpjtpE",
       "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes to SCREEN RIGHT inside the right post at knee height. The goalkeeper commits decisively to SCREEN LEFT and misses, with no ball contact. The same ball visibly crosses the goal line into the right net, pushes the right net back, then drops inside the goal. Final hold: keeper on the grass on screen left, ball inside the right net, striker raises one arm. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot to SCREEN RIGHT inside the right post at knee height. Keeper commits and dives to SCREEN LEFT, misses and never touches the ball. The same ball visibly crosses the goal line, pushes the right net back and drops inside the goal. Hold the keeper grounded at screen left, ball in the right net and striker raising one arm. At the instant of actual net contact, multiple visible seating sections spring up, lift arms, clap vigorously and wave scarves in an unmistakable goal celebration, continuing through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
         "videoCount": 1,
         "duration": 5,
         "aspectRatio": "16:9",
@@ -326,7 +245,9 @@
         "visible correct keeper direction",
         "goal line crossing/net contact or real glove contact/no goal",
         "output kickAt/impactAt calibration",
-        "landscape and portrait full playback"
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
       ]
     },
     {
@@ -336,7 +257,7 @@
       "mode": "image2video",
       "projectId": "dzBUOY8x5d89tygpjtpE",
       "params": {
-        "prompt": "Animate this exact supplied first frame as a single continuous locked-camera photorealistic football penalty kick. Retain the same adult striker in dark teal shirt, dark shorts and white boots in the left foreground; same lime-green goalkeeper, regulation goal and white net, packed night stadium, grass and neutral-white floodlights. Camera must remain fixed: no cuts, dolly, zoom or change of goal position. One moving football, continuous realistic body anatomy, same players and kits throughout. The striker starts ready, makes a brief natural two-step run-up, plants his left foot and kicks the ball once with his right foot. The kick must occur early enough to show the full outcome clearly within five seconds: preparation 0-0.6 s, run-up and kick 0.6-2.0 s, flight and keeper contact/outcome 2.0-3.2 s, final outcome hold 3.2-5 s. All directions below are screen directions from this camera behind the striker. The shot goes to SCREEN RIGHT inside the right post at knee height. The goalkeeper STAYS IN THE CENTER and makes a short late upright reach to his right but cannot reach the ball; no diving or travelling to either side and no ball contact. The same ball visibly crosses the goal line into the right net, pushes the right net back, then drops inside the goal. Final hold: keeper remains centered and turns toward the right net, ball inside the right net, striker raises one arm. Real-time motion with believable force, foot contact, grass contact and gravity. Never duplicate or morph the ball; no ball teleport, extra legs, changing identities, fake outcome by reaction only, camera drift, text, numbers, captions, scoreboard, HUD, logos, brands, watermark, animation/cartoon shading or dramatic trails. Silent footage; the game provides heartbeat, breathing, field impacts and real crowd audio separately.",
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot to SCREEN RIGHT inside the right post at knee height. Keeper STAYS IN THE CENTER with a late short upright reach but cannot reach or touch the ball, no dive to either side. The same ball visibly crosses the goal line, pushes the right net back and drops inside the goal. Hold the keeper centered turning toward the right net, ball in the right net and striker raising one arm. At the instant of actual net contact, multiple visible seating sections spring up, lift arms, clap vigorously and wave scarves in an unmistakable goal celebration, continuing through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
         "videoCount": 1,
         "duration": 5,
         "aspectRatio": "16:9",
@@ -359,6 +280,154 @@
         "visible correct keeper direction",
         "goal line crossing/net contact or real glove contact/no goal",
         "output kickAt/impactAt calibration",
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
+      ]
+    },
+    {
+      "id": "save-L-L",
+      "status": "PLANNED",
+      "model": "byte-plus-seedance-2",
+      "mode": "image2video",
+      "projectId": "dzBUOY8x5d89tygpjtpE",
+      "params": {
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot to SCREEN LEFT at medium-low height inside the left post. Keeper moves and dives decisively to SCREEN LEFT, meets this same ball with BOTH gloved hands BEFORE the goal line and visibly secures it against his chest on the grass at screen left. Show unmistakable glove-to-ball contact; ball never enters the net. Hold the same ball visibly in keeper hands and striker stopped in disappointment. At the instant of actual glove contact, visible groups spring up with hands raised and clap sharply in an unmistakable save reaction while other groups put hands on their heads or lean forward; continue natural spectator motion through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "mode": "normal",
+        "generateAudio": false,
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick full-resolution reference"
+        }
+      },
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "integrated": false,
+      "reviewRequired": [
+        "continuous single ball and natural anatomy",
+        "visible shot direction",
+        "visible correct keeper direction",
+        "goal line crossing/net contact or real glove contact/no goal",
+        "output kickAt/impactAt calibration",
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
+      ]
+    },
+    {
+      "id": "save-C-C",
+      "status": "PLANNED",
+      "model": "byte-plus-seedance-2",
+      "mode": "image2video",
+      "projectId": "dzBUOY8x5d89tygpjtpE",
+      "params": {
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot straight down the CENTER at waist height. Keeper STAYS IN THE CENTER, takes one small forward step and visibly catches this same ball with BOTH gloved hands against his chest BEFORE the goal line, then bends his knees with the ball secured. No dive to either side. Ball never enters the net. Hold the same ball visibly in keeper hands and striker stopped in disappointment. At the instant of actual glove contact, visible groups spring up with hands raised and clap sharply in an unmistakable save reaction while other groups put hands on their heads or lean forward; continue natural spectator motion through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "mode": "normal",
+        "generateAudio": false,
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick full-resolution reference"
+        }
+      },
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "integrated": false,
+      "reviewRequired": [
+        "continuous single ball and natural anatomy",
+        "visible shot direction",
+        "visible correct keeper direction",
+        "goal line crossing/net contact or real glove contact/no goal",
+        "output kickAt/impactAt calibration",
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
+      ]
+    },
+    {
+      "id": "save-R-R",
+      "status": "PLANNED",
+      "model": "byte-plus-seedance-2",
+      "mode": "image2video",
+      "projectId": "dzBUOY8x5d89tygpjtpE",
+      "params": {
+        "prompt": "Animate this exact supplied first frame as one continuous locked-camera photorealistic live-action football penalty. Retain the same adult striker in dark teal shirt, dark shorts and white boots at left foreground; the same lime-green keeper, white regulation goal and net, natural grass and neutral-white night floodlights. The packed stands are a LIVE moving audience, visibly alive throughout the full shot. Closest rows must show readable arms and body silhouettes changing position, asynchronous clapping and people waving plain scarves and unbranded flags; separate groups stand and settle at different times. Different seating sections move independently, never a frozen background photograph or uniform flickering texture. Keep the goal, ball and keeper readable and unobscured. Fixed camera, no cuts, dolly, pan, zoom or change of goal position. One football and consistent players, kits and natural anatomy. The striker starts ready, takes a short natural two-step run-up, plants his left foot and kicks once with his right foot. Preparation 0-0.6 s, run-up and kick 0.6-2.0 s, ball flight and real net or glove contact 2.0-3.2 s, then show the actual outcome until 5 s. All directions below are SCREEN directions from this camera behind the striker. Shoot to SCREEN RIGHT at medium-low height inside the right post. Keeper moves and dives decisively to SCREEN RIGHT, meets this same ball with BOTH gloved hands BEFORE the goal line and visibly secures it against his chest on the grass at screen right. Show unmistakable glove-to-ball contact; ball never enters the net. Hold the same ball visibly in keeper hands and striker stopped in disappointment. At the instant of actual glove contact, visible groups spring up with hands raised and clap sharply in an unmistakable save reaction while other groups put hands on their heads or lean forward; continue natural spectator motion through the final hold. Normal real-time movement, believable foot and grass contact, force and gravity. Never duplicate, morph or teleport the ball; no extra limbs or changing identities. Do not communicate outcomes only by reactions. No camera shake or drifting, frozen matte crowd, noise shimmer, static cutout spectators, text, captions, numbers, scoreboard, HUD, brands, logos, watermark, cartoon or stylized CGI, magical trails or particles. Silent footage; game audio supplies the real heartbeat, breathing, rhythm and crowd sounds.",
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "mode": "normal",
+        "generateAudio": false,
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick full-resolution reference"
+        }
+      },
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "integrated": false,
+      "reviewRequired": [
+        "continuous single ball and natural anatomy",
+        "visible shot direction",
+        "visible correct keeper direction",
+        "goal line crossing/net contact or real glove contact/no goal",
+        "output kickAt/impactAt calibration",
+        "landscape and portrait full playback",
+        "visible asynchronous arms and bodies in near crowd rows throughout",
+        "multiple seating sections react at actual net/glove contact"
+      ]
+    }
+  ],
+  "plannedLoops": [
+    {
+      "id": "stadium-live-idle",
+      "status": "PLANNED",
+      "model": "byte-plus-seedance-2",
+      "mode": "image2video",
+      "projectId": "dzBUOY8x5d89tygpjtpE",
+      "params": {
+        "prompt": "Create an eight-second locked-camera photorealistic live-action football stadium anticipation loop from this exact starting frame. Same adult teal-shirt striker at left foreground, lime-green goalkeeper, full white goal and net, natural grass, neutral-white floodlights and packed night stadium. The stadium crowd MUST visibly move through the entire eight seconds. Closest spectator rows show readable hands clapping and body silhouettes changing posture, waving plain scarves and unbranded flags. Small groups in different seating sections stand then sit, some lean forward, others raise arms or clap in asynchronous rhythms. Distinct local motion in several visible sections, not just distant flashes or global shimmer. Keep spectators physically plausible, fixed to their seating locations, with continuous identities. This must feel like a live audience waiting tensely for a penalty. The single football stays fully stationary on the spot for all eight seconds. NO KICK, run-up, ball flight, goal or save. Striker only subtly breathes and shifts weight without moving position; keeper stays ready on the goal line with small breathing and hand adjustments. Absolutely fixed camera, goal and perspective, no dolly, pan, zoom, shake or cuts. Preserve same realistic anatomy, kits, goal dimensions, ball count and grass throughout. Finish in the supplied end frame with foreground poses matching the start, suitable for continuous FORWARD looping; natural crowd motion during the shot, never rewind or reverse clapping. No frozen background photograph, noise flicker, static cutout spectators, cartoon, stylized CGI, text, captions, titles, countdown, HUD, brands, logos, watermark, dramatic particles or light show. Silent footage.",
+        "videoCount": 1,
+        "duration": 8,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "mode": "normal",
+        "generateAudio": false,
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick full-resolution reference"
+        },
+        "endFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick full-resolution reference"
+        }
+      },
+      "quotedCredits": 1600,
+      "creditsCharged": null,
+      "integrated": false,
+      "reviewRequired": [
+        "stationary single ball and no outcome",
+        "locked camera and full goal",
+        "near-row hands and bodies actually move",
+        "asynchronous movement in multiple spectator sections",
+        "natural forward loop seam with matching foreground",
         "landscape and portrait full playback"
       ]
     }

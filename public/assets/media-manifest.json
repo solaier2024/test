@@ -35,16 +35,14 @@
       "media/match-idle-landscape.webp",
       "media/match-idle-portrait.webp"
     ],
-    "next": [
-      "intro"
-    ],
-    "deferred": [
-      "shots"
-    ]
+    "next": ["intro"],
+    "deferred": ["shots"]
   },
   "gameplay": {
     "presentation": "video",
+    "crowdMotionRequired": true,
     "idle": {
+      "crowdMotion": "pending",
       "landscape": {
         "src": "media/match-idle-landscape.mp4",
         "poster": "media/match-idle-landscape.webp",
@@ -58,18 +56,9 @@
         "historyId": "KQ9mego53d8bOcrD0Ur8",
         "framing": "anticipation loop",
         "targets": {
-          "L": [
-            0.31,
-            0.36
-          ],
-          "C": [
-            0.503,
-            0.36
-          ],
-          "R": [
-            0.71,
-            0.36
-          ]
+          "L": [0.31, 0.36],
+          "C": [0.503, 0.36],
+          "R": [0.71, 0.36]
         }
       },
       "portrait": {
@@ -85,24 +74,16 @@
         "historyId": "KQ9mego53d8bOcrD0Ur8",
         "framing": "full-goal 4:3 crop over blurred vertical padding",
         "targets": {
-          "L": [
-            0.24666666666666667,
-            0.4096875
-          ],
-          "C": [
-            0.504,
-            0.4096875
-          ],
-          "R": [
-            0.7799999999999999,
-            0.4096875
-          ]
+          "L": [0.24666666666666667, 0.4096875],
+          "C": [0.504, 0.4096875],
+          "R": [0.7799999999999999, 0.4096875]
         }
       }
     },
     "shots": {
       "goal-L-R": {
         "status": "approved",
+        "crowdMotion": "pending",
         "landscape": {
           "src": "media/goal-L-R-landscape.mp4",
           "poster": "media/goal-L-R-landscape.webp",

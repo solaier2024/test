@@ -316,6 +316,72 @@ test("preflight requires both outcomes before loading either clip", async () => 
   assert.equal(loaded, 0);
 });
 
+test("an unreviewed stadium crowd prevents provider submission and consumes no ball", async () => {
+  const scene = new VideoMatchScene({}, {});
+  scene.manifest = {
+    gameplay: {
+      crowdMotionRequired: true,
+      idle: { crowdMotion: "pending" },
+      shots: {},
+    },
+  };
+  let loads = 0;
+  scene.clips = { load: async () => loads++ };
+  const provider = new LocalProvider({ seed: "crowd-not-ready" });
+  const controller = new MatchController({
+    provider,
+    present: {
+      preflight: (...args) => scene.preflight(...args),
+      play: async () => assert.fail("must not play"),
+    },
+  });
+  await controller.start();
+  const before = JSON.stringify(provider.getState());
+  const quote = controller.state.quote.quoteId;
+  assert.equal(await controller.submit(), false);
+  assert.equal(JSON.stringify(provider.getState()), before);
+  assert.equal(controller.state.quote.quoteId, quote);
+  assert.equal(controller.state.events.length, 0);
+  assert.equal(controller.state.busy, false);
+  assert.equal(loads, 0);
+});
+
+test("both result clips require reviewed spectator reactions before either is downloaded", async () => {
+  const scene = new VideoMatchScene({}, {});
+  scene.manifest = {
+    gameplay: {
+      crowdMotionRequired: true,
+      idle: { crowdMotion: "approved" },
+      shots: {},
+    },
+  };
+  for (const success of [true, false]) {
+    const plan = choreography({ phase: "attack", dir: "L", success });
+    const key = `${plan.saved ? "save" : "goal"}-${plan.ballDir}-${plan.diveDir}`;
+    scene.manifest.gameplay.shots[key] = {
+      status: "approved",
+      crowdMotion: success ? "approved" : "pending",
+      landscape: {
+        src: `${key}.mp4`,
+        poster: `${key}.webp`,
+        ballDir: plan.ballDir,
+        diveDir: plan.diveDir,
+        saved: plan.saved,
+        kickAt: 1,
+        impactAt: 2,
+        duration: 5,
+      },
+    };
+  }
+  const loaded = [];
+  scene.clips = { load: async (clip) => loaded.push(clip.key) };
+  await assert.rejects(scene.preflight({ dir: "L" }, "attack"), /观众反应视频/);
+  assert.deepEqual(loaded, []);
+  scene.manifest.gameplay.shots["save-L-L"].crowdMotion = "approved";
+  await scene.preflight({ dir: "L" }, "attack");
+  assert.deepEqual(loaded, ["goal-L-R", "save-L-L"]);
+});
+
 test("shot cache releases failed requests so a failed download can be retried", async () => {
   videoSetup();
   let requests = 0;

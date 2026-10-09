@@ -10,6 +10,10 @@ root = Path(__file__).resolve().parents[1]
 media = root / "public/assets/media"
 ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
 source = media / "seedance-intro-landscape.mp4"
+manifest_file = root / "public/assets/media-manifest.json"
+manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+if manifest.get("gameplay", {}).get("idle", {}).get("crowdMotion") == "approved":
+    raise SystemExit("Refusing to overwrite the reviewed dynamic crowd loop with the legacy CG excerpt")
 
 def run(args):
     result = subprocess.run([ffmpeg, "-y", *args], capture_output=True)
@@ -29,11 +33,9 @@ run(["-i", str(wide), "-filter_complex",
      "[b]crop=960:720:160:0,scale=720:540[fg];[bg][fg]overlay=0:330[v]",
      "-map", "[v]", "-an", "-c:v", "libx264", "-crf", "22", "-pix_fmt", "yuv420p",
      "-movflags", "+faststart", str(tall)])
-manifest_file = root / "public/assets/media-manifest.json"
-manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
 manifest["version"] = 2
 manifest.setdefault("gameplay", {})
-manifest["gameplay"].update({"presentation": "video", "idle": {}})
+manifest["gameplay"].update({"presentation": "video", "idle": {"crowdMotion": "pending"}})
 manifest["gameplay"].setdefault("shots", {})
 for orientation, clip in [("landscape", wide), ("portrait", tall)]:
     poster = clip.with_suffix(".webp")

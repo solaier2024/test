@@ -23,7 +23,7 @@ export function selectShotClip(manifest, resolution, portrait = false) {
     )
   )
     return null;
-  return { ...clip, key };
+  return { ...clip, key, crowdMotion: entry.crowdMotion };
 }
 
 // Match-stage video and opening video are separate layers, so skipping the
@@ -81,6 +81,9 @@ export class VideoMatchScene {
     this.mode = mode;
   }
   async preflight(option, phase) {
+    const requiresCrowd = this.manifest.gameplay.crowdMotionRequired;
+    if (requiresCrowd && this.manifest.gameplay.idle.crowdMotion !== "approved")
+      throw new Error("动态看台视频正在制作，本球尚未提交");
     const outcomes = [true, false].map((success) =>
       selectShotClip(
         this.manifest,
@@ -90,6 +93,11 @@ export class VideoMatchScene {
     );
     if (outcomes.some((clip) => !clip))
       throw new Error("对应比赛视频仍在准备中，本球尚未提交");
+    if (
+      requiresCrowd &&
+      outcomes.some((clip) => clip.crowdMotion !== "approved")
+    )
+      throw new Error("本球观众反应视频尚未就绪，本球尚未提交");
     await Promise.all(outcomes.map((clip) => this.clips.load(clip)));
   }
   project(x) {
