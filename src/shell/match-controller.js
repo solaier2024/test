@@ -84,11 +84,16 @@ export class MatchController {
     s.busy = true;
     this.emit();
     try {
+      await this.present.preflight?.(option, s.quote.phase);
       const result = await this.provider.submit(option.id, quoteId);
       try {
         await this.present.play(result.resolution);
       } catch (error) {
-        this.onError(new Error("动画已恢复，比赛结果已保留", { cause: error }));
+        this.onError(
+          new Error("本球视频播放中断，可用回放重看；结果已保留", {
+            cause: error,
+          }),
+        );
       }
       Object.assign(s, {
         match: result.state,

@@ -10,7 +10,11 @@ import { MatchController } from "../src/shell/match-controller.js";
 import { LocalProvider } from "../src/providers/localProvider.js";
 import { mediaVariant } from "../src/presentation/assets.js";
 import { VideoBase } from "../src/presentation/video-base.js";
-import { selectShotClip } from "../src/presentation/video-match.js";
+import {
+  selectShotClip,
+  VideoMatchScene,
+} from "../src/presentation/video-match.js";
+import { ShotMediaCache } from "../src/presentation/shot-media-cache.js";
 
 for (const phase of ["attack", "defend"])
   for (const success of [true, false])
@@ -245,7 +249,7 @@ test("starting another clip cancels the old clip, and ended resolves the active 
   assert.equal(video.classes.has("playing"), false);
 });
 
-test("opening can hold its final frame for the countdown, and stop releases it", async () => {
+test("action footage can hold its final frame, and stop releases it", async () => {
   const { video, base } = videoSetup();
   const pending = base.play("intro", { holdLastFrame: true });
   video.dispatchEvent(new Event("ended"));
@@ -254,6 +258,84 @@ test("opening can hold its final frame for the countdown, and stop releases it",
   assert.equal(video.paused, true);
   base.stop();
   assert.equal(video.classes.has("playing"), false);
+});
+
+test("missing footage never fabricates kick or impact callbacks", async () => {
+  let callbacks = 0;
+  const scene = new VideoMatchScene({}, {});
+  scene.manifest = { gameplay: { shots: {} } };
+  await assert.rejects(
+    scene.play(
+      { phase: "attack", dir: "L", success: true },
+      {
+        onKick: () => callbacks++,
+        onImpact: () => callbacks++,
+      },
+    ),
+    /视频尚未就绪/,
+  );
+  assert.equal(callbacks, 0);
+});
+
+test("media preflight failure consumes no action and keeps the quote retryable", async () => {
+  let submissions = 0;
+  const provider = new LocalProvider({ seed: "no-text-substitute" });
+  const original = provider.submit.bind(provider);
+  provider.submit = (...args) => {
+    submissions++;
+    return original(...args);
+  };
+  const controller = new MatchController({
+    provider,
+    present: {
+      preflight: async () => {
+        throw new Error("video not ready");
+      },
+      play: async () => {
+        throw new Error("must not present an absent clip");
+      },
+    },
+  });
+  await controller.start();
+  const before = JSON.stringify(provider.getState());
+  const quote = controller.state.quote.quoteId;
+  assert.equal(await controller.submit(), false);
+  assert.equal(submissions, 0);
+  assert.equal(JSON.stringify(provider.getState()), before);
+  assert.equal(controller.state.events.length, 0);
+  assert.equal(controller.state.quote.quoteId, quote);
+  assert.equal(controller.state.busy, false);
+});
+
+test("preflight requires both outcomes before loading either clip", async () => {
+  let loaded = 0;
+  const scene = new VideoMatchScene({}, {});
+  scene.clips = { load: () => loaded++ };
+  scene.manifest = { gameplay: { shots: {} } };
+  await assert.rejects(scene.preflight({ dir: "L", shot: "placed" }, "attack"));
+  assert.equal(loaded, 0);
+});
+
+test("shot cache releases failed requests so a failed download can be retried", async () => {
+  videoSetup();
+  let requests = 0;
+  const cache = new ShotMediaCache({
+    fetchMedia: async () => {
+      requests++;
+      return {
+        ok: requests > 1,
+        blob: async () => new Blob(["reviewed footage"]),
+      };
+    },
+  });
+  const clip = { src: "test.mp4", duration: 5 };
+  await assert.rejects(cache.load(clip), /视频加载失败/);
+  const loaded = await cache.load(clip);
+  assert.ok(loaded.src.startsWith("blob:"));
+  assert.equal(requests, 2);
+  assert.equal((await cache.load(clip)).src, loaded.src);
+  assert.equal(requests, 2);
+  cache.destroy();
 });
 
 test("a held-frame opening still clears the video on failure or abort", async () => {

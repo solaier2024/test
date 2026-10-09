@@ -1,6 +1,7 @@
 import { assetUrl, mediaVariant } from "./assets.js";
 import { choreography } from "./choreography.js";
 import { VideoBase } from "./video-base.js";
+import { ShotMediaCache } from "./shot-media-cache.js";
 
 // A clip describes what happened, never whether the player should win.
 export function selectShotClip(manifest, resolution, portrait = false) {
@@ -28,15 +29,10 @@ export function selectShotClip(manifest, resolution, portrait = false) {
 // Match-stage video and opening video are separate layers, so skipping the
 // opening, rotating the screen or failing a shot never exposes a cartoon field.
 export class VideoMatchScene {
-  constructor(
-    video,
-    poster,
-    { onProgress = () => {}, onMissing = () => {} } = {},
-  ) {
+  constructor(video, poster, { onProgress = () => {} } = {}) {
     this.video = video;
     this.poster = poster;
     this.onProgress = onProgress;
-    this.onMissing = onMissing;
     this.width = 1;
     this.height = 1;
     this.mode = "follow";
@@ -46,6 +42,7 @@ export class VideoMatchScene {
   }
   async init(manifest) {
     this.manifest = manifest;
+    this.clips = new ShotMediaCache();
     this.player = new VideoBase(this.video, manifest, {
       portrait: () => this.portrait,
     });
@@ -83,6 +80,18 @@ export class VideoMatchScene {
   async setCamera(mode) {
     this.mode = mode;
   }
+  async preflight(option, phase) {
+    const outcomes = [true, false].map((success) =>
+      selectShotClip(
+        this.manifest,
+        { ...option, phase, success },
+        this.portrait,
+      ),
+    );
+    if (outcomes.some((clip) => !clip))
+      throw new Error("对应比赛视频仍在准备中，本球尚未提交");
+    await Promise.all(outcomes.map((clip) => this.clips.load(clip)));
+  }
   project(x) {
     // Normalized, asset-calibrated goal points, transformed with object-fit.
     const plate = this.currentPlate;
@@ -101,14 +110,12 @@ export class VideoMatchScene {
       z: 1,
     };
   }
-  async play(
-    resolution,
-    { fast = false, onKick = () => {}, onImpact = () => {} } = {},
-  ) {
+  async play(resolution, { onKick = () => {}, onImpact = () => {} } = {}) {
+    const selected = selectShotClip(this.manifest, resolution, this.portrait);
+    if (!selected) throw new Error("本球视频尚未就绪");
     this.shotAbort?.abort();
     const abort = new AbortController();
     this.shotAbort = abort;
-    const clip = selectShotClip(this.manifest, resolution, this.portrait);
     let kicked = false,
       impacted = false;
     const kick = () => {
@@ -123,52 +130,23 @@ export class VideoMatchScene {
         onImpact();
       }
     };
-    this.video.dataset.presentation = clip ? clip.key : "result-only";
     try {
-      if (fast) {
-        this.player.stop();
-        kick();
-        impact();
-        return;
-      }
-      if (clip) {
-        const played = await this.player.playClip(clip, {
-          signal: abort.signal,
-          holdLastFrame: true,
-          onTime: (time) => {
-            if (time >= clip.kickAt) kick();
-            if (time >= clip.impactAt) impact();
-          },
-        });
-        if (!played && !abort.signal.aborted)
-          this.onMissing("动作短片未能播放，已保留本球结果");
-      } else {
-        // Keep the genuine CG plate and show the accepted result. Do not use
-        // an unrelated goal/save video or pretend the action pack is complete.
-        this.onMissing("本球动作短片制作中，当前显示比赛判定");
-        this.player.stop();
-        await new Promise((resolve) => {
-          const timer = setTimeout(resolve, 450);
-          abort.signal.addEventListener(
-            "abort",
-            () => {
-              clearTimeout(timer);
-              resolve();
-            },
-            { once: true },
-          );
-        });
-      }
-      if (!abort.signal.aborted) {
-        kick();
-        impact();
-      }
+      const clip = await this.clips.load(selected);
+      this.video.dataset.presentation = clip.key;
+      const played = await this.player.playClip(clip, {
+        signal: abort.signal,
+        holdLastFrame: true,
+        onTime: (time) => {
+          if (time >= clip.kickAt) kick();
+          if (time >= clip.impactAt) impact();
+        },
+      });
+      if (!played && !abort.signal.aborted)
+        throw new Error("本球视频播放中断，可用回放重看");
+      return played;
     } finally {
       if (this.shotAbort === abort) this.shotAbort = null;
     }
-  }
-  async cinematic() {
-    /* Keep the photographic poster when intro cannot play. */
   }
   suspend() {
     this.shotAbort?.abort();
@@ -177,5 +155,6 @@ export class VideoMatchScene {
   destroy() {
     this.suspend();
     this.player.destroy();
+    this.clips.destroy();
   }
 }

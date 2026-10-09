@@ -57,6 +57,17 @@ for (const entry of variants)
       paths.add(clip.poster);
       assert.ok(clip.duration > 0 && clip.width > 0 && clip.height > 0);
     }
+for (const clip of Object.values(manifest.audio)) {
+  assert.equal(clip.license, "CC0-1.0");
+  paths.add(clip.src);
+}
+if (manifest.gameplay.shotPackStatus === "complete")
+  for (const resolution of resolutions)
+    for (const portrait of [false, true])
+      assert.ok(
+        selectShotClip(manifest, resolution, portrait),
+        "Incomplete action pack",
+      );
 for (const path of paths) {
   assert.ok(
     !path.includes("..") && !path.startsWith("/"),
@@ -65,5 +76,5 @@ for (const path of paths) {
   assert.ok((await readFile(`public/assets/${path}`)).length > 0);
 }
 console.log(
-  `Classic standalone scripts, ${paths.size} media resources and approved shot mappings verified`,
+  `Classic standalone scripts, ${paths.size} media resources and ${Object.keys(manifest.gameplay.shots).length}/7 reviewed action clips verified`,
 );

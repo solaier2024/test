@@ -285,7 +285,9 @@ export class ShootoutHud {
       y = this.mobile ? 173 : 22,
       sw = this.scene.cameraModes ? 76 : this.mobile ? 44 : 46;
     if (names.length === 1) {
-      this.text("现场机位", w - 79, this.mobile ? 113 : 27, 10, C.muted, { weight: "600" });
+      this.text("现场机位", w - 79, this.mobile ? 113 : 27, 10, C.muted, {
+        weight: "600",
+      });
       return;
     }
     names.forEach(([id, name], i) =>
@@ -791,56 +793,6 @@ export class ShootoutHud {
           .stroke({ color: C.lime, width: 1 });
       group.children[1].y = size + 5;
     }
-  }
-  async showResult(resolution) {
-    for (const child of this.resultLayer.removeChildren()) child.destroy();
-    const attack = resolution.phase === "attack",
-      title = attack
-        ? resolution.success
-          ? "¡GOL!"
-          : "ATAJADA"
-        : resolution.success
-          ? "¡ATAJADA!"
-          : "GOL DEL RIVAL",
-      desc = attack
-        ? resolution.success
-          ? "漂亮进球"
-          : "门将扑出了射门"
-        : resolution.success
-          ? "成功扑救"
-          : "对手进球";
-    const group = new Container();
-    this.resultLayer.addChild(group);
-    group.position.set(this.sceneWidth / 2, this.sceneHeight * 0.35);
-    this.text(
-      title,
-      0,
-      0,
-      this.mobile ? 47 : 76,
-      resolution.success ? C.lime : C.white,
-      { parent: group, font: DISPLAY, weight: "900", anchor: 0.5 },
-    );
-    this.text(
-      `${desc}  ·  返还 ${money(resolution.cashAfter)}`,
-      0,
-      this.mobile ? 66 : 99,
-      12,
-      C.white,
-      { parent: group, anchor: 0.5 },
-    );
-    group.alpha = 0;
-    group.scale.set(0.82);
-    gsap.to(group, { alpha: 1, duration: 0.15 });
-    gsap.to(group.scale, { x: 1, y: 1, duration: 0.4, ease: "back.out(1.5)" });
-    await new Promise((resolve) =>
-      gsap.to(group, {
-        alpha: 0,
-        delay: 0.95,
-        duration: 0.22,
-        onComplete: resolve,
-      }),
-    );
-    group.destroy({ children: true });
   }
   destroy() {
     this.app.destroy(true, { children: true });

@@ -32,7 +32,9 @@ run(["-i", str(wide), "-filter_complex",
 manifest_file = root / "public/assets/media-manifest.json"
 manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
 manifest["version"] = 2
-manifest["gameplay"] = {"presentation": "video", "idle": {}, "shots": {}}
+manifest.setdefault("gameplay", {})
+manifest["gameplay"].update({"presentation": "video", "idle": {}})
+manifest["gameplay"].setdefault("shots", {})
 for orientation, clip in [("landscape", wide), ("portrait", tall)]:
     poster = clip.with_suffix(".webp")
     run(["-i", str(clip), "-frames:v", "1", "-c:v", "libwebp", "-quality", "88", str(poster)])

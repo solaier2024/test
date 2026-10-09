@@ -32,6 +32,7 @@ export class VideoBase {
     const v = this.video;
     return new Promise((resolve) => {
       let done = false;
+      let frame;
       const finish = (played) => {
         if (done) return;
         done = true;
@@ -40,14 +41,23 @@ export class VideoBase {
         v.removeEventListener("error", failed);
         v.removeEventListener("timeupdate", time);
         signal?.removeEventListener("abort", failed);
+        if (frame !== undefined) v.cancelVideoFrameCallback?.(frame);
         v.pause();
         if (!played || !holdLastFrame) v.classList.remove("playing");
         this.stopCurrent = null;
         resolve(played);
       };
-      const ended = () => finish(true),
+      const ended = () => {
+          onTime(v.currentTime);
+          finish(true);
+        },
         failed = () => finish(false);
       const time = () => onTime(v.currentTime);
+      const frameTime = (_now, metadata) => {
+        if (done) return;
+        onTime(metadata.mediaTime);
+        frame = v.requestVideoFrameCallback(frameTime);
+      };
       const timer = setTimeout(failed, (clip.duration + 3) * 1000);
       this.stopCurrent = failed;
       v.addEventListener("ended", ended, { once: true });
@@ -60,6 +70,8 @@ export class VideoBase {
       v.loop = false;
       v.currentTime = 0;
       v.classList.add("playing");
+      if (v.requestVideoFrameCallback)
+        frame = v.requestVideoFrameCallback(frameTime);
       Promise.resolve(v.play()).catch(failed);
     });
   }

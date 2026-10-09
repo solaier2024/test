@@ -100,6 +100,67 @@
         }
       }
     },
-    "shots": {}
+    "shots": {
+      "goal-L-R": {
+        "status": "approved",
+        "landscape": {
+          "src": "media/goal-L-R-landscape.mp4",
+          "poster": "media/goal-L-R-landscape.webp",
+          "duration": 5.041667,
+          "width": 1280,
+          "height": 720,
+          "fps": 24,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "mrpClMk6FrB6jLh4QZRB",
+          "ballDir": "L",
+          "diveDir": "R",
+          "saved": false,
+          "kickAt": 2.45,
+          "impactAt": 3.3,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/goal-L-R-portrait.mp4",
+          "poster": "media/goal-L-R-portrait.webp",
+          "duration": 5.041667,
+          "width": 720,
+          "height": 1280,
+          "fps": 24,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "mrpClMk6FrB6jLh4QZRB",
+          "ballDir": "L",
+          "diveDir": "R",
+          "saved": false,
+          "kickAt": 2.45,
+          "impactAt": 3.3,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      }
+    },
+    "shotPackStatus": "partial"
+  },
+  "audio": {
+    "breath": {
+      "src": "audio/breath-close.mp3",
+      "author": "zogmachine",
+      "source": "https://freesound.org/people/zogmachine/sounds/202606/",
+      "license": "CC0-1.0"
+    },
+    "stands": {
+      "src": "audio/stands-bed.mp3",
+      "author": "FoolBoyMedia",
+      "source": "https://freesound.org/people/FoolBoyMedia/sounds/397434/",
+      "license": "CC0-1.0"
+    },
+    "roar": {
+      "src": "audio/crowd-roar.mp3",
+      "author": "SoundsExciting",
+      "source": "https://freesound.org/people/SoundsExciting/sounds/365132/",
+      "license": "CC0-1.0"
+    }
   }
 }

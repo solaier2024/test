@@ -62,144 +62,66 @@ body {
   width: 100% !important;
   height: 100% !important;
 }
+#arena[data-cinematic="preview"] #match-video,
+#arena[data-cinematic="preview"] #match-poster {
+  width: 100% !important;
+  height: 100% !important;
+}
+#arena[data-cinematic="preview"] .scene-vignette {
+  display: none;
+}
 #arena[data-cinematic] #hud {
   visibility: hidden;
 }
 #arena[data-cinematic] #a11y {
   visibility: hidden;
 }
+#arena[data-cinematic] .capture {
+  display: none;
+}
+.clip-preview-control {
+  width: auto;
+  min-width: 120px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
 #arena[data-cinematic] .lobby-backdrop {
   opacity: 0;
   transition: none;
 }
-.cinema-overlay[hidden],
-.cinema-count[hidden] {
+/* The opening is an unobstructed film; only an accessible skip icon remains. */
+.cinema-overlay[hidden] {
   display: none;
 }
 .cinema-overlay {
   position: absolute;
   inset: 0;
   z-index: 7;
-  overflow: hidden;
-  background:
-    linear-gradient(transparent 46%, #06090dd9),
-    linear-gradient(90deg, #080c1470, transparent 65%);
   pointer-events: none;
-}
-.cinema-top {
-  position: absolute;
-  top: 31px;
-  left: 36px;
-  right: 36px;
-  z-index: 3;
-  display: flex;
-  justify-content: space-between;
-  color: #f4f2eb;
-  font:
-    700 11px Barlow,
-    sans-serif;
-  letter-spacing: 3px;
-}
-.cinema-top i {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 9px;
-  border-radius: 50%;
-  background: #f79b47;
-  box-shadow: 0 0 15px #f39c45;
-}
-.cinema-letterbox {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 19px;
-  background: #080b10;
-}
-.cinema-letterbox.top {
-  top: 0;
-}
-.cinema-letterbox.bottom {
-  bottom: 0;
-  height: 24px;
-}
-.cinema-title {
-  position: absolute;
-  left: 7%;
-  bottom: 19%;
-  font:
-    800 clamp(32px, 4.6vw, 72px)/1.14 "Microsoft YaHei",
-    sans-serif;
-  text-shadow: 0 4px 32px #000a;
-  letter-spacing: -2px;
-}
-.cinema-title span,
-.cinema-title strong {
-  display: block;
-}
-.cinema-title strong {
-  color: #ffc35a;
-  margin-top: 9px;
-}
-.cinema-subtitle {
-  position: absolute;
-  left: 7%;
-  bottom: 11%;
-  margin: 0;
-  font:
-    600 12px Barlow,
-    sans-serif;
-  letter-spacing: 3px;
-  color: #e1d4c0;
-}
-.cinema-count {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font:
-    900 clamp(78px, 13vw, 158px)/1 "Barlow Condensed",
-    Impact,
-    sans-serif;
-  color: #ffc35a;
-  text-shadow:
-    0 6px 55px #000e,
-    0 0 65px #ef9b3325;
-  white-space: nowrap;
-}
-.cinema-meter {
-  position: absolute;
-  left: 7%;
-  right: 7%;
-  bottom: 7%;
-  height: 2px;
-  background: #ffc35a;
-  transform-origin: left;
-  box-shadow: 0 0 16px #ffa4368c;
-}
-.cinema-streak {
-  position: absolute;
-  top: -70%;
-  left: -25%;
-  width: 10%;
-  height: 210%;
-  background: linear-gradient(90deg, transparent, #ffc5621a, transparent);
-  transform: rotate(22deg);
-  animation: cinemaSweep 2.2s ease-out both;
 }
 .skip-video {
   pointer-events: auto;
-  z-index: 4;
-  top: 70px;
-  right: 35px;
+  top: 20px;
+  right: 20px;
   left: auto;
-  border: 1px solid #a28b60;
-  border-radius: 4px;
-  color: #fff0d7;
-  background: #151b25ba;
-  padding: 9px 14px;
-  font-size: 11px;
+  width: 38px;
+  height: 38px;
+  padding: 9px;
+  border: 1px solid #ffffff45;
+  border-radius: 50%;
+  background: #070d1680;
+  color: #ffffffcc;
   backdrop-filter: blur(10px);
+}
+.skip-video svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.skip-video:focus-visible {
+  outline: 2px solid #ffc35a;
 }
 .loading {
   --loaded: 0;
@@ -397,11 +319,6 @@ dialog code {
     opacity: 0.45;
   }
 }
-@keyframes cinemaSweep {
-  to {
-    left: 135%;
-  }
-}
 @keyframes lobbyBreathe {
   to {
     transform: scale(1.045);
@@ -410,34 +327,6 @@ dialog code {
 @media (max-width: 850px) {
   .topbar {
     height: 70px;
-  }
-  .cinema-top {
-    left: 22px;
-    right: 22px;
-    top: 28px;
-    font-size: 9px;
-    letter-spacing: 2px;
-  }
-  .skip-video {
-    right: 21px;
-    top: 61px;
-  }
-  .cinema-title {
-    left: 8%;
-    bottom: 23%;
-    font-size: clamp(29px, 8vw, 50px);
-    letter-spacing: -1px;
-  }
-  .cinema-subtitle {
-    left: 8%;
-    bottom: 16%;
-    font-size: 9px;
-    letter-spacing: 1.8px;
-  }
-  .cinema-meter {
-    left: 8%;
-    right: 8%;
-    bottom: 12%;
   }
   .loading h1 {
     font-size: 63px;
@@ -460,7 +349,6 @@ dialog code {
 @media (prefers-reduced-motion: reduce) {
   .loading-beam,
   .orbit-track,
-  .cinema-streak,
   #arena[data-screen="bet"] .lobby-backdrop {
     animation: none !important;
   }

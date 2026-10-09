@@ -2,26 +2,34 @@ import { StadiumAudio } from "./stadium-audio.js";
 
 // Authoring only: render the same Web Audio graph used by the match, with no
 // microphone, recording permissions or separate approximated audio engine.
-export async function renderStadiumPreview() {
+export async function renderStadiumPreview(manifest) {
   const context = new OfflineAudioContext(2, 24000 * 24, 24000);
   const audio = new StadiumAudio({ enabled: true, context });
-  audio.activate();
-  audio.ambience();
-  audio.stopScheduler();
-  let at = 0.15;
-  for (let bar = 0; bar < 10; bar++)
-    at += audio.scoreBar(at, bar, {
-      pressure: bar < 6 ? 0.3 : 1,
-      intro: bar < 2,
-      charging: bar === 5,
-    });
-  audio.whistle();
-  audio.tone(145, 0.18, 0.7, "sine", 12.0, 34);
-  audio.burst(0.12, 0.45, 1400, 12.0);
-  audio.stomp(16.8, 1.4);
-  audio.clap(16.93, 1.25);
-  audio.burst(2.4, 0.95, 950, 16.8);
-  audio.hum(130.8, 0.9, 16.95, 1.3);
+  await audio.load(manifest.audio);
+  await audio.activate();
+  audio.mode = "intro";
+  audio.setMix(0);
+  audio.scheduleTo(6);
+  audio.mode = "match";
+  audio.pressure = 0.3;
+  audio.setMix(6);
+  audio.whistle(6);
+  audio.scheduleTo(10);
+  audio.charging = true;
+  audio.pressure = 1;
+  audio.setMix(10);
+  audio.scheduleTo(12.4);
+  audio.kick(12.4);
+  audio.scheduleTo(13.3);
+  audio.result(true, 13.3);
+  audio.scheduleTo(17);
+  audio.inFlight = false;
+  audio.charging = false;
+  audio.setMix(17);
+  audio.scheduleTo(21);
+  audio.kick(21);
+  audio.result(false, 21.8);
+  audio.scheduleTo(24);
   const buffer = await context.startRendering();
   const channels = [buffer.getChannelData(0), buffer.getChannelData(1)];
   const wav = new ArrayBuffer(44 + buffer.length * 4);

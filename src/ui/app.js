@@ -38,12 +38,7 @@ $("#app").innerHTML = `
     <div class="scene-vignette"></div><video id="cinematic" muted playsinline aria-label="球场短片"></video>
     <canvas id="hud" aria-hidden="true"></canvas><div id="a11y"></div><div id="live" role="status" aria-live="polite"></div>
     <div class="cinema-overlay" hidden>
-      <div class="cinema-top"><span><i></i> MATCH NIGHT</span><span>LAST KICK</span></div>
-      <button class="skip-video" type="button">跳过开场</button>
-      <div class="cinema-letterbox top"></div><div class="cinema-letterbox bottom"></div>
-      <div class="cinema-streak" aria-hidden="true"></div>
-      <div class="cinema-title"></div><div class="cinema-count" hidden></div>
-      <p class="cinema-subtitle"></p><div class="cinema-meter" aria-hidden="true"></div>
+      <button class="skip-video" type="button" aria-label="跳过开场">${icon('<path d="m6 5 9 7-9 7zM18 5v14"/>')}</button>
     </div>
     <div class="loading">
       <div class="loading-beam beam-left" aria-hidden="true"></div><div class="loading-beam beam-right" aria-hidden="true"></div>
@@ -219,15 +214,12 @@ async function replay() {
   try {
     await scene.prepare(s.lastResolution.phase);
     await scene.setCamera("broadcast");
-    let resultAnimation;
     await scene.play(s.lastResolution, {
       onKick: () => audio.kick(),
       onImpact: () => {
-        resultAnimation = hud.showResult(s.lastResolution);
         sound(s.lastResolution.success);
       },
     });
-    await resultAnimation;
     await scene.setCamera(hud.mode);
     await scene.prepare(s.quote?.phase ?? "attack");
   } catch (error) {
@@ -261,9 +253,12 @@ async function boot() {
       onProgress: (v, text) => {
         loader.progress(0.12 + v * 0.65, text);
       },
-      onMissing: toast,
     });
-    await Promise.all([scene.init(manifest), loadFonts()]);
+    await Promise.all([
+      scene.init(manifest),
+      loadFonts(),
+      audio.load(manifest.audio),
+    ]);
     // Wait briefly for display fonts; default local fonts work offline as well.
     await Promise.race([
       document.fonts.ready,
@@ -279,17 +274,14 @@ async function boot() {
         }
       },
       play: async (resolution) => {
-        let resultAnimation;
         await scene.play(resolution, {
-          fast: matchMedia("(prefers-reduced-motion: reduce)").matches,
           onKick: () => audio.kick(),
           onImpact: () => {
-            resultAnimation = hud.showResult(resolution);
             sound(resolution.success);
           },
         });
-        await resultAnimation;
       },
+      preflight: (option, phase) => scene.preflight(option, phase),
     };
     const provider = new LocalProvider({
       seed: import.meta.env.DEV
@@ -313,7 +305,7 @@ async function boot() {
       direction: (dir) => controller.setDirection(dir),
       option: () => controller.currentOption(),
       start: async () => {
-        audio.activate();
+        await audio.activate();
         introPending = !matchMedia("(prefers-reduced-motion: reduce)").matches;
         scene.showcase = false;
         if (await controller.start()) {
@@ -425,7 +417,12 @@ async function boot() {
       import.meta.env.DEV &&
       new URLSearchParams(location.search).has("audio-preview")
     )
-      createAudioPreview();
+      createAudioPreview(manifest);
+    if (
+      import.meta.env.DEV &&
+      new URLSearchParams(location.search).has("clip-preview")
+    )
+      createClipPreview();
   } catch (error) {
     scene?.destroy();
     hud?.destroy();
@@ -438,30 +435,78 @@ async function boot() {
   }
 }
 // Development-only audio authoring export, isolated from match/provider state.
-function createAudioPreview() {
+function createAudioPreview(manifest) {
   const box = document.createElement("div");
   box.className = "capture";
   const button = document.createElement("button");
-  button.textContent = "导出24秒鼓点试听";
+  button.textContent = "导出24秒现场声音";
   button.onclick = async () => {
     button.disabled = true;
     button.textContent = "正在合成球场声场…";
     try {
-      const blob = await renderStadiumPreview();
+      const blob = await renderStadiumPreview(manifest);
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "last-kick-stadium-preview.wav";
-      a.textContent = "下载鼓点与低吟试听";
+      a.download = "last-kick-stadium-live.wav";
+      a.textContent = "下载心跳、呼吸与观众试听";
       box.append(a);
       box.dataset.audio = "rendered";
     } catch (error) {
       toast(error.message);
     }
-    button.textContent = "导出24秒鼓点试听";
+    button.textContent = "导出24秒现场声音";
     button.disabled = false;
   };
   box.append(button);
   $("#arena").append(box);
+}
+
+// Authoring preview: exercise the real video scene without a provider submit.
+// Keep the final frame until the reviewer leaves, and keep these controls off
+// the picture. This utility is removed from the production bundle.
+function createClipPreview() {
+  const button = document.createElement("button");
+  button.className = "tool clip-preview-control";
+  button.textContent = "预览射门视频";
+  const arena = $("#arena");
+  let active = false;
+  button.onclick = async () => {
+    if (active) {
+      active = false;
+      delete arena.dataset.cinematic;
+      hud.resize(arena.clientWidth, arena.clientHeight);
+      await scene.prepare(controller.state.quote?.phase ?? "attack");
+      controller.state.busy = false;
+      controller.emit();
+      if (controller.state.screen !== "play") audio.stopAmbience();
+      button.textContent = "预览射门视频";
+      return;
+    }
+    if (controller.state.busy) return;
+    active = true;
+    button.disabled = true;
+    controller.state.busy = true;
+    controller.emit();
+    await audio.activate();
+    audio.ambience();
+    arena.dataset.cinematic = "preview";
+    scene.resize(arena.clientWidth, arena.clientHeight);
+    try {
+      await scene.play(
+        { phase: "attack", dir: "L", success: true, shot: "placed" },
+        {
+          onKick: () => audio.kick(),
+          onImpact: () => sound(true),
+        },
+      );
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      button.textContent = "返回比赛";
+      button.disabled = false;
+    }
+  };
+  $(".top-tools").prepend(button);
 }
 
 boot();
