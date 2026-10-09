@@ -80,6 +80,19 @@ export class VideoMatchScene {
   async setCamera(mode) {
     this.mode = mode;
   }
+  supports(option, phase) {
+    const requiresCrowd = this.manifest.gameplay.crowdMotionRequired;
+    if (requiresCrowd && this.manifest.gameplay.idle.crowdMotion !== "approved")
+      return false;
+    return [true, false].every((success) => {
+      const clip = selectShotClip(
+        this.manifest,
+        { ...option, phase, success },
+        this.portrait,
+      );
+      return clip && (!requiresCrowd || clip.crowdMotion === "approved");
+    });
+  }
   async preflight(option, phase) {
     const requiresCrowd = this.manifest.gameplay.crowdMotionRequired;
     if (requiresCrowd && this.manifest.gameplay.idle.crowdMotion !== "approved")

@@ -22,7 +22,9 @@ const variants = [
 ];
 const resolutions = ["attack", "defend"].flatMap((phase) =>
   ["L", "C", "R"].flatMap((dir) =>
-    [true, false].map((success) => ({ phase, dir, success, shot: "placed" })),
+    [true, false].flatMap((success) =>
+      ["placed", "driven"].map((shot) => ({ phase, dir, success, shot })),
+    ),
   ),
 );
 for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
@@ -90,5 +92,5 @@ for (const path of paths) {
   assert.ok((await readFile(`public/assets/${path}`)).length > 0);
 }
 console.log(
-  `Classic standalone scripts, ${paths.size} media resources and ${Object.keys(manifest.gameplay.shots).length}/7 action mappings verified; dynamic crowd ${Object.values(manifest.gameplay.shots).filter((entry) => entry.crowdMotion === "approved").length}/7, idle ${manifest.gameplay.idle.crowdMotion}`,
+  `Classic standalone scripts, ${paths.size} media resources and ${Object.keys(manifest.gameplay.shots).length}/8 action mappings verified; dynamic crowd ${Object.values(manifest.gameplay.shots).filter((entry) => entry.crowdMotion === "approved").length}/8, idle ${manifest.gameplay.idle.crowdMotion}`,
 );

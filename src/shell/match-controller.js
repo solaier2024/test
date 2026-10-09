@@ -18,6 +18,7 @@ export class MatchController {
       settlement: null,
       events: [],
       lastResolution: null,
+      playableDirections: ["L", "C", "R"],
     };
   }
   emit() {
@@ -36,12 +37,27 @@ export class MatchController {
   setShot(shot) {
     if (this.state.busy || !["placed", "driven"].includes(shot)) return;
     this.state.shot = shot;
+    this.refreshPlayableDirections();
     this.emit();
   }
   setDirection(dir) {
     if (this.state.busy || !["L", "C", "R"].includes(dir)) return;
+    if (!this.state.playableDirections.includes(dir)) return;
     this.state.direction = dir;
     this.emit();
+  }
+  refreshPlayableDirections() {
+    const s = this.state;
+    if (!s.quote) return;
+    s.playableDirections = ["L", "C", "R"].filter((dir) => {
+      const option = s.quote.options.find(
+        (o) =>
+          o.dir === dir && (s.quote.phase === "defend" || o.shot === s.shot),
+      );
+      return option && (this.present.supports?.(option, s.quote.phase) ?? true);
+    });
+    if (!s.playableDirections.includes(s.direction))
+      s.direction = s.playableDirections[0] ?? "C";
   }
   async start() {
     if (this.state.busy || this.state.screen !== "bet") return false;
@@ -58,6 +74,7 @@ export class MatchController {
         events: [],
         lastResolution: null,
       });
+      this.refreshPlayableDirections();
       await this.present.prepare?.(result.state.phase);
       return true;
     } catch (error) {
@@ -104,6 +121,7 @@ export class MatchController {
       });
       s.events.push(result.resolution);
       s.screen = result.settlement ? "settled" : "play";
+      this.refreshPlayableDirections();
       if (!result.settlement) {
         try {
           await this.present.prepare?.(result.state.phase);
@@ -153,6 +171,7 @@ export class MatchController {
       events: [],
       lastResolution: null,
       direction: "C",
+      playableDirections: ["L", "C", "R"],
     });
     this.emit();
     return true;

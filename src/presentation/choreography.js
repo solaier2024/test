@@ -13,7 +13,11 @@ export function choreography(resolution) {
   const saved = phase === "attack" ? !success : success;
   const other = dir === "L" ? "R" : dir === "R" ? "L" : "R";
   const ballDir = phase === "attack" || saved ? dir : other;
-  const diveDir = phase === "defend" || saved ? dir : other;
+  // Reviewed driven footage shows a right goal beating a same-side dive.
+  // This describes the accepted goal; it never changes the sampled outcome.
+  const sameSideGoal =
+    phase === "attack" && dir === "R" && shot === "driven" && !saved;
+  const diveDir = phase === "defend" || saved || sameSideGoal ? dir : other;
   return {
     saved,
     ballDir,

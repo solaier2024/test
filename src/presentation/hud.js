@@ -430,12 +430,15 @@ export class ShootoutHud {
       cardsWidth = this.mobile ? w - pad * 2 : w - pad * 2 - 196,
       cardW = (cardsWidth - gap * 2) / 3;
     for (const [i, dir] of DIRECTIONS.entries()) {
+      const available = s.playableDirections?.includes(dir) ?? true;
       const option = q.options.find(
         (x) => x.dir === dir && (!attack || x.shot === s.shot),
       );
       const group = this.button(
         `dir-${dir}`,
-        `${labels[dir]}，${attack ? "进球" : "扑救"}概率 ${Math.round(option.p * 100)}%，成功返还 ${money(option.onSuccess)}，失败返还 ${money(option.onFailure)}`,
+        available
+          ? `${labels[dir]}，${attack ? "进球" : "扑救"}概率 ${Math.round(option.p * 100)}%，成功返还 ${money(option.onSuccess)}，失败返还 ${money(option.onFailure)}`
+          : `${labels[dir]}，比赛视频待补齐`,
         pad + i * (cardW + gap),
         cardsY,
         cardW,
@@ -443,11 +446,18 @@ export class ShootoutHud {
         {
           label: labels[dir],
           active: s.direction === dir,
-          disabled: s.busy,
+          disabled: s.busy || !available,
           action: () => this.handlers.direction(dir),
           size: 12,
         },
       );
+      if (!available) {
+        this.text("视频待补齐", cardW / 2, 47, 10, C.muted, {
+          anchor: 0.5,
+          parent: group,
+        });
+        continue;
+      }
       this.text(
         `${Math.round(option.p * 100)}%`,
         cardW - 12,
@@ -487,7 +497,8 @@ export class ShootoutHud {
           ? ""
           : `${labels[s.direction]} · ${Math.round((o?.p ?? 0) * 100)}%`,
         primary: true,
-        disabled: s.busy,
+        disabled:
+          s.busy || !(s.playableDirections?.includes(s.direction) ?? true),
         action: this.handlers.submit,
         size: this.mobile ? 15 : 16,
       },
@@ -768,6 +779,7 @@ export class ShootoutHud {
       const p = this.scene.project(TARGET_X[dir], 1.2, GOAL_Z),
         { group, graphic: g } = this.aimMarkers.get(dir);
       group.visible =
+        (s.playableDirections?.includes(dir) ?? true) &&
         p.z >= 0 &&
         p.x >= 0 &&
         p.x <= this.sceneWidth &&

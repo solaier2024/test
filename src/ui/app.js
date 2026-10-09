@@ -9,6 +9,7 @@ import {
   mediaVariant,
 } from "../presentation/assets.js";
 import { VideoMatchScene } from "../presentation/video-match.js";
+import { choreography } from "../presentation/choreography.js";
 import { ShootoutHud } from "../presentation/hud.js";
 import { VideoBase } from "../presentation/video-base.js";
 import { commitment } from "../math/prf.js";
@@ -212,6 +213,8 @@ async function replay() {
   s.busy = true;
   controller.emit();
   try {
+    $("#arena").dataset.cinematic = "replay";
+    scene.resize($("#arena").clientWidth, $("#arena").clientHeight);
     await scene.prepare(s.lastResolution.phase);
     await scene.setCamera("broadcast");
     await scene.play(s.lastResolution, {
@@ -220,11 +223,17 @@ async function replay() {
         sound(s.lastResolution.success);
       },
     });
-    await scene.setCamera(hud.mode);
-    await scene.prepare(s.quote?.phase ?? "attack");
   } catch (error) {
     toast("回放暂时不可用，比赛可继续");
   } finally {
+    delete $("#arena").dataset.cinematic;
+    try {
+      hud.resize($("#arena").clientWidth, $("#arena").clientHeight);
+      await scene.setCamera(hud.mode);
+      await scene.prepare(s.quote?.phase ?? "attack");
+    } catch {
+      toast("球场视频暂时不可用，可重试回放");
+    }
     replayBusy = false;
     s.busy = false;
     controller.emit();
@@ -282,6 +291,7 @@ async function boot() {
         });
       },
       preflight: (option, phase) => scene.preflight(option, phase),
+      supports: (option, phase) => scene.supports(option, phase),
     };
     const provider = new LocalProvider({
       seed: import.meta.env.DEV
@@ -422,7 +432,7 @@ async function boot() {
       import.meta.env.DEV &&
       new URLSearchParams(location.search).has("clip-preview")
     )
-      createClipPreview();
+      createClipPreview(manifest);
   } catch (error) {
     scene?.destroy();
     hud?.destroy();
@@ -464,7 +474,35 @@ function createAudioPreview(manifest) {
 // Authoring preview: exercise the real video scene without a provider submit.
 // Keep the final frame until the reviewer leaves, and keep these controls off
 // the picture. This utility is removed from the production bundle.
-function createClipPreview() {
+function createClipPreview(manifest) {
+  const select = document.createElement("select");
+  select.className = "tool clip-preview-control";
+  select.setAttribute("aria-label", "选择预览视频");
+  const resolutions = ["attack", "defend"].flatMap((phase) =>
+    ["L", "C", "R"].flatMap((dir) =>
+      [true, false].flatMap((success) =>
+        ["placed", "driven"].map((shot) => ({ phase, dir, success, shot })),
+      ),
+    ),
+  );
+  const choices = new Map();
+  for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
+    const clip = entry.landscape;
+    const resolution = resolutions.find((r) => {
+      const plan = choreography(r);
+      return (
+        plan.ballDir === clip.ballDir &&
+        plan.diveDir === clip.diveDir &&
+        plan.saved === clip.saved
+      );
+    });
+    if (!resolution || entry.status !== "approved") continue;
+    choices.set(key, resolution);
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${clip.saved ? "扑出" : "进球"} · 球${dirNames[clip.ballDir]} / 门将${dirNames[clip.diveDir]}`;
+    select.append(option);
+  }
   const button = document.createElement("button");
   button.className = "tool clip-preview-control";
   button.textContent = "预览射门视频";
@@ -473,6 +511,7 @@ function createClipPreview() {
   button.onclick = async () => {
     if (active) {
       active = false;
+      select.disabled = false;
       delete arena.dataset.cinematic;
       hud.resize(arena.clientWidth, arena.clientHeight);
       await scene.prepare(controller.state.quote?.phase ?? "attack");
@@ -484,6 +523,7 @@ function createClipPreview() {
     }
     if (controller.state.busy) return;
     active = true;
+    select.disabled = true;
     button.disabled = true;
     controller.state.busy = true;
     controller.emit();
@@ -492,13 +532,10 @@ function createClipPreview() {
     arena.dataset.cinematic = "preview";
     scene.resize(arena.clientWidth, arena.clientHeight);
     try {
-      await scene.play(
-        { phase: "attack", dir: "L", success: true, shot: "placed" },
-        {
-          onKick: () => audio.kick(),
-          onImpact: () => sound(true),
-        },
-      );
+      await scene.play(choices.get(select.value), {
+        onKick: () => audio.kick(),
+        onImpact: () => sound(choices.get(select.value).success),
+      });
     } catch (error) {
       toast(error.message);
     } finally {
@@ -506,7 +543,11 @@ function createClipPreview() {
       button.disabled = false;
     }
   };
-  $(".top-tools").prepend(button);
+  const controls = document.createElement("div");
+  controls.className = "clip-preview-tools";
+  controls.append(select, button);
+  $(".topbar").classList.add("clip-preview-header");
+  $(".topbar").insertBefore(controls, $(".top-tools"));
 }
 
 boot();

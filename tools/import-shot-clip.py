@@ -15,12 +15,13 @@ import imageio_ffmpeg
 parser = argparse.ArgumentParser()
 parser.add_argument("source", type=Path)
 parser.add_argument("--key", required=True, choices=[
-    "goal-L-R", "goal-C-R", "goal-R-L", "goal-R-C",
+    "goal-L-R", "goal-C-R", "goal-R-L", "goal-R-C", "goal-R-R",
     "save-L-L", "save-C-C", "save-R-R",
 ])
 parser.add_argument("--history-id", required=True)
 parser.add_argument("--kick-at", type=float, required=True)
 parser.add_argument("--impact-at", type=float, required=True)
+parser.add_argument("--end-at", type=float, help="Cut a reviewed source before later generation defects")
 parser.add_argument("--review-notes")
 parser.add_argument("--approve", action="store_true")
 parser.add_argument("--crowd-motion-approved", action="store_true")
@@ -43,7 +44,10 @@ wide = media / f"{args.key}-landscape.mp4"
 tall = media / f"{args.key}-portrait.mp4"
 if args.source.resolve() in [wide.resolve(), tall.resolve()]:
     parser.error("The source must be distinct from the packaged output")
-run(["-i", str(args.source), "-vf", "scale=1280:720", "-an", "-c:v", "libx264",
+trim = ["-t", str(args.end_at)] if args.end_at is not None else []
+if args.end_at is not None and args.end_at <= args.impact_at:
+    parser.error("A trimmed clip must retain the actual impact")
+run(["-i", str(args.source), *trim, "-vf", "scale=1280:720", "-an", "-c:v", "libx264",
      "-crf", "21", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(wide)])
 run(["-i", str(wide), "-filter_complex",
      "[0:v]split[a][b];[a]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,boxblur=28:3[bg];"
@@ -52,6 +56,8 @@ run(["-i", str(wide), "-filter_complex",
      "-movflags", "+faststart", str(tall)])
 result, ball, keeper = args.key.split("-")
 entry = {"status": "approved", "crowdMotion": "approved" if args.crowd_motion_approved else "pending", "reviewNotes": args.review_notes}
+if args.end_at is not None:
+    entry["sourceRange"] = {"start": 0, "end": args.end_at}
 for orientation, clip in [("landscape", wide), ("portrait", tall)]:
     poster = clip.with_suffix(".webp")
     run(["-i", str(clip), "-frames:v", "1", "-c:v", "libwebp", "-quality", "88", str(poster)])
@@ -74,7 +80,8 @@ if args.approve:
     manifest = json.loads(path.read_text(encoding="utf-8"))
     shots = manifest["gameplay"]["shots"]
     shots[args.key] = entry
-    complete = (len(shots) == 7 and all(s.get("crowdMotion") == "approved" for s in shots.values())
+    required = {"goal-L-R", "goal-C-R", "goal-R-L", "goal-R-C", "goal-R-R", "save-L-L", "save-C-C", "save-R-R"}
+    complete = (required.issubset(shots) and all(s.get("crowdMotion") == "approved" for s in shots.values())
                 and manifest["gameplay"]["idle"].get("crowdMotion") == "approved")
     manifest["gameplay"]["shotPackStatus"] = "complete" if complete else "partial"
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -2,8 +2,8 @@
 
 | 当前资源                     | 来源与处理                                                                                                                                                                                         |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 写实开场、海报、临时比赛待机 | OpenArt / Seedance 2.0，本项目提示词生成，不标为 CC0。旧待机由同源前段正反循环，看台动态不足，待替换；手机保全球门并使用模糊填充。任务与参数见 `seedance-jobs.json`。                              |
-| 左路进球，门将右扑样片       | OpenArt / Seedance 2.0 / image2video，任务 `mrpClMk6FrB6jLh4QZRB`；方向与出脚／触网时间已审看，但动态观众待重做。本批七条动作与一条动态待机尚未完成验收。                                          |
+| 写实开场、海报、动态比赛待机 | OpenArt / Seedance 2.0，本项目提示词生成，不标为 CC0。待机任务 `9ciw7vp5wSS10woOxFKX` 已完成并接入，8.04 秒按时间顺序循环；手机保全球门并使用同源模糊填充。任务与参数见 `seedance-jobs.json`。 |
+| 七种进球／扑救视频 | OpenArt / Seedance 2.0 / image2video；现有素材逐条审看后接入，详见 `video-integration-review.md`。左路扑救截掉出现重复球的尾段；原中路进球实际偏右，改作右路抽射成功使用。未追加生成任务。旧静态观众样片已被替换。 |
 | 男性呼吸                     | [Male breathing — zogmachine](https://freesound.org/people/zogmachine/sounds/202606/)，CC0 1.0。取得该页公开的高清 MP3 预览，滤波、归一化、淡化首尾后本地打包。                                    |
 | 看台呼喝和鼓掌               | [Crowd Cheer — FoolBoyMedia](https://freesound.org/people/FoolBoyMedia/sounds/397434/)，CC0 1.0。来源说明为体育比赛后人群欢呼。公开高清预览经滤波、淡化处理，混音时远景铺底并加入早期反射。        |
 | 结果欢呼                     | [Crowd Cheering — SoundsExciting](https://freesound.org/people/SoundsExciting/sounds/365132/)，CC0 1.0。公开高清预览经滤波、归一化及淡化处理。它是人群录音，不宣称来自本项目中的虚构足球场。       |

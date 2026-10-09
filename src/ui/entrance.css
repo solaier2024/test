@@ -63,11 +63,14 @@ body {
   height: 100% !important;
 }
 #arena[data-cinematic="preview"] #match-video,
-#arena[data-cinematic="preview"] #match-poster {
+#arena[data-cinematic="preview"] #match-poster,
+#arena[data-cinematic="replay"] #match-video,
+#arena[data-cinematic="replay"] #match-poster {
   width: 100% !important;
   height: 100% !important;
 }
-#arena[data-cinematic="preview"] .scene-vignette {
+#arena[data-cinematic="preview"] .scene-vignette,
+#arena[data-cinematic="replay"] .scene-vignette {
   display: none;
 }
 #arena[data-cinematic] #hud {
@@ -84,6 +87,30 @@ body {
   min-width: 120px;
   padding: 0 12px;
   white-space: nowrap;
+}
+.clip-preview-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+@media (max-width: 850px) {
+  .topbar.clip-preview-header {
+    height: auto;
+    min-height: 62px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .clip-preview-tools {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .clip-preview-tools select {
+    flex: 1;
+    min-width: 0;
+  }
 }
 #arena[data-cinematic] .lobby-backdrop {
   opacity: 0;

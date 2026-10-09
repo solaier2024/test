@@ -69,7 +69,8 @@ if args.approve:
     gameplay["idle"] = entry
     gameplay["crowdMotionRequired"] = True
     shots = gameplay["shots"]
-    complete = len(shots) == 7 and all(s.get("crowdMotion") == "approved" for s in shots.values())
+    required = {"goal-L-R", "goal-C-R", "goal-R-L", "goal-R-C", "goal-R-R", "save-L-L", "save-C-C", "save-R-R"}
+    complete = required.issubset(shots) and all(s.get("crowdMotion") == "approved" for s in shots.values())
     gameplay["shotPackStatus"] = "complete" if complete else "partial"
     manifest["loading"]["critical"] = [entry[o]["poster"] for o in ["landscape", "portrait"]]
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -6,6 +6,7 @@ export class VideoBase {
     this.manifest = manifest;
     this.portrait = portrait;
     this.stopCurrent = null;
+    this.playbackVersion = 0;
     video.muted = true;
     video.playsInline = true;
   }
@@ -78,6 +79,7 @@ export class VideoBase {
   idle(clip) {
     this.stop();
     if (!clip) return;
+    const version = this.playbackVersion;
     const v = this.video;
     v.poster = assetUrl(clip.poster);
     v.src = assetUrl(clip.src);
@@ -85,11 +87,15 @@ export class VideoBase {
     v.loop = true;
     v.classList.add("playing");
     Promise.resolve(v.play()).catch(() => {
+      // Replacing the idle source rejects its pending play(). That rejection
+      // belongs to the old loop and must not pause a newly started shot/replay.
+      if (version !== this.playbackVersion) return;
       v.pause();
       v.classList.remove("playing");
     });
   }
   stop() {
+    this.playbackVersion++;
     this.stopCurrent?.();
     this.video.pause();
     this.video.classList.remove("playing");

@@ -16,6 +16,89 @@ import {
 } from "../src/presentation/video-match.js";
 import { ShotMediaCache } from "../src/presentation/shot-media-cache.js";
 import { StadiumAudio } from "../src/presentation/stadium-audio.js";
+import { readFile } from "node:fs/promises";
+
+test("reviewed production pack unlocks both outcomes on each available direction", async () => {
+  const scene = new VideoMatchScene({}, {});
+  scene.manifest = JSON.parse(
+    await readFile(
+      new URL("../public/assets/media-manifest.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const loaded = [];
+  scene.clips = { load: async (clip) => loaded.push(clip.key) };
+  for (const phase of ["attack", "defend"])
+    for (const dir of ["L", "C", "R"]) {
+      if (phase === "attack" && dir === "C") {
+        assert.equal(scene.supports({ dir }, phase), false);
+        await assert.rejects(scene.preflight({ dir }, phase));
+        continue;
+      }
+      for (const shot of ["placed", "driven"]) {
+        assert.equal(scene.supports({ dir, shot }, phase), true);
+        await scene.preflight({ dir, shot }, phase);
+      }
+    }
+  assert.equal(new Set(loaded).size, 7);
+  const trimmed = scene.manifest.gameplay.shots["save-L-L"].landscape;
+  assert.ok(trimmed.duration > trimmed.impactAt && trimmed.duration < 3.58);
+});
+
+test("right driven goal reuses footage with its actual right ball and right dive", async () => {
+  const manifest = JSON.parse(
+    await readFile(
+      new URL("../public/assets/media-manifest.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const resolution = {
+    phase: "attack",
+    dir: "R",
+    shot: "driven",
+    success: true,
+  };
+  const plan = choreography(resolution);
+  assert.equal(plan.ballDir, "R");
+  assert.equal(plan.diveDir, "R");
+  assert.equal(plan.saved, false);
+  assert.equal(selectShotClip(manifest, resolution).key, "goal-R-R");
+  assert.equal(
+    selectShotClip(manifest, { ...resolution, success: false }).key,
+    "save-R-R",
+  );
+  assert.equal(selectShotClip(manifest, { ...resolution, dir: "C" }), null);
+});
+
+test("missing direction is visibly unavailable without changing the authoritative quote", async () => {
+  const scene = new VideoMatchScene({}, {});
+  scene.manifest = JSON.parse(
+    await readFile(
+      new URL("../public/assets/media-manifest.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const provider = new LocalProvider({ seed: "partial-video-pack" });
+  const controller = new MatchController({
+    provider,
+    present: {
+      supports: (...args) => scene.supports(...args),
+      play: async () => {},
+    },
+  });
+  await controller.start();
+  assert.deepEqual(controller.state.playableDirections, ["L", "R"]);
+  assert.equal(controller.state.direction, "L");
+  assert.equal(controller.state.quote.options.length, 6);
+  const quoteId = controller.state.quote.quoteId;
+  controller.setDirection("C");
+  assert.equal(controller.state.direction, "L");
+  assert.equal(controller.state.quote.quoteId, quoteId);
+  await controller.submit();
+  assert.deepEqual(controller.state.playableDirections, ["L", "C", "R"]);
+  controller.setDirection("C");
+  assert.equal(controller.state.direction, "C");
+});
 
 for (const phase of ["attack", "defend"])
   for (const success of [true, false])
@@ -291,6 +374,26 @@ test("starting another clip cancels the old clip, and ended resolves the active 
   video.dispatchEvent(new Event("ended"));
   assert.equal(await second, true);
   assert.equal(video.classes.has("playing"), false);
+});
+
+test("a cancelled idle play promise cannot pause a new action or replay", async () => {
+  const { video, base } = videoSetup();
+  let rejectIdle;
+  const idlePlay = new Promise((_resolve, reject) => (rejectIdle = reject));
+  let plays = 0;
+  video.play = () => {
+    video.paused = false;
+    return ++plays === 1 ? idlePlay : Promise.resolve();
+  };
+  base.idle({ src: "idle.mp4", poster: "idle.webp" });
+  const pending = base.play("intro", { holdLastFrame: true });
+  rejectIdle(new Error("The source was replaced"));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(video.paused, false);
+  assert.equal(video.classes.has("playing"), true);
+  video.dispatchEvent(new Event("ended"));
+  assert.equal(await pending, true);
 });
 
 test("action footage can hold its final frame, and stop releases it", async () => {
