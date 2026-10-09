@@ -58,7 +58,7 @@ $("#app").innerHTML = `
       <div class="loading-steps"><span>01 · 球场</span><span>02 · 视频</span><span>03 · 比赛</span></div>
     </div>
   </section><footer class="footer"><span><b>18+ · 模拟币演示</b>　所有返还均包含本金，比赛落败返还为 0。</span><span>5 ROUNDS · ONE LAST KICK</span></footer></main>
-  <dialog id="dialog"><div class="dialog-head"><h2></h2><button class="tool" aria-label="关闭">×</button></div><div class="dialog-body"></div></dialog>`;
+  <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><button class="tool" aria-label="关闭">×</button></div><div class="dialog-body"></div><div class="dialog-footer" hidden><button id="help-dismiss" type="button">我知道了</button></div></dialog>`;
 
 let scene,
   hud,
@@ -71,6 +71,7 @@ let scene,
 const audio = new StadiumAudio({ enabled: audioEnabled });
 const opening = new OpeningSequence($("#arena"), $(".cinema-overlay"), audio);
 const dialog = $("#dialog");
+let helpReturnTarget = null;
 const panels = new DepthPanels({
   controller: () => controller,
   open: openDialog,
@@ -79,13 +80,23 @@ const panels = new DepthPanels({
 });
 $("#career").onclick = () => controller && panels.career();
 dialog.querySelector("button").onclick = () => dialog.close();
-function openDialog(title, content) {
+$("#help-dismiss").onclick = () => dialog.close();
+dialog.addEventListener("close", () => {
+  if (helpReturnTarget) $(helpReturnTarget)?.focus({ preventScroll: true });
+  helpReturnTarget = null;
+});
+function openDialog(title, content, { gameplayHelp = false } = {}) {
+  helpReturnTarget = null;
+  dialog.classList.toggle("gameplay-help", gameplayHelp);
+  dialog.querySelector(".dialog-footer").hidden = !gameplayHelp;
   dialog.querySelector("h2").textContent = title;
   dialog.querySelector(".dialog-body").replaceChildren();
   if (typeof content === "string")
     dialog.querySelector(".dialog-body").innerHTML = content;
   else dialog.querySelector(".dialog-body").append(content);
   if (!dialog.open) dialog.showModal();
+  dialog.scrollTop = 0;
+  dialog.querySelector(".dialog-body").scrollTop = 0;
 }
 function toast(message) {
   $("#arena .toast")?.remove();
@@ -123,11 +134,24 @@ $("#fullscreen").onclick = async () => {
     toast("当前浏览器不支持全屏，可直接继续比赛");
   }
 };
-$("#help").onclick = () =>
+function showGameplayHelp() {
   openDialog(
-    "每一球，都有选择",
-    `<p>你与对手交替罚球，共 5 轮；若比分已经无法追平，比赛提前结束。常规打平后最多 3 组骤死，仍打平则按当前现金价值返还。</p><h3>阵容与射法</h3><p>赛前安排五名不同球员的顺序。神射手特化推射，重炮特化抽射，冰血只屏蔽本人射门的规定压力扣减；门将记忆仍然生效。常规每人一球，骤死从阵容首位重新轮转。中路进攻和艺术家独立吊射的视频待补齐，目前无法提交。</p><h3>观察与压力</h3><p>主操作区持续显示门将押向或射手威胁。低、中、高三级压力受近期结果、比分落后、常规末轮与骤死影响；进球或扑救可以降低近期压力。当前成功率和成功／失败返还已经包括特质与压力，详情可在“阵容·压力”查看。</p><h3>教练与收取</h3><p>完成攻防一轮后可收取当前返还。每场一次教练调整，只能在轮末交换两名未出场球员，不重置比分、压力和门将记忆。交换后会发布新报价。</p><h3>快速模式</h3><p>${QUICK_POLICY.desc} 快速模式减少操作次数；视频仍逐球播放，整局时长取决于球数和决策时间。</p><h3>杯赛与成长</h3><p>三场杯赛分别面对边路先锋、反应猎手和预判大师。每场独立投入、开局与结算，胜利才晋级；平局、落败或主动收取结束本届。成绩、称号和球衣徽章保存在当前浏览器，不改变概率或返还。</p><h3>返还与操作</h3><p>成功返还上升，失败返还下降；比赛落败返还为 0。初始现金价值为模拟投入的 96%，所有金额包含本金，改变选择不提高长期期望返还。键盘 1 / 2 / 3 选方向，P / D 切换射法，Enter 确认。顶部回放只重演已接受的结果。本演示不涉及真实资金。</p>`,
+    "玩法说明",
+    `<p class="help-lead">五轮点球，每一球都由你决定。</p>
+    <ol class="help-steps">
+      <li><div><strong>赛前准备</strong><p>选择完整或快速模式，安排五人阵容与出场顺序，设置模拟投入后开局。也可以挑战三场杯赛。</p></div></li>
+      <li><div><strong>轮到你射门</strong><p>观察门将倾向，选择可用方向与射法，查看成功率和返还后确认射门。</p></div></li>
+      <li><div><strong>轮到你扑救</strong><p>参考对手射手威胁，选择扑救方向并确认。快速模式会自动选择公开成功率最高的防守方向。</p></div></li>
+      <li><div><strong>一轮之后，再做选择</strong><p>完成一攻一守后，可继续比赛、收取当前返还，或使用一次教练调整交换未出场球员。五轮打平进入骤死。</p></div></li>
+    </ol>
+    <p class="help-shortcuts">键盘：1 / 2 / 3 选方向 · P / D 切换射法 · Enter 确认</p>
+    <details class="help-rules"><summary>查看完整规则、阵容特质与杯赛说明</summary>
+    <p>你与对手交替罚球，共 5 轮；若比分已经无法追平，比赛提前结束。常规打平后最多 3 组骤死，仍打平则按当前现金价值返还。</p><h3>阵容与射法</h3><p>赛前安排五名不同球员的顺序。神射手特化推射，重炮特化抽射，冰血只屏蔽本人射门的规定压力扣减；门将记忆仍然生效。常规每人一球，骤死从阵容首位重新轮转。中路进攻和艺术家独立吊射的视频待补齐，目前无法提交。</p><h3>观察与压力</h3><p>主操作区持续显示门将押向或射手威胁。低、中、高三级压力受近期结果、比分落后、常规末轮与骤死影响；进球或扑救可以降低近期压力。当前成功率和成功／失败返还已经包括特质与压力，详情可在“阵容·压力”查看。</p><h3>教练与收取</h3><p>完成攻防一轮后可收取当前返还。每场一次教练调整，只能在轮末交换两名未出场球员，不重置比分、压力和门将记忆。交换后会发布新报价。</p><h3>快速模式</h3><p>${QUICK_POLICY.desc} 快速模式减少操作次数；视频仍逐球播放，整局时长取决于球数和决策时间。</p><h3>杯赛与成长</h3><p>三场杯赛分别面对边路先锋、反应猎手和预判大师。每场独立投入、开局与结算，胜利才晋级；平局、落败或主动收取结束本届。成绩、称号和球衣徽章保存在当前浏览器，不改变概率或返还。</p><h3>返还与操作</h3><p>成功返还上升，失败返还下降；比赛落败返还为 0。初始现金价值为模拟投入的 96%，所有金额包含本金，改变选择不提高长期期望返还。顶部回放只重演已接受的结果。本演示不涉及真实资金。</p>
+    </details>`,
+    { gameplayHelp: true },
   );
+}
+$("#help").onclick = showGameplayHelp;
 function showIntel() {
   const s = controller.state;
   if (s.screen === "bet") {
@@ -474,6 +498,15 @@ async function boot() {
     );
     media.warm("intro");
     await loader.finish();
+    if (!dialog.open) {
+      showGameplayHelp();
+      helpReturnTarget =
+        controller.state.screen === "bet"
+          ? "#control-start"
+          : controller.state.screen === "play"
+            ? "#control-submit"
+            : "#control-restart";
+    }
     for (const canvas of [$("#hud")]) {
       canvas.addEventListener("webglcontextlost", (event) => {
         event.preventDefault();

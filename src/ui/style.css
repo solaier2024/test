@@ -320,6 +320,103 @@ dialog li {
 dialog ul {
   padding-left: 19px;
 }
+dialog.gameplay-help {
+  padding: 0;
+  background: #171e24;
+  border-color: #635338;
+}
+dialog.gameplay-help[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.gameplay-help .dialog-head {
+  padding: 20px 24px 14px;
+}
+.gameplay-help .dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 24px 20px;
+}
+.gameplay-help .help-lead {
+  margin: 0;
+  color: #e3d8c5;
+  font-size: 15px;
+}
+.help-steps {
+  counter-reset: help-step;
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 20px 0;
+  padding: 0;
+}
+.help-steps li {
+  counter-increment: help-step;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.help-steps li::before {
+  content: counter(help-step, decimal-leading-zero);
+  flex: 0 0 34px;
+  line-height: 32px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid #635338;
+  border-radius: 8px;
+  background: #ffc35a0d;
+}
+.help-steps strong {
+  color: #f1e8d9;
+  font-size: 14px;
+}
+.help-steps p {
+  margin: 3px 0 0;
+  line-height: 1.65;
+  color: #bfc5c9;
+}
+.gameplay-help .help-shortcuts {
+  color: #939fa7;
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+.help-rules {
+  border-top: 1px solid #394046;
+  padding-top: 14px;
+}
+.help-rules summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.gameplay-help .dialog-footer {
+  border-top: 1px solid #394046;
+  padding: 14px 24px 20px;
+}
+#help-dismiss {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #1a2027;
+  font-weight: 700;
+}
+@media (max-width: 480px) {
+  .gameplay-help .dialog-head {
+    padding: 18px 18px 12px;
+  }
+  .gameplay-help .dialog-body {
+    padding: 0 18px 18px;
+  }
+  .gameplay-help .dialog-footer {
+    padding: 12px 18px 18px;
+  }
+}
 dialog table {
   border-collapse: collapse;
   width: 100%;
