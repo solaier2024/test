@@ -34,8 +34,18 @@
       ],
       "review": {
         "date": "2026-10-09",
-        "sourceFrameTimes": [0, 1.5, 3, 4.5, 5.9],
-        "portraitFrameTimes": [0, 3, 5.9],
+        "sourceFrameTimes": [
+          0,
+          1.5,
+          3,
+          4.5,
+          5.9
+        ],
+        "portraitFrameTimes": [
+          0,
+          3,
+          5.9
+        ],
         "ballAndKeeperFraming": "passed",
         "anatomyAndContinuity": "no obvious defects in reviewed frames or playback",
         "outcomeIndependent": true,
@@ -70,6 +80,49 @@
           "framing": "center crop from horizontal source"
         }
       }
+    }
+  ],
+  "activePresentation": {
+    "type": "video",
+    "date": "2026-10-09",
+    "idleHistoryId": "KQ9mego53d8bOcrD0Ur8",
+    "shotPackStatus": "pilot_planned",
+    "legacyRealtimePlayback": false
+  },
+  "plannedShots": [
+    {
+      "id": "goal-L-R",
+      "status": "PLANNED",
+      "model": "byte-plus-seedance-2",
+      "mode": "image2video",
+      "projectId": "dzBUOY8x5d89tygpjtpE",
+      "params": {
+        "prompt": "A single continuous locked-camera photorealistic penalty kick, beginning from this exact supplied frame. Same adult male striker in dark teal shirt and dark shorts with white boots on the left foreground, same lime-green keeper, same goal, packed night stadium, grass, realistic proportions and broadcast lighting. No camera cuts, no dolly, no zoom, keep the entire goal visible in the same position. One and only one football. 0–0.8 seconds: hold a still ready stance, minimal breathing, goalkeeper ready. 0.8–1.8 seconds: the striker takes two natural steps and kicks the football once with his right foot. 1.8–2.6 seconds: the ball flies into the LEFT side of the goal from the striker's perspective (SCREEN LEFT), low inside the left post. The goalkeeper commits to SCREEN RIGHT and misses; he must never touch the football. The ball visibly crosses the goal line into the left net, the left net deforms, the same ball falls inside the goal. 2.6–5 seconds: hold the goal outcome with the keeper grounded on screen right; the striker raises one arm, subtle crowd celebration. Realistic continuous anatomy, normal real-time motion, believable ground contact and ball flight. No text, HUD, branding, subtitles, duplicated people, extra balls, morphing, magical trails, cartoon shading. Silent footage; audio will be mixed by the game.",
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "mode": "normal",
+        "generateAudio": false,
+        "startFrame": {
+          "type": "image",
+          "id": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179152479733600000000000000000000ffffc0a860d8f41426_1791525132884_4e264b43.webp",
+          "url": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179152479733600000000000000000000ffffc0a860d8f41426_1791525132884_4e264b43.webp",
+          "label": "Last Kick · Seedance penalty reference"
+        }
+      },
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "integrated": false,
+      "reviewRequired": [
+        "one ball and continuous anatomy",
+        "right-foot kick",
+        "ball into screen-left net",
+        "keeper commits screen-right and misses",
+        "kick/impact timestamps",
+        "full playback and representative frames"
+      ],
+      "notes": "Planned sample only. Do not add to the production manifest before completion and visual approval."
     }
   ]
 }

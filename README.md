@@ -4,9 +4,9 @@
 
 原功能分支为 `cursor/penalty-shootout-7c4b`；`codex/penalty-pixi-playcanvas` 在该实现上重构游戏前端。
 
-## 实时 3D 前端
+## 写实视频前端
 
-当前使用 **PlayCanvas + PixiJS + GSAP + Vite 8 / Rolldown**。球路、人物骨骼动作和机位由实时场景控制；开场和赛后庆祝通过有横竖版及海报的视频基座播放。
+当前使用 **PixiJS + GSAP + Vite 8 / Rolldown + 视频基底**。比赛采用与 Seedance 开场同源的写实待机，方向、报价和结果叠在视频上，整场混入重鼓点与原创观众低吟。具体结果动作短片尚待制作验收，缺片时显示真实判定提示；完整接入状态见 `docs/frontend-reconstruction.md`。
 
 ```sh
 npm ci
@@ -14,6 +14,7 @@ npm run dev
 npm test
 npm run verify:math
 npm run build
+npm run verify:assets
 npm run preview
 ```
 

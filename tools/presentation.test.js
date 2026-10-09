@@ -10,6 +10,7 @@ import { MatchController } from "../src/shell/match-controller.js";
 import { LocalProvider } from "../src/providers/localProvider.js";
 import { mediaVariant } from "../src/presentation/assets.js";
 import { VideoBase } from "../src/presentation/video-base.js";
+import { selectShotClip } from "../src/presentation/video-match.js";
 
 for (const phase of ["attack", "defend"])
   for (const success of [true, false])
@@ -47,6 +48,61 @@ const gate = () => {
   const promise = new Promise((r) => (resolve = r));
   return { promise, resolve };
 };
+
+test("all shot outcomes require an approved clip with the exact ball and keeper directions", () => {
+  const manifest = { gameplay: { shots: {} } };
+  for (const phase of ["attack", "defend"])
+    for (const dir of ["L", "C", "R"])
+      for (const success of [true, false]) {
+        const resolution = { phase, dir, success, shot: "placed" };
+        assert.equal(selectShotClip(manifest, resolution), null);
+        const plan = choreography(resolution);
+        const key = `${plan.saved ? "save" : "goal"}-${plan.ballDir}-${plan.diveDir}`;
+        const clip = {
+          src: "reviewed.mp4",
+          poster: "poster.webp",
+          ballDir: plan.ballDir,
+          diveDir: plan.diveDir,
+          saved: plan.saved,
+          kickAt: 1,
+          impactAt: 2,
+          duration: 5,
+        };
+        manifest.gameplay.shots[key] = { status: "pending", landscape: clip };
+        assert.equal(selectShotClip(manifest, resolution), null);
+        manifest.gameplay.shots[key].status = "approved";
+        assert.equal(selectShotClip(manifest, resolution).key, key);
+        // Incorrect footage must not become a substitute for the real outcome.
+        const wrong = plan.ballDir === "L" ? "R" : "L";
+        manifest.gameplay.shots[key].landscape = { ...clip, ballDir: wrong };
+        assert.equal(selectShotClip(manifest, resolution), null);
+        manifest.gameplay.shots[key].landscape = {
+          ...clip,
+          saved: !clip.saved,
+        };
+        assert.equal(selectShotClip(manifest, resolution), null);
+        manifest.gameplay.shots[key].landscape = { ...clip, impactAt: 6 };
+        assert.equal(selectShotClip(manifest, resolution), null);
+        delete manifest.gameplay.shots[key];
+      }
+});
+
+test("gameplay media marks kick and impact from video time, and cancellation releases playback", async () => {
+  const { video, base } = videoSetup();
+  const seen = [];
+  const pending = base.playClip(
+    { src: "shot.mp4", poster: "shot.webp", duration: 2 },
+    { onTime: (t) => seen.push(t) },
+  );
+  video.currentTime = 0.75;
+  video.dispatchEvent(new Event("timeupdate"));
+  assert.deepEqual(seen, [0.75]);
+  base.stop();
+  assert.equal(await pending, false);
+  video.currentTime = 1.5;
+  video.dispatchEvent(new Event("timeupdate"));
+  assert.deepEqual(seen, [0.75]);
+});
 test("double submissions, cash-outs and reset cannot race the active presentation", async () => {
   const animation = gate();
   let calls = 0;
@@ -164,7 +220,7 @@ const videoSetup = () => {
     }),
   };
 };
-test("autoplay rejection returns to the live 3D scene", async () => {
+test("autoplay rejection releases the cinematic to its photographic poster", async () => {
   const { video, base } = videoSetup();
   video.blocked = true;
   assert.equal(await base.play("intro"), false);

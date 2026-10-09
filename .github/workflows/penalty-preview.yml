@@ -37,6 +37,8 @@ jobs:
         run: MC_ROUNDS=20000 node tools/montecarlo.js
       - name: Vite production build
         run: npm run build
+      - name: Validate athlete and HTMLPreview compatibility
+        run: npm run verify:assets
       - uses: actions/upload-artifact@v4
         with:
           name: penalty-preview

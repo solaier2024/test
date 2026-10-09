@@ -21,11 +21,13 @@ export class VideoBase {
     this.video.src = assetUrl(clip.src);
   }
   play(name, { signal, holdLastFrame = false } = {}) {
-    this.stop();
-    const clip = mediaVariant(
-      this.manifest.cinematics?.[name],
-      this.portrait(),
+    return this.playClip(
+      mediaVariant(this.manifest.cinematics?.[name], this.portrait()),
+      { signal, holdLastFrame },
     );
+  }
+  playClip(clip, { signal, holdLastFrame = false, onTime = () => {} } = {}) {
+    this.stop();
     if (!clip || signal?.aborted) return Promise.resolve(false);
     const v = this.video;
     return new Promise((resolve) => {
@@ -36,6 +38,7 @@ export class VideoBase {
         clearTimeout(timer);
         v.removeEventListener("ended", ended);
         v.removeEventListener("error", failed);
+        v.removeEventListener("timeupdate", time);
         signal?.removeEventListener("abort", failed);
         v.pause();
         if (!played || !holdLastFrame) v.classList.remove("playing");
@@ -44,17 +47,34 @@ export class VideoBase {
       };
       const ended = () => finish(true),
         failed = () => finish(false);
+      const time = () => onTime(v.currentTime);
       const timer = setTimeout(failed, (clip.duration + 3) * 1000);
       this.stopCurrent = failed;
       v.addEventListener("ended", ended, { once: true });
       v.addEventListener("error", failed, { once: true });
+      v.addEventListener("timeupdate", time);
       signal?.addEventListener("abort", failed, { once: true });
       v.poster = assetUrl(clip.poster);
       v.src = assetUrl(clip.src);
       v.preload = "auto";
+      v.loop = false;
       v.currentTime = 0;
       v.classList.add("playing");
       Promise.resolve(v.play()).catch(failed);
+    });
+  }
+  idle(clip) {
+    this.stop();
+    if (!clip) return;
+    const v = this.video;
+    v.poster = assetUrl(clip.poster);
+    v.src = assetUrl(clip.src);
+    v.preload = "auto";
+    v.loop = true;
+    v.classList.add("playing");
+    Promise.resolve(v.play()).catch(() => {
+      v.pause();
+      v.classList.remove("playing");
     });
   }
   stop() {

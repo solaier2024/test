@@ -42,7 +42,10 @@ export async function loadManifest() {
   const response = await fetch(assetUrl("media-manifest.json"));
   if (!response.ok) throw new Error("场景资源清单加载失败");
   const manifest = await response.json();
-  if (manifest.version !== 1 || !manifest.models?.athlete)
+  if (
+    ![1, 2].includes(manifest.version) ||
+    (manifest.version === 2 && !manifest.gameplay?.idle)
+  )
     throw new Error("资源清单版本不支持");
   return manifest;
 }

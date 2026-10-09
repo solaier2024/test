@@ -8,12 +8,13 @@ import {
   assetUrl,
   mediaVariant,
 } from "../presentation/assets.js";
-import { ShootoutScene } from "../presentation/scene.js";
+import { VideoMatchScene } from "../presentation/video-match.js";
 import { ShootoutHud } from "../presentation/hud.js";
 import { VideoBase } from "../presentation/video-base.js";
 import { commitment } from "../math/prf.js";
 import { LoadingSequence, OpeningSequence } from "../presentation/entrance.js";
 import { StadiumAudio } from "../presentation/stadium-audio.js";
+import { renderStadiumPreview } from "../presentation/audio-preview.js";
 
 const $ = (selector) => document.querySelector(selector);
 const money = (n) => `$${Number(n).toFixed(2)}`;
@@ -24,14 +25,15 @@ $("#app").innerHTML = `
   <header class="topbar">
     <div class="brand"><svg viewBox="0 0 48 52" aria-hidden="true"><path d="M24 2 44 10v20L24 49 4 30V10z" fill="#1e222b" stroke="#856638"/><path d="M15 13h7v21h12v6H15z" fill="#ffc35a"/><path d="m28 13 11 7-11 7z" fill="#f28136"/></svg><div class="wordmark">LAST KICK<small>TANDA DE PENALES</small></div></div>
     <div class="top-tools"><span class="demo-badge">模拟币演示</span>
-      <button id="sound" class="tool" aria-label="开启声音" aria-pressed="false">${icon('<path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6m0-6-5 6"/>')}</button>
+      <button id="sound" class="tool" aria-label="关闭声音" aria-pressed="true">${icon('<path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>')}</button>
       <button id="replay" class="tool" aria-label="回放上一球" disabled>${icon('<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/><path d="m11 8 6 4-6 4z"/>')}</button>
       <button id="help" class="tool" aria-label="玩法说明">${icon('<circle cx="12" cy="12" r="9"/><path d="M9.4 9a2.6 2.6 0 1 1 4.4 1.8c-1.2.6-1.8 1.3-1.8 2.7m0 2.7v.3"/>')}</button>
       <button id="fullscreen" class="tool" aria-label="全屏">${icon('<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>')}</button>
     </div>
   </header>
   <main class="game-shell"><section id="arena" aria-label="点球比赛">
-    <canvas id="scene" aria-label="实时三维球场"></canvas>
+    <div id="match-poster" aria-hidden="true"></div>
+    <video id="match-video" muted playsinline aria-label="写实点球比赛画面"></video>
     <div class="lobby-backdrop" aria-hidden="true"></div>
     <div class="scene-vignette"></div><video id="cinematic" muted playsinline aria-label="球场短片"></video>
     <canvas id="hud" aria-hidden="true"></canvas><div id="a11y"></div><div id="live" role="status" aria-live="polite"></div>
@@ -51,7 +53,7 @@ $("#app").innerHTML = `
       <p class="loading-tagline">全场屏息，等待你的关键一球。</p>
       <div class="loading-readout"><span class="loading-status" role="status">正在点亮球场…</span><span><b class="loading-percent">0</b>%</span></div>
       <progress max="1" value="0" aria-label="场景加载进度"></progress>
-      <div class="loading-steps"><span>01 · 球场</span><span>02 · 球员</span><span>03 · 比赛</span></div>
+      <div class="loading-steps"><span>01 · 球场</span><span>02 · 视频</span><span>03 · 比赛</span></div>
     </div>
   </section><footer class="footer"><span><b>18+ · 模拟币演示</b>　所有返还均包含本金，比赛落败返还为 0。</span><span>5 ROUNDS · ONE LAST KICK</span></footer></main>
   <dialog id="dialog"><div class="dialog-head"><h2></h2><button class="tool" aria-label="关闭">×</button></div><div class="dialog-body"></div></dialog>`;
@@ -61,9 +63,9 @@ let scene,
   media,
   controller,
   introPending = false,
-  audioEnabled = false,
+  audioEnabled = true,
   replayBusy = false;
-const audio = new StadiumAudio();
+const audio = new StadiumAudio({ enabled: audioEnabled });
 const opening = new OpeningSequence($("#arena"), $(".cinema-overlay"), audio);
 const dialog = $("#dialog");
 dialog.querySelector("button").onclick = () => dialog.close();
@@ -217,7 +219,15 @@ async function replay() {
   try {
     await scene.prepare(s.lastResolution.phase);
     await scene.setCamera("broadcast");
-    await scene.play(s.lastResolution, { replay: true });
+    let resultAnimation;
+    await scene.play(s.lastResolution, {
+      onKick: () => audio.kick(),
+      onImpact: () => {
+        resultAnimation = hud.showResult(s.lastResolution);
+        sound(s.lastResolution.success);
+      },
+    });
+    await resultAnimation;
     await scene.setCamera(hud.mode);
     await scene.prepare(s.quote?.phase ?? "attack");
   } catch (error) {
@@ -247,10 +257,11 @@ async function boot() {
         lobby.style.backgroundImage = `url("${assetUrl(clip.poster)}")`;
     };
     setLobbyPoster();
-    scene = new ShootoutScene($("#scene"), {
+    scene = new VideoMatchScene($("#match-video"), $("#match-poster"), {
       onProgress: (v, text) => {
         loader.progress(0.12 + v * 0.65, text);
       },
+      onMissing: toast,
     });
     await Promise.all([scene.init(manifest), loadFonts()]);
     // Wait briefly for display fonts; default local fonts work offline as well.
@@ -258,7 +269,7 @@ async function boot() {
       document.fonts.ready,
       new Promise((resolve) => setTimeout(resolve, 1500)),
     ]);
-    loader.progress(0.85, "球员就位 · 比赛即将开始");
+    loader.progress(0.85, "写实画面就绪 · 比赛即将开始");
     const present = {
       prepare: async (phase) => {
         await scene.prepare(phase);
@@ -278,11 +289,6 @@ async function boot() {
           },
         });
         await resultAnimation;
-        if (
-          resolution.endType === "win" &&
-          !matchMedia("(prefers-reduced-motion: reduce)").matches
-        )
-          await media.play("celebration");
       },
     };
     const provider = new LocalProvider({
@@ -295,7 +301,7 @@ async function boot() {
       present,
       onChange: (s) => {
         scene.showcase = s.screen === "bet";
-        if (s.screen === "settled") audio.stopAmbience();
+        audio.match(s);
         hud.update(s);
         announce(s);
       },
@@ -362,11 +368,12 @@ async function boot() {
     controller.emit();
     media.warm("intro");
     await loader.finish();
-    for (const canvas of [$("#scene"), $("#hud")]) {
+    for (const canvas of [$("#hud")]) {
       canvas.addEventListener("webglcontextlost", (event) => {
         event.preventDefault();
         opening.stop();
         media.stop();
+        scene.suspend();
         toast("图形设备正在恢复，比赛结果会保留");
       });
       canvas.addEventListener("webglcontextrestored", () => {
@@ -380,6 +387,7 @@ async function boot() {
         event.altKey ||
         event.ctrlKey ||
         event.metaKey ||
+        $(".capture") ||
         controller.state.screen !== "play" ||
         controller.state.busy
       )
@@ -398,6 +406,9 @@ async function boot() {
         controller.submit();
       }
     });
+    document.addEventListener("visibilitychange", () =>
+      audio.setHidden(document.hidden),
+    );
     window.addEventListener(
       "pagehide",
       () => {
@@ -412,9 +423,9 @@ async function boot() {
     );
     if (
       import.meta.env.DEV &&
-      new URLSearchParams(location.search).has("capture")
+      new URLSearchParams(location.search).has("audio-preview")
     )
-      createCaptureTools();
+      createAudioPreview();
   } catch (error) {
     scene?.destroy();
     hud?.destroy();
@@ -426,54 +437,31 @@ async function boot() {
     console.error(error);
   }
 }
-// Development-only media authoring. Captures this same PlayCanvas scene, without
-// a provider call, stake or settlement. Baked clips never determine shot outcomes.
-function createCaptureTools() {
+// Development-only audio authoring export, isolated from match/provider state.
+function createAudioPreview() {
   const box = document.createElement("div");
   box.className = "capture";
-  $("#arena").append(box);
-  for (const kind of ["intro", "celebration"]) {
-    const button = document.createElement("button");
-    button.textContent = `录制 ${kind}`;
-    box.append(button);
-    button.onclick = async () => {
-      if (box.dataset.busy === "true") return;
-      box.dataset.busy = "true";
-      button.disabled = true;
-      const portrait = hud.mobile,
-        size = portrait ? [720, 960] : [1280, 720];
-      scene.resize(...size);
-      const stream = $("#scene").captureStream(30);
-      const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm";
-      const recorder = new MediaRecorder(stream, {
-          mimeType: mime,
-          videoBitsPerSecond: 2400000,
-        }),
-        chunks = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size) chunks.push(e.data);
-      };
-      const stopped = new Promise((resolve) => {
-        recorder.onstop = resolve;
-      });
-      recorder.start();
-      if (kind === "intro") await scene.cinematic(kind, { duration: 5 });
-      else await scene.cinematic("celebration", { duration: 3.5 });
-      recorder.stop();
-      await stopped;
-      stream.getTracks().forEach((t) => t.stop());
+  const button = document.createElement("button");
+  button.textContent = "导出24秒鼓点试听";
+  button.onclick = async () => {
+    button.disabled = true;
+    button.textContent = "正在合成球场声场…";
+    try {
+      const blob = await renderStadiumPreview();
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob(chunks, { type: mime }));
-      a.download = `${kind}-${portrait ? "portrait" : "landscape"}.webm`;
-      a.textContent = `下载 ${a.download}`;
+      a.href = URL.createObjectURL(blob);
+      a.download = "last-kick-stadium-preview.wav";
+      a.textContent = "下载鼓点与低吟试听";
       box.append(a);
-      scene.resize(hud.sceneWidth, hud.sceneHeight);
-      await scene.prepare("attack");
-      button.disabled = false;
-      box.dataset.busy = "false";
-    };
-  }
+      box.dataset.audio = "rendered";
+    } catch (error) {
+      toast(error.message);
+    }
+    button.textContent = "导出24秒鼓点试听";
+    button.disabled = false;
+  };
+  box.append(button);
+  $("#arena").append(box);
 }
+
 boot();

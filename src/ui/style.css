@@ -119,11 +119,25 @@ a:focus-visible {
   border-radius: 14px;
   box-shadow: 0 25px 90px #0005;
 }
-#scene {
+#scene,
+#match-poster,
+#match-video {
   position: absolute;
   top: 0;
   left: 0;
   display: block;
+}
+#match-poster {
+  background-size: cover;
+  background-position: center;
+}
+#match-video {
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+}
+#match-video.playing {
+  opacity: 1;
 }
 #hud {
   position: absolute;

@@ -277,18 +277,22 @@ export class ShootoutHud {
     }
   }
   cameraButtons(w) {
-    const names = [
+    const names = this.scene.cameraModes ?? [
         ["follow", "跟随"],
         ["broadcast", "转播"],
         ["keeper", "门后"],
       ],
       y = this.mobile ? 173 : 22,
-      sw = this.mobile ? 44 : 46;
+      sw = this.scene.cameraModes ? 76 : this.mobile ? 44 : 46;
+    if (names.length === 1) {
+      this.text("现场机位", w - 79, this.mobile ? 113 : 27, 10, C.muted, { weight: "600" });
+      return;
+    }
     names.forEach(([id, name], i) =>
       this.button(
         `camera-${id}`,
         `${name}镜头`,
-        w - (sw + 4) * 3 - 16 + i * (sw + 4),
+        w - (sw + 4) * names.length - 16 + i * (sw + 4),
         y,
         sw,
         25,
