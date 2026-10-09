@@ -125,6 +125,13 @@
     "shotPackStatus": "partial"
   },
   "audio": {
+    "whistle": {
+      "src": "audio/referee-whistle.mp3",
+      "author": "Rosa-Orenes256",
+      "source": "https://freesound.org/people/Rosa-Orenes256/sounds/538422/",
+      "previewSource": "https://cdn.freesound.org/previews/538/538422_11966684-hq.mp3",
+      "license": "CC0-1.0"
+    },
     "breath": {
       "src": "audio/breath-close.mp3",
       "author": "zogmachine",

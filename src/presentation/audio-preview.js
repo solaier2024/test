@@ -27,6 +27,7 @@ export async function renderStadiumPreview(manifest) {
   audio.charging = false;
   audio.setMix(17);
   audio.scheduleTo(21);
+  audio.whistle(20.1);
   audio.kick(21);
   audio.result(false, 21.8);
   audio.scheduleTo(24);

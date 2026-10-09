@@ -15,6 +15,7 @@ import {
   VideoMatchScene,
 } from "../src/presentation/video-match.js";
 import { ShotMediaCache } from "../src/presentation/shot-media-cache.js";
+import { StadiumAudio } from "../src/presentation/stadium-audio.js";
 
 for (const phase of ["attack", "defend"])
   for (const success of [true, false])
@@ -52,6 +53,49 @@ const gate = () => {
   const promise = new Promise((r) => (resolve = r));
   return { promise, resolve };
 };
+
+test("penalty whistle waits for preparation and plays once per quote including the opponent turn", () => {
+  const audio = new StadiumAudio();
+  let whistles = 0;
+  audio.whistle = () => whistles++;
+  const state = {
+    screen: "play",
+    busy: true,
+    quote: { quoteId: "attack-1" },
+    match: { round: 1 },
+  };
+  audio.match(state);
+  assert.equal(whistles, 0);
+  state.busy = false;
+  audio.match(state);
+  assert.equal(whistles, 1);
+  audio.match({ ...state, direction: "L" });
+  audio.match({ ...state, busy: true });
+  audio.match(state); // Failed submission or replay restores the same quote.
+  assert.equal(whistles, 1);
+  audio.match({ ...state, quote: { quoteId: "defend-1" } });
+  assert.equal(whistles, 2);
+  audio.match({ screen: "bet" });
+  audio.match(state); // A new match may reuse the same authoring quote ID.
+  assert.equal(whistles, 3);
+});
+
+test("a muted or hidden penalty whistle schedules no source and is not replayed on unmute", () => {
+  const audio = new StadiumAudio({ enabled: false });
+  audio.samples.whistle = { duration: 0.6 };
+  audio.context = {
+    currentTime: 0,
+    createBufferSource: () => assert.fail("must not schedule"),
+  };
+  audio.penaltyReady("muted-quote");
+  audio.enabled = true;
+  audio.penaltyReady("muted-quote");
+  audio.hidden = true;
+  audio.penaltyReady("hidden-quote");
+  audio.hidden = false;
+  audio.penaltyReady("hidden-quote");
+  assert.equal(audio.sources.size, 0);
+});
 
 test("all shot outcomes require an approved clip with the exact ball and keeper directions", () => {
   const manifest = { gameplay: { shots: {} } };

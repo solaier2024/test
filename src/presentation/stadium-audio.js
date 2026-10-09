@@ -54,7 +54,14 @@ export class StadiumAudio {
     limiter.attack.value = 0.004;
     limiter.release.value = 0.16;
     this.master.connect(limiter).connect(ctx.destination);
-    for (const name of ["heart", "breath", "rhythm", "stands", "reaction"]) {
+    for (const name of [
+      "heart",
+      "breath",
+      "rhythm",
+      "stands",
+      "reaction",
+      "whistle",
+    ]) {
       this[name + "Gain"] = ctx.createGain();
       this[name + "Gain"].connect(this.master);
     }
@@ -73,6 +80,7 @@ export class StadiumAudio {
       gain.gain.value = level;
       this.standsGain.connect(delay);
       this.reactionGain.connect(delay);
+      this.whistleGain.connect(delay);
       delay.connect(low).connect(gain).connect(this.master);
     }
     this.noise = ctx.createBuffer(
@@ -107,6 +115,7 @@ export class StadiumAudio {
           : 0.42 + this.pressure * 0.18,
       stands: this.charging ? 0.18 : this.mode === "intro" ? 0.42 : 0.34,
       reaction: 1,
+      whistle: 1,
     };
     for (const [name, level] of Object.entries(levels))
       this[name + "Gain"].gain.setTargetAtTime(level, at, 0.08);
@@ -135,7 +144,13 @@ export class StadiumAudio {
     if (state.screen === "play") {
       this.playing = true;
       this.ambience();
+      if (!state.busy) this.penaltyReady(state.quote?.quoteId);
     } else this.stopAmbience();
+  }
+  penaltyReady(quoteId) {
+    if (!quoteId || this.readyQuoteId === quoteId) return;
+    this.readyQuoteId = quoteId;
+    this.whistle();
   }
   track(source, nodes = []) {
     this.sources.add(source);
@@ -348,6 +363,7 @@ export class StadiumAudio {
     this.playing = false;
     this.inFlight = false;
     this.reactionUntil = 0;
+    this.readyQuoteId = null;
     this.stopScheduler();
     this.stopSources();
   }
@@ -366,8 +382,11 @@ export class StadiumAudio {
     this.setMix();
   }
   whistle(delay = 0) {
-    this.tone(2350, 0.38, 0.06, delay, 2150);
-    this.tone(2650, 0.28, 0.025, delay);
+    this.sample("whistle", delay, 0.9, {
+      bus: this.whistleGain,
+      fade: 0.008,
+      pan: -0.12,
+    });
   }
   kick(delay = 0) {
     if (!this.context) return;
