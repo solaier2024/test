@@ -1,6 +1,8 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { gsap } from "gsap";
 import { DIRECTIONS, TARGET_X, GOAL_Z } from "./choreography.js";
+import { PLAYERS, CUP_STAGES } from "../math/depth.js";
+import { ACHIEVEMENTS, KITS } from "../shell/progress.js";
 const C = {
   panel: 0x121a24,
   line: 0x35414e,
@@ -37,6 +39,7 @@ export class ShootoutHud {
       resolution: Math.min(devicePixelRatio, 2),
       autoDensity: true,
       preference: "webgl",
+      autoStart: false,
     });
     this.main = new Container();
     this.aimLayer = new Container();
@@ -58,8 +61,20 @@ export class ShootoutHud {
       group.on("pointertap", () => this.handlers.direction(dir));
       this.aimMarkers.set(dir, { group, graphic });
     }
-    this.app.ticker.maxFPS = 45;
-    this.app.ticker.add(() => this.updateAim());
+    this.app.stop();
+  }
+  invalidate() {
+    if (this.frame || document.hidden || this.destroyed) return;
+    this.frame = requestAnimationFrame(() => {
+      this.frame = null;
+      if (!this.destroyed) {
+        this.app.renderer.render({ container: this.app.stage });
+        if (import.meta.env.DEV)
+          this.canvas.dataset.hudDraws = String(
+            (Number(this.canvas.dataset.hudDraws) || 0) + 1,
+          );
+      }
+    });
   }
   resize(width, height) {
     this.width = width;
@@ -67,7 +82,7 @@ export class ShootoutHud {
     this.mobile = width < 850;
     this.side = this.mobile ? 0 : 282;
     this.sceneWidth = width - this.side;
-    this.sceneHeight = height - (this.mobile ? 245 : 190);
+    this.sceneHeight = height - (this.mobile ? 310 : 230);
     this.app.renderer.resize(width, height);
     this.scene.resize(this.sceneWidth, this.sceneHeight);
     this.render();
@@ -183,27 +198,43 @@ export class ShootoutHud {
       height: `${h}px`,
     });
     mirror.disabled = disabled;
-    if (/^(camera|stake|shot|dir)-/.test(id))
+    if (/^(camera|stake|shot|dir|mode|competition)-/.test(id))
       mirror.setAttribute("aria-pressed", String(active));
     mirror.onclick = () => action?.();
     mirror.onpointerenter = () => {
-      if (!disabled) gsap.to(group, { alpha: 0.83, duration: 0.12 });
+      if (!disabled)
+        gsap.to(group, {
+          alpha: 0.83,
+          duration: 0.12,
+          onUpdate: () => this.invalidate(),
+        });
     };
     mirror.onpointerleave = () =>
-      gsap.to(group, { alpha: disabled ? 0.38 : 1, duration: 0.12 });
+      gsap.to(group, {
+        alpha: disabled ? 0.38 : 1,
+        duration: 0.12,
+        onUpdate: () => this.invalidate(),
+      });
     this.overlay.append(mirror);
     this.buttons.set(id, mirror);
     return group;
   }
   update(state) {
     this.state = state;
+    this.teamColor = Number.parseInt(
+      KITS.find((k) => k.id === state.profile.kit).color.slice(1),
+      16,
+    );
     this.render();
   }
   render() {
     if (!this.state || !this.width) return;
     const focus = document.activeElement?.id;
-    for (const child of this.main.removeChildren())
+    for (const child of this.main.removeChildren()) {
+      gsap.killTweensOf(child);
+      for (const nested of child.children ?? []) gsap.killTweensOf(nested);
       child.destroy({ children: true });
+    }
     this.overlay.replaceChildren();
     this.buttons.clear();
     const s = this.state,
@@ -220,6 +251,7 @@ export class ShootoutHud {
     else this.playControls(w, h);
     if (!this.mobile) this.sidebar(w, this.height);
     this.updateAim();
+    this.invalidate();
     if (focus?.startsWith("control-"))
       document.getElementById(focus)?.focus({ preventScroll: true });
   }
@@ -232,7 +264,8 @@ export class ShootoutHud {
       bw = this.mobile ? 210 : 285,
       x = (w - bw) / 2;
     this.rect(x, 18, bw, 79, 0x101923, { alpha: 0.86, stroke: 0x5a6470 });
-    this.text("TU EQUIPO", x + 18, 30, 9, C.muted);
+    const title = ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name;
+    this.text(title ?? "TU EQUIPO", x + 18, 30, 9, this.teamColor);
     this.text("RIVAL", x + bw - 18, 30, 9, C.muted, { anchor: 1 });
     this.text(String(m?.playerGoals ?? 0), x + 33, 44, 28, C.lime, {
       font: DISPLAY,
@@ -246,6 +279,9 @@ export class ShootoutHud {
     });
     this.text(round, x + bw / 2, 37, 10, C.white, { anchor: 0.5 });
     this.text("—", x + bw / 2, 54, 13, C.muted, { anchor: 0.5 });
+    const cupStage = CUP_STAGES.find((stage) => stage.id === s.match?.cupStage);
+    if (cupStage)
+      this.text(cupStage.name, x + bw / 2, 73, 9, C.teal, { anchor: 0.5 });
     const dots = (kind, start) => {
       const events = s.events.filter((e) => e.phase === kind);
       for (let i = 0; i < Math.max(5, events.length); i++) {
@@ -309,6 +345,7 @@ export class ShootoutHud {
     );
   }
   betScreen(w, h) {
+    const s = this.state;
     const center = w * (this.mobile ? 0.5 : 0.25),
       first = Math.min(w * 0.095, 62),
       last = Math.min(w * 0.14, 100),
@@ -339,17 +376,59 @@ export class ShootoutHud {
     this.text("5 轮攻防  ·  每一球都算数", center, h - 52, 10, 0xd7c7aa, {
       anchor: 0.5,
     });
+    const title = ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name;
+    if (title)
+      this.text(`已佩戴 · ${title}`, center, h - 83, 10, this.teamColor, {
+        anchor: 0.5,
+      });
     const x = this.mobile ? 18 : 27,
-      y = h + 20;
-    this.text("选择模拟投入", x, y, 12, C.white, { weight: "600" });
-    this.text("MXN  ·  返还包含本金", x, y + 23, 10, C.muted);
+      y = h + 14,
+      col = this.mobile ? (w - 40) / 2 : 125;
+    ["full", "quick"].forEach((mode, i) =>
+      this.button(
+        `mode-${mode}`,
+        mode === "full" ? "完整模式" : "快速模式",
+        x + i * (col + 4),
+        y,
+        col,
+        32,
+        {
+          label: mode === "full" ? "完整攻防" : "快速 · 自动防守",
+          active: s.mode === mode,
+          disabled: s.busy,
+          size: 11,
+          action: () => this.handlers.mode(mode),
+        },
+      ),
+    );
+    const cy = this.mobile ? y + 40 : y,
+      cx = this.mobile ? x : x + 268;
+    ["single", "cup"].forEach((competition, i) =>
+      this.button(
+        `competition-${competition}`,
+        competition === "single" ? "单场比赛" : "三场杯赛",
+        cx + i * (col + 4),
+        cy,
+        col,
+        32,
+        {
+          label: competition === "single" ? "单场比赛" : "三场杯赛",
+          active: s.competition === competition,
+          disabled: s.busy,
+          size: 11,
+          action: () => this.handlers.competition(competition),
+        },
+      ),
+    );
+    const iy = this.mobile ? y + 89 : y + 49;
+    this.text("模拟投入 · MXN", x, iy, 10, C.muted);
     const chipW = this.mobile ? (w - 48) / 4 : 65;
     [5, 10, 20, 50].forEach((value, i) =>
       this.button(
         `stake-${value}`,
         `模拟投入 ${value} MXN`,
         x + i * (chipW + 4),
-        y + 50,
+        iy + 22,
         chipW,
         42,
         {
@@ -360,26 +439,65 @@ export class ShootoutHud {
         },
       ),
     );
-    const startX = this.mobile ? x : w - 259,
-      startY = this.mobile ? y + 114 : y + 28,
-      startW = this.mobile ? w - 36 : 230;
+    const startX = this.mobile ? x + col + 4 : w - 257,
+      startY = this.mobile ? iy + 77 : iy + 13,
+      startW = this.mobile ? col : 230;
+    this.button(
+      "lineup",
+      "安排五人阵容",
+      this.mobile ? x : startX,
+      this.mobile ? startY : y,
+      this.mobile ? col : startW,
+      this.mobile ? 56 : 32,
+      {
+        label: "安排五人阵容",
+        sub: this.mobile
+          ? s.lineup
+              .map((id) => PLAYERS.find((p) => p.id === id).number)
+              .join(" · ")
+          : "",
+        disabled: s.busy,
+        action: this.handlers.lineup,
+        size: 13,
+      },
+    );
     this.button("start", "进入球场", startX, startY, startW, 56, {
-      label: this.state.busy ? "准备比赛…" : "迎战  →",
-      sub: "THE STADIUM IS CALLING",
+      label: s.busy ? "准备比赛…" : "迎战  →",
+      sub:
+        s.competition === "cup"
+          ? CUP_STAGES[
+              s.profile.cup?.status === "active" ? s.profile.cup.stage : 0
+            ].name
+          : s.mode === "quick"
+            ? "自动防守 · 逐球实况"
+            : "完整攻防 · 逐球实况",
       primary: true,
       disabled: this.state.busy,
       action: this.handlers.start,
       size: 17,
     });
-    if (!this.mobile)
-      this.text(
-        "模拟币体验，无真实资金交易",
-        startX + startW / 2,
-        y + 102,
-        10,
-        C.muted,
-        { anchor: 0.5 },
-      );
+    this.button(
+      "lobby-intel",
+      "查看赛前对手简报",
+      x,
+      this.height - 40,
+      this.mobile ? col : 140,
+      25,
+      { label: "赛前对手简报", size: 10, action: this.handlers.intel },
+    );
+    this.button(
+      "career",
+      "查看成绩与球衣",
+      this.mobile ? x + col + 4 : x + 148,
+      this.height - 40,
+      this.mobile ? col : 140,
+      25,
+      {
+        label: `生涯 · ${s.profile.stats.wins} 胜`,
+        size: 10,
+        action: this.handlers.career,
+      },
+    );
   }
   playControls(w, h) {
     const s = this.state,
@@ -388,9 +506,18 @@ export class ShootoutHud {
     if (!q) return;
     const attack = q.phase === "attack",
       pad = this.mobile ? 16 : 24,
-      y = h + 15;
+      y = h + 64;
+    this.matchContext(w, h);
     this.text(
-      s.busy ? "比赛进行中" : attack ? "你的回合 · 射门" : "你的回合 · 扑救",
+      s.busy
+        ? s.activity === "loading"
+          ? "正在准备本球视频…"
+          : "比赛进行中"
+        : attack
+          ? `你的回合 · ${q.player.name}`
+          : s.mode === "quick"
+            ? "自动防守 · 公开概率策略"
+            : "你的回合 · 扑救",
       pad,
       y,
       this.mobile ? 13 : 16,
@@ -406,20 +533,23 @@ export class ShootoutHud {
         C.muted,
       );
     if (attack) {
-      const start = this.mobile ? w - 152 : 178;
-      ["placed", "driven"].forEach((id, i) =>
+      const start = this.mobile ? w - 181 : 205,
+        shotW = this.mobile ? 50 : 65;
+      ["placed", "driven", "chip"].forEach((id, i) =>
         this.button(
           `shot-${id}`,
-          id === "placed" ? "选择推射" : "选择抽射",
-          start + i * 69,
+          id === "chip" && !s.playableShots.includes(id)
+            ? "吊射视频待补齐"
+            : `选择${{ placed: "推射", driven: "抽射", chip: "吊射" }[id]}`,
+          start + i * (shotW + 4),
           y - 1,
-          65,
+          shotW,
           29,
           {
-            label: id === "placed" ? "推射" : "抽射",
+            label: { placed: "推射", driven: "抽射", chip: "吊射" }[id],
             size: 11,
             active: s.shot === id,
-            disabled: s.busy,
+            disabled: s.busy || !s.playableShots.includes(id),
             action: () => this.handlers.shot(id),
           },
         ),
@@ -517,13 +647,13 @@ export class ShootoutHud {
       this.text(
         `${q.keyBall ? "◆" : "•"}  ${hint}`,
         pad,
-        h + 158,
+        h + 211,
         10,
         q.keyBall ? C.lime : C.muted,
         { wrap: w - 40 },
       );
     else {
-      const statusY = actionY + 61;
+      const statusY = actionY + 55;
       if (q.canCashOut)
         this.button("cash", "收取当前返还", pad, statusY, w - pad * 2, 26, {
           label: `收取 ${money(q.cashValue)}  ·  或继续下一轮`,
@@ -541,6 +671,39 @@ export class ShootoutHud {
           { wrap: w - pad * 2 },
         );
     }
+  }
+  matchContext(w, h) {
+    const s = this.state,
+      q = s.quote,
+      p = this.mobile ? 16 : 24,
+      dist = q.phase === "attack" ? q.keeperDist : s.info.shooterTendency;
+    const kind = q.phase === "attack" ? "门将押向" : "射手威胁";
+    this.text(
+      `${kind}   ← ${Math.round(dist.L * 100)}%   ↑ ${Math.round(dist.C * 100)}%   → ${Math.round(dist.R * 100)}%`,
+      p,
+      h + 10,
+      this.mobile ? 10 : 12,
+      C.teal,
+      { weight: "600" },
+    );
+    const remaining = s.info.remaining;
+    const status = `压力 ${q.pressure.name} · 剩余 ${remaining.player}/${remaining.opp} · ${q.phase === "attack" ? q.player.role : "守门员"}`;
+    this.text(status, p, h + 33, 10, q.pressure.level === 2 ? C.red : C.muted);
+    this.button(
+      "coach",
+      q.canAdjust ? "使用教练调整" : "查看本场阵容和压力",
+      this.mobile ? w - 88 : w - 157,
+      h + 30,
+      this.mobile ? 72 : 128,
+      25,
+      {
+        label: q.canAdjust ? "教练调整" : "阵容·压力",
+        size: 10,
+        disabled: s.busy,
+        action: this.handlers.lineup,
+        active: q.canAdjust,
+      },
+    );
   }
   sidebar(x, totalHeight) {
     const s = this.state,
@@ -578,32 +741,38 @@ export class ShootoutHud {
     );
     this.line(p, 184, p + w, 184);
     if (s.screen === "bet") {
-      this.text("一场真正的点球博弈", p, 208, 17, C.white, { weight: "700" });
-      [
-        ["01", "观察对手", "三类门将，各有自己的判断习惯。"],
-        ["02", "改变球路", "推射与抽射，成功率和波动各不相同。"],
-        ["03", "掌握节奏", "攻防交替，完成一轮后可选择收取返还。"],
-      ].forEach(([n, title, desc], i) => {
-        const y = 255 + i * 104;
-        this.text(n, p, y, 26, C.teal, { font: DISPLAY, weight: "700" });
-        this.text(title, p + 39, y + 3, 13, C.white, { weight: "700" });
-        this.text(desc, p + 39, y + 32, 11, C.muted, { wrap: w - 42 });
+      this.text("为这一场安排阵容", p, 208, 17, C.white, { weight: "700" });
+      s.lineup.forEach((id, i) => {
+        const player = PLAYERS.find((v) => v.id === id),
+          y = 252 + i * 49;
+        this.text(`0${i + 1}`, p, y, 20, C.teal, {
+          font: DISPLAY,
+          weight: "700",
+        });
+        this.text(player.name, p + 40, y, 14, C.white, { weight: "700" });
+        this.text(player.role, p + w, y + 2, 11, C.muted, { anchor: 1 });
       });
-      this.rect(p, totalHeight - 89, w, 54, 0x24272c, { stroke: 0x6a5638 });
+      this.button("sidebar-lineup", "编辑阵容顺序", p, 521, w, 37, {
+        label: "编辑阵容顺序",
+        action: this.handlers.lineup,
+      });
       this.text(
-        "每一个方向，都有代价。",
-        p + 14,
-        totalHeight - 75,
-        12,
-        C.lime,
-        { weight: "600" },
+        s.mode === "quick"
+          ? "自动防守读取公开概率，轮末决定继续。"
+          : "完整攻防 · 轮末可以收取返还。",
+        p,
+        579,
+        11,
+        C.muted,
+        { wrap: w },
       );
       this.text(
-        "查看每次选择的成功与失败返还",
-        p + 14,
-        totalHeight - 54,
-        9,
+        "特质改变概率与波动，称号和球衣是外观成长。",
+        p,
+        623,
+        10,
         C.muted,
+        { wrap: w },
       );
       return;
     }
@@ -695,14 +864,17 @@ export class ShootoutHud {
         );
       });
     this.text(
-      `门将本场记录  ${s.info?.memory.samples ?? 0} 次`,
+      `本场记录 · ${s.quote?.phase === "defend" ? "对手真实球路" : "我的射门"}`,
       p,
       573,
       10,
       C.muted,
     );
     this.text(
-      s.info?.memory.history
+      (s.quote?.phase === "defend"
+        ? s.info?.opponentHistory.map((e) => e.ballDir)
+        : s.info?.memory.history
+      )
         .map((d) => ({ L: "←", C: "↑", R: "→" })[d])
         .join("   ") || "首球使用赛前情报",
       p,
@@ -749,26 +921,80 @@ export class ShootoutHud {
     this.text("最终返还 · MXN · 包含本金", w / 2, y + 185, 10, C.muted, {
       anchor: 0.5,
     });
-    const by = h + 36;
+    const attacks = s.events.filter((e) => e.phase === "attack"),
+      saved = s.events.filter((e) => e.phase === "defend" && e.success);
+    const by = h + 18;
+    this.text(
+      `进球 ${attacks.filter((e) => e.success).length}/${attacks.length}   ·   扑出 ${saved.length}   ·   生涯 ${s.profile.stats.wins} 胜`,
+      w / 2,
+      by,
+      12,
+      C.teal,
+      { anchor: 0.5 },
+    );
+    const reward = s.rewards?.unlocked
+      .slice(0, 2)
+      .map((id) => ACHIEVEMENTS.find((a) => a.id === id).name)
+      .join(" · ");
+    const rewardLabel = reward
+      ? `解锁：${reward}${s.rewards.unlocked.length > 2 ? ` 等 ${s.rewards.unlocked.length} 项` : ""}`
+      : "";
+    const cup = st.config.cupStage
+      ? s.profile.cup?.status === "completed"
+        ? "杯赛冠军 · 三场独立结算已完成"
+        : s.profile.cup?.status === "active"
+          ? `晋级 ${CUP_STAGES[s.profile.cup.stage].name} · 下场重新投入`
+          : "本届杯赛结束 · 可重新挑战"
+      : "";
+    this.text(
+      cup || rewardLabel || "打开战报回顾阵容、压力与关键球。",
+      w / 2,
+      by + 25,
+      10,
+      C.lime,
+      { anchor: 0.5, wrap: w - 40, align: "center" },
+    );
+    if (cup && reward)
+      this.text(rewardLabel, w / 2, by + 42, 9, C.muted, { anchor: 0.5 });
     this.button(
       "restart",
       "再来一场",
       (w - Math.min(270, w - 44)) / 2,
-      by,
+      by + 64,
       Math.min(270, w - 44),
       54,
       {
-        label: "再来一场  →",
+        label:
+          st.config.cupStage && s.profile.cup?.status === "active"
+            ? "准备下一场  →"
+            : "再来一场  →",
         primary: true,
         action: this.handlers.reset,
         size: 17,
       },
     );
-    this.button("report-bottom", "查看比赛战报", w / 2 - 95, by + 68, 190, 34, {
-      label: "查看战报与结果验证",
-      size: 11,
-      action: this.handlers.report,
-    });
+    this.button(
+      "report-bottom",
+      "查看比赛战报",
+      w / 2 - 140,
+      by + 130,
+      135,
+      34,
+      {
+        label: "查看战报与结果验证",
+        size: 11,
+        action: this.handlers.report,
+      },
+    );
+    this.button(
+      "career-settled",
+      "查看成绩与球衣",
+      w / 2 + 5,
+      by + 130,
+      135,
+      34,
+      { label: "成绩与球衣", size: 11, action: this.handlers.career },
+    );
   }
   updateAim() {
     if (!this.state || !this.width) return;
@@ -807,6 +1033,8 @@ export class ShootoutHud {
     }
   }
   destroy() {
+    this.destroyed = true;
+    if (this.frame) cancelAnimationFrame(this.frame);
     this.app.destroy(true, { children: true });
   }
 }

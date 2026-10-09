@@ -431,6 +431,33 @@ dialog code {
     height: max(646px, calc(100dvh - 107px));
   }
 }
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+  }
+  .brand {
+    gap: 6px;
+  }
+  .brand svg {
+    width: 20px;
+    flex-shrink: 0;
+  }
+  .wordmark {
+    font-size: 18px;
+    white-space: nowrap;
+  }
+  .wordmark small {
+    display: none;
+  }
+  .tool {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .top-tools {
+    gap: 4px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto;

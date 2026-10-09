@@ -1,3 +1,4 @@
+import { actionOutcome } from "../math/action-outcome.js";
 // World directions always use the penalty taker's point of view, across cameras.
 export const DIRECTIONS = ["L", "C", "R"];
 export const TARGET_X = { L: -2.65, C: 0, R: 2.65 };
@@ -10,14 +11,13 @@ export function choreography(resolution) {
   if (!DIRECTIONS.includes(dir) || !["attack", "defend"].includes(phase)) {
     throw new Error("Unsupported resolution");
   }
-  const saved = phase === "attack" ? !success : success;
-  const other = dir === "L" ? "R" : dir === "R" ? "L" : "R";
-  const ballDir = phase === "attack" || saved ? dir : other;
-  // Reviewed driven footage shows a right goal beating a same-side dive.
-  // This describes the accepted goal; it never changes the sampled outcome.
-  const sameSideGoal =
-    phase === "attack" && dir === "R" && shot === "driven" && !saved;
-  const diveDir = phase === "defend" || saved || sameSideGoal ? dir : other;
+  const expected = actionOutcome(resolution);
+  const { saved, ballDir, diveDir } = expected;
+  if (
+    (resolution.ballDir && resolution.ballDir !== ballDir) ||
+    (resolution.diveDir && resolution.diveDir !== diveDir)
+  )
+    throw new Error("Result directions do not match the approved video matrix");
   return {
     saved,
     ballDir,

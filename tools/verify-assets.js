@@ -27,6 +27,12 @@ const resolutions = ["attack", "defend"].flatMap((phase) =>
     ),
   ),
 );
+const chipResolutions = [true, false].map((success) => ({
+  phase: "attack",
+  dir: "C",
+  shot: "chip",
+  success,
+}));
 for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
   // Pending/rejected assets are never shipped as approved clips.
   assert.equal(
@@ -39,7 +45,9 @@ for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
     const sample = Object.values(entry).find(
       (v) => v && typeof v === "object" && v.src,
     );
-    const resolution = resolutions.find((r) => {
+    const resolution = (
+      key.startsWith("chip-") ? chipResolutions : resolutions
+    ).find((r) => {
       const plan = choreography(r);
       return (
         plan.ballDir === sample.ballDir &&
@@ -52,6 +60,13 @@ for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
     assert.equal(clip?.key, key, `Mismatched outcome clip: ${key}`);
   }
 }
+if (manifest.gameplay.chipPackStatus === "complete")
+  for (const resolution of chipResolutions)
+    for (const portrait of [false, true])
+      assert.ok(
+        selectShotClip(manifest, resolution, portrait),
+        "Incomplete independently reviewed chip pack",
+      );
 for (const entry of variants)
   for (const clip of Object.values(entry))
     if (clip && typeof clip === "object" && clip.src) {
@@ -92,5 +107,5 @@ for (const path of paths) {
   assert.ok((await readFile(`public/assets/${path}`)).length > 0);
 }
 console.log(
-  `Classic standalone scripts, ${paths.size} media resources and ${Object.keys(manifest.gameplay.shots).length}/8 action mappings verified; dynamic crowd ${Object.values(manifest.gameplay.shots).filter((entry) => entry.crowdMotion === "approved").length}/8, idle ${manifest.gameplay.idle.crowdMotion}`,
+  `Classic standalone scripts, ${paths.size} media resources; standard mappings ${Object.keys(manifest.gameplay.shots).filter((k) => !k.startsWith("chip-")).length}/8, independent chip ${Object.keys(manifest.gameplay.shots).filter((k) => k.startsWith("chip-")).length}/2; idle crowd ${manifest.gameplay.idle.crowdMotion}`,
 );

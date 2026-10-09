@@ -14,18 +14,45 @@ export class StadiumAudio {
     this.sources = new Set();
     this.sampleData = {};
     this.samples = {};
+    this.decodeRequests = new Map();
     this.loadAbort = new AbortController();
   }
   async load(entries) {
-    await Promise.all(
+    const results = await Promise.allSettled(
       Object.entries(entries).map(async ([name, clip]) => {
-        const response = await fetch(assetUrl(clip.src), {
-          signal: this.loadAbort.signal,
-        });
-        if (!response.ok) throw new Error("现场声音加载失败");
-        this.sampleData[name] = await response.arrayBuffer();
+        if (this.samples[name]) return;
+        const abort = new AbortController(),
+          cancel = () => abort.abort();
+        this.loadAbort.signal.addEventListener("abort", cancel, { once: true });
+        const deadline = setTimeout(cancel, 20000);
+        try {
+          const response = await fetch(assetUrl(clip.src), {
+            signal: abort.signal,
+          });
+          if (!response.ok) throw new Error("现场声音加载失败");
+          this.sampleData[name] = await response.arrayBuffer();
+          if (this.context) await this.decodeSample(name);
+        } finally {
+          clearTimeout(deadline);
+          this.loadAbort.signal.removeEventListener("abort", cancel);
+        }
       }),
     );
+    return results.filter((r) => r.status === "rejected").length;
+  }
+  decodeSample(name) {
+    if (this.samples[name] || !this.sampleData[name]) return Promise.resolve();
+    if (!this.decodeRequests.has(name)) {
+      const request = this.context
+        .decodeAudioData(this.sampleData[name].slice(0))
+        .then((sample) => {
+          this.samples[name] = sample;
+          delete this.sampleData[name];
+        })
+        .finally(() => this.decodeRequests.delete(name));
+      this.decodeRequests.set(name, request);
+    }
+    return this.decodeRequests.get(name);
   }
   async activate() {
     if (!this.enabled) return;
@@ -36,12 +63,9 @@ export class StadiumAudio {
     if (this.context.state === "suspended" && !this.hidden)
       this.context.resume?.().catch(() => {});
     this.master.gain.setTargetAtTime(0.8, this.context.currentTime, 0.04);
-    this.decoding ??= Promise.all(
-      Object.entries(this.sampleData).map(async ([name, bytes]) => {
-        this.samples[name] = await this.context.decodeAudioData(bytes.slice(0));
-      }),
+    await Promise.allSettled(
+      Object.keys(this.sampleData).map((name) => this.decodeSample(name)),
     );
-    await this.decoding;
   }
   buildGraph() {
     const ctx = this.context;
@@ -135,16 +159,19 @@ export class StadiumAudio {
     }
   }
   match(state) {
-    this.pressure = state.quote?.keyBall
-      ? 1
-      : Math.min(0.6, (state.match?.round ?? 1) * 0.1);
+    this.pressure = Number.isInteger(state.quote?.pressure?.level)
+      ? [0.15, 0.5, 1][state.quote.pressure.level]
+      : state.quote?.keyBall
+        ? 1
+        : Math.min(0.6, (state.match?.round ?? 1) * 0.1);
     this.charging = state.busy && state.screen === "play";
     if (!this.charging) this.inFlight = false;
     this.setMix();
     if (state.screen === "play") {
       this.playing = true;
       this.ambience();
-      if (!state.busy) this.penaltyReady(state.quote?.quoteId);
+      if (!state.busy || state.activity === "playing")
+        this.penaltyReady(state.quote?.quoteId);
     } else this.stopAmbience();
   }
   penaltyReady(quoteId) {

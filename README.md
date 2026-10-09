@@ -22,6 +22,12 @@ npm run preview
 
 实现说明：[`docs/frontend-reconstruction.md`](./docs/frontend-reconstruction.md)；浏览器检查：[`docs/browser-qa.md`](./docs/browser-qa.md)；资源授权：[`docs/asset-credits.md`](./docs/asset-credits.md)。
 
+## 玩法扩展与性能
+
+六选五阵容与罚球顺序、四种球员特质、三级压力与恢复、每场一次未出场球员换序、完整／快速自动防守、三场独立结算杯赛、七项成就、对手图鉴、HUD 球衣配色与称号已接入。刷新会重演本地存档并恢复下一球报价；战报也按全部动作与调整重演校验。中路低球与两条独立吊射的新增视频预算已经批准，素材验收前保持禁用。
+
+Pixi 改为状态变化时绘制，待机视频继续播放；动作缓存限制为四条且不超过 8 MiB，慢速或节省流量网络关闭预取，音频失败可继续游玩。数值、浏览器和剩余验收范围见 [`玩法与性能记录`](./docs/gameplay-and-performance.md)，不把基础枚举称作扩展玩法的完整笛卡尔积求解。
+
 ## 为什么是点球大赛
 
 市场调研的结论是足球为首发品类：墨西哥第一运动（Mitofsky 2025，64% 爱好者），美国足球偏好率在 2026 世界杯后创 Gallup 历史新高（9%）。Evoplay 的数据显示点球题材在赛事结束后活跃度反而达到赛前的 6.5 倍，说明它不依附单一赛历。
@@ -35,7 +41,10 @@ npm run preview
 本仓库内：
 
 - **玩法方案与实现架构** — [`docs/gameplay-design.md`](./docs/gameplay-design.md)
-- **实施 Backlog（54 项任务，6 阶段 + 跨阶段事项）** — [`docs/backlog.md`](./docs/backlog.md)
+- **玩法补充与深度建议** — [`docs/gameplay-depth-proposal.md`](./docs/gameplay-depth-proposal.md)
+- **实际玩法与性能实现记录** — [`docs/gameplay-and-performance.md`](./docs/gameplay-and-performance.md)
+- **逐项实现核对** — [`docs/gameplay-implementation-audit.md`](./docs/gameplay-implementation-audit.md)
+- **实施 Backlog（67 项任务）** — [`docs/backlog.md`](./docs/backlog.md)
 
 项目知识库（不在本仓库）：
 

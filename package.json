@@ -1,6 +1,6 @@
 {
   "name": "tanda-de-penales",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,9 +10,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build && node tools/standalone.js",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node tools/test.js && node --test tools/presentation.test.js",
+    "test": "node tools/test.js && node --test tools/presentation.test.js tools/depth.test.js",
     "verify:assets": "node tools/verify-assets.js",
-    "verify:math": "node tools/solve.js && node tools/freeroll.js"
+    "verify:math": "node tools/solve.js && node tools/freeroll.js && node tools/verify-depth.js"
   },
   "dependencies": {
     "gsap": "3.15.0",

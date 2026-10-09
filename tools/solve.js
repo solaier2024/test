@@ -17,10 +17,19 @@
 // 若鞅条件精确成立，则对任意动作 Σ P × factor = 1，因此 Φ ≡ 1，
 // 从而 Vmax(s₀) = Vmin(s₀) = C(s₀) = W × r。
 //
-// 本工具穷举实现中真实可达的状态空间并断言这一点。
+// 本工具穷举基础赛制 × 方向记忆的状态空间。阵容、压力、调整与模式
+// 由 verify-depth.js 的分解 Bellman 证书覆盖；不能把本工具的状态数
+// 当作生产扩展的完整笛卡尔积枚举。
 
-import { pathToFileURL } from 'node:url';
-import { PHASE, END, initialMatch, applyAttack, applyDefend, evaluateEnd } from '../src/math/rules.js';
+import { pathToFileURL } from "node:url";
+import {
+  PHASE,
+  END,
+  initialMatch,
+  applyAttack,
+  applyDefend,
+  evaluateEnd,
+} from "../src/math/rules.js";
 import {
   ARCHETYPES,
   DIRS,
@@ -29,13 +38,13 @@ import {
   keeperDiveDistribution,
   makePreMatchTendency,
   makeShooterTendency,
-} from '../src/math/keeper.js';
-import { attackOptions, defenseOptions } from '../src/math/actions.js';
-import { prf } from '../src/math/prf.js';
+} from "../src/math/keeper.js";
+import { attackOptions, defenseOptions } from "../src/math/actions.js";
+import { prf } from "../src/math/prf.js";
 
 /** 记忆状态需要进入状态键，因为它改变条件概率 */
 function memKey(mem) {
-  return `${mem.history.join('')}`;
+  return `${mem.history.join("")}`;
 }
 
 function matchKey(m) {
@@ -46,14 +55,18 @@ function matchKey(m) {
     m.oppGoals,
     m.playerTaken,
     m.oppTaken,
-  ].join('|');
+  ].join("|");
 }
 
 /**
  * 对单个对手配置做完整反向归纳。
  * 返回 { phiMax, phiMin, states, violations }
  */
-export function solveOpponent({ archetype, preMatchTendency, shooterTendency }) {
+export function solveOpponent({
+  archetype,
+  preMatchTendency,
+  shooterTendency,
+}) {
   const cacheMax = new Map();
   const cacheMin = new Map();
   let states = 0;
@@ -66,7 +79,7 @@ export function solveOpponent({ archetype, preMatchTendency, shooterTendency }) 
       return end === END.LOSS ? 0 : 1;
     }
     const key = `${matchKey(match)}#${memKey(memory)}`;
-    const cache = pick === 'max' ? cacheMax : cacheMin;
+    const cache = pick === "max" ? cacheMax : cacheMin;
     if (cache.has(key)) return cache.get(key);
     states += 1;
 
@@ -79,7 +92,7 @@ export function solveOpponent({ archetype, preMatchTendency, shooterTendency }) 
       options = defenseOptions(match, 1, shooterTendency);
     }
 
-    let best = pick === 'max' ? -Infinity : Infinity;
+    let best = pick === "max" ? -Infinity : Infinity;
     for (const o of options) {
       let sMatch, fMatch, sMem, fMem;
       if (match.phase === PHASE.ATTACK) {
@@ -102,7 +115,7 @@ export function solveOpponent({ archetype, preMatchTendency, shooterTendency }) 
       if (Math.abs(step - 1) > 1e-9) {
         violations.push({ key, action: o.id, step });
       }
-      best = pick === 'max' ? Math.max(best, ev) : Math.min(best, ev);
+      best = pick === "max" ? Math.max(best, ev) : Math.min(best, ev);
     }
     cache.set(key, best);
     return best;
@@ -110,8 +123,8 @@ export function solveOpponent({ archetype, preMatchTendency, shooterTendency }) 
 
   const m0 = initialMatch();
   const mem0 = initialMemory();
-  const phiMax = visit(m0, mem0, 'max');
-  const phiMin = visit(m0, mem0, 'min');
+  const phiMax = visit(m0, mem0, "max");
+  const phiMin = visit(m0, mem0, "min");
   return { phiMax, phiMin, states, violations };
 }
 
@@ -132,35 +145,58 @@ function run() {
       const r = () => prf(seed, `setup:${n++}`);
       const preMatchTendency = makePreMatchTendency(r);
       const shooterTendency = makeShooterTendency(r);
-      const res = solveOpponent({ archetype, preMatchTendency, shooterTendency });
+      const res = solveOpponent({
+        archetype,
+        preMatchTendency,
+        shooterTendency,
+      });
       totalStates += res.states;
       totalViolations += res.violations.length;
       const vmax = stake * config.targetRtp * res.phiMax;
       const vmin = stake * config.targetRtp * res.phiMin;
       const target = stake * config.targetRtp;
       worst = Math.max(worst, Math.abs(vmax - target), Math.abs(vmin - target));
-      rows.push({ archetype, k, states: res.states, phiMax: res.phiMax, phiMin: res.phiMin, vmax, vmin });
+      rows.push({
+        archetype,
+        k,
+        states: res.states,
+        phiMax: res.phiMax,
+        phiMin: res.phiMin,
+        vmax,
+        vmin,
+      });
     }
   }
 
   const target = stake * config.targetRtp;
-  console.log('=== S0-7 完整状态求解 Vmax / Vmin ===');
-  console.log(`下注 W = ${stake}，目标 RTP r = ${config.targetRtp}，目标值 W×r = ${target}\n`);
-  console.log('原型            #  状态数      Φmax            Φmin            Vmax        Vmin');
+  console.log(
+    "=== S0-7 基础赛制 × 方向记忆穷举 Vmax / Vmin（扩展见 verify-depth.js）===",
+  );
+  console.log(
+    `下注 W = ${stake}，目标 RTP r = ${config.targetRtp}，目标值 W×r = ${target}\n`,
+  );
+  console.log(
+    "原型            #  状态数      Φmax            Φmin            Vmax        Vmin",
+  );
   for (const r of rows) {
     console.log(
       `${r.archetype.padEnd(13)} ${String(r.k).padStart(2)}  ${String(r.states).padStart(7)}  ` +
-        `${r.phiMax.toFixed(12)}  ${r.phiMin.toFixed(12)}  ${r.vmax.toFixed(6)}  ${r.vmin.toFixed(6)}`
+        `${r.phiMax.toFixed(12)}  ${r.phiMin.toFixed(12)}  ${r.vmax.toFixed(6)}  ${r.vmin.toFixed(6)}`,
     );
   }
   console.log(`\n穷举状态总数：${totalStates}`);
   console.log(`单步鞅条件违例：${totalViolations}`);
-  console.log(`|V - W×r| 最大偏差：${worst.toExponential(3)}（容差 ${tol.toExponential(1)}）`);
+  console.log(
+    `|V - W×r| 最大偏差：${worst.toExponential(3)}（容差 ${tol.toExponential(1)}）`,
+  );
 
   const pass = worst <= tol && totalViolations === 0;
-  console.log(`\n${pass ? 'PASS' : 'FAIL'} —— Vmax = Vmin = W×r ${pass ? '成立' : '不成立'}`);
+  console.log(
+    `\n${pass ? "PASS" : "FAIL"} —— Vmax = Vmin = W×r ${pass ? "成立" : "不成立"}`,
+  );
   if (!pass) process.exitCode = 1;
   return pass;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  run();

@@ -5,11 +5,25 @@
 //
 // 客户端只负责「呈现 RoundResolution」，不自行计算权威结果。
 
-export const CONFIG_VERSION = 'psc-0.1.0-s0s1';
+import {
+  CUP_STAGES,
+  currentPlayer,
+  pressureAt,
+  QUICK_POLICY,
+} from "./depth.js";
+
+export const CONFIG_VERSION = "psc-0.3.0-depth-v1";
+export function freezeData(value) {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.values(value).forEach(freezeData);
+    Object.freeze(value);
+  }
+  return value;
+}
 
 /** @typedef {object} ShootoutConfig */
 export function makeConfig(overrides = {}) {
-  return {
+  const config = {
     configVersion: CONFIG_VERSION,
     targetRtp: 0.96,
     regularRounds: 5,
@@ -19,8 +33,44 @@ export function makeConfig(overrides = {}) {
     // 金额舍入：对外展示与结算都用 2 位小数
     amountDecimals: 2,
     drawReturnFactor: 1.0, // 骤死上限后仍平：按当前现金价值全额返还
+    mode: "full",
+    autoDefensePolicy: QUICK_POLICY.id,
+    cupStage: null,
+    enableChip: false,
     ...overrides,
   };
+  const supported = [
+    "configVersion",
+    "targetRtp",
+    "regularRounds",
+    "suddenDeathSets",
+    "returnIncludesStake",
+    "amountDecimals",
+    "drawReturnFactor",
+    "mode",
+    "autoDefensePolicy",
+    "cupStage",
+    "enableChip",
+  ];
+  if (
+    Object.keys(overrides).some((k) => !supported.includes(k)) ||
+    config.configVersion !== CONFIG_VERSION ||
+    !Number.isFinite(config.targetRtp) ||
+    config.targetRtp <= 0 ||
+    config.targetRtp > 1 ||
+    config.regularRounds !== 5 ||
+    config.suddenDeathSets !== 3 ||
+    config.drawReturnFactor !== 1 ||
+    config.returnIncludesStake !== true ||
+    config.amountDecimals !== 2 ||
+    !["full", "quick"].includes(config.mode) ||
+    config.autoDefensePolicy !== QUICK_POLICY.id ||
+    typeof config.enableChip !== "boolean" ||
+    (config.cupStage !== null &&
+      !CUP_STAGES.some((s) => s.id === config.cupStage))
+  )
+    throw new Error("比赛配置无效或超出已验证范围");
+  return freezeData(config);
 }
 
 /** 四舍五入到配置精度 */
@@ -49,7 +99,14 @@ export function snapshotState(engine) {
     ended: m.ended,
     cashValue: roundAmount(engine.cash, engine.config),
     stake: engine.stake,
-    adjustmentsUsed: 0, // 教练调整属 S2，首版恒为 0
+    sessionId: engine.sessionId,
+    mode: engine.config.mode,
+    cupStage: engine.config.cupStage,
+    lineup: [...engine.lineup],
+    initialLineup: [...engine.initialLineup],
+    currentPlayer: { ...currentPlayer(m, engine.lineup) },
+    pressure: pressureAt(m, engine.strain),
+    adjustmentsUsed: engine.adjustmentsUsed,
     settled: Boolean(engine.settlement),
   };
 }

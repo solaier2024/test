@@ -6,12 +6,12 @@
 export const REGULAR_ROUNDS = 5;
 export const SUDDEN_DEATH_SETS = 3;
 
-export const PHASE = { ATTACK: 'attack', DEFEND: 'defend' };
+export const PHASE = { ATTACK: "attack", DEFEND: "defend" };
 export const END = {
-  WIN: 'win', // 赢下大战
-  LOSS: 'loss', // 常规落败：返还为零
-  DRAW: 'draw', // 骤死上限后仍平：按平局返还函数结算
-  CASHED: 'cashed', // 玩家主动收钱
+  WIN: "win", // 赢下大战
+  LOSS: "loss", // 常规落败：返还为零
+  DRAW: "draw", // 骤死上限后仍平：按平局返还函数结算
+  CASHED: "cashed", // 玩家主动收钱
 };
 
 /** 创建初始比赛状态（不含现金，现金由 engine 维护） */
@@ -57,7 +57,8 @@ export function decideRegular(m) {
 /** 骤死赛：每组双方各罚一球，结果不同即分出胜负 */
 export function decideSuddenDeath(m) {
   // 只在一组完整结束（双方都罚过）后判定
-  if (m.playerTaken !== m.oppTaken) return null;
+  if (m.playerTaken !== m.oppTaken || m.playerTaken < REGULAR_ROUNDS + m.sdSet)
+    return null;
   if (m.playerGoals > m.oppGoals) return END.WIN;
   if (m.playerGoals < m.oppGoals) return END.LOSS;
   if (m.sdSet >= SUDDEN_DEATH_SETS) return END.DRAW;
@@ -95,11 +96,6 @@ export function applyDefend(m, saved) {
   // 本轮结束，推进到下一轮
   if (next.suddenDeath) {
     next.sdSet = next.sdSet + 1;
-    const sdEnd = decideSuddenDeath(next);
-    if (sdEnd) {
-      next.ended = sdEnd;
-      return next;
-    }
     next.phase = PHASE.ATTACK;
     return next;
   }
@@ -135,7 +131,11 @@ export function previewOutcomes(m) {
 /** 剩余罚球数（含骤死显示） */
 export function remainingShots(m) {
   if (m.suddenDeath) {
-    return { player: 1, opp: m.playerTaken > m.oppTaken ? 1 : 1 };
+    const target = REGULAR_ROUNDS + m.sdSet;
+    return {
+      player: Math.max(0, target - m.playerTaken),
+      opp: Math.max(0, target - m.oppTaken),
+    };
   }
   return regularRemaining(m);
 }
@@ -147,14 +147,21 @@ export function remainingShots(m) {
 export function keyBall(m) {
   const pv = previewOutcomes(m);
   if (m.phase === PHASE.ATTACK) {
-    if (pv.success.ended === END.WIN) return { kind: 'winChance', text: '这一球进，就赢下大战' };
-    if (pv.failure.ended === END.LOSS) return { kind: 'mustScore', text: '必须罚进，才能继续' };
-    if (m.oppGoals > m.playerGoals) return { kind: 'equalize', text: '罚进可把比分追平' };
-    if (m.suddenDeath) return { kind: 'sudden', text: '骤死赛：本组双方结果不同就分出胜负' };
+    if (pv.success.ended === END.WIN)
+      return { kind: "winChance", text: "这一球进，就赢下大战" };
+    if (pv.failure.ended === END.LOSS)
+      return { kind: "mustScore", text: "必须罚进，才能继续" };
+    if (m.oppGoals - m.playerGoals === 1)
+      return { kind: "equalize", text: "罚进可把比分追平" };
+    if (m.suddenDeath)
+      return { kind: "sudden", text: "骤死赛：本组双方结果不同就分出胜负" };
     return null;
   }
-  if (pv.failure.ended === END.LOSS) return { kind: 'mustSave', text: '必须扑出，才能继续' };
-  if (pv.success.ended === END.WIN) return { kind: 'saveToWin', text: '扑出这球，就赢下大战' };
-  if (m.suddenDeath) return { kind: 'sudden', text: '骤死赛：扑出即取胜，失球即落败' };
+  if (pv.failure.ended === END.LOSS)
+    return { kind: "mustSave", text: "必须扑出，才能继续" };
+  if (pv.success.ended === END.WIN)
+    return { kind: "saveToWin", text: "扑出这球，就赢下大战" };
+  if (m.suddenDeath)
+    return { kind: "sudden", text: "骤死赛：本组同结果继续，不同结果分胜负" };
   return null;
 }

@@ -23,20 +23,40 @@
 // 关键不变量：报价里的 p 必须与结算时使用的 p 完全一致。
 // 因此 engine 先生成 quote，再用同一个 quote 对象去判定结果。
 
-import { DIRS, keeperDiveDistribution } from './keeper.js';
-import { PHASE, END, previewOutcomes } from './rules.js';
+import { DIRS, keeperDiveDistribution } from "./keeper.js";
+import { PHASE, END, previewOutcomes } from "./rules.js";
+import { shotModifiers, PRESSURE_PENALTIES } from "./depth.js";
 
 // 概率被夹在该区间内。下限保证全押分支的赔付上界有限：
 // d = 1 时 u = (1-p)/p，p ≥ 0.20 则 u ≤ 4。
-export const P_MIN = 0.20;
+export const P_MIN = 0.2;
 export const P_MAX = 0.93;
 
 export const SHOT_TYPES = {
-  placed: { id: 'placed', name: '推射', accOther: 0.94, beatSame: 0.22, risk: 0.30 },
-  driven: { id: 'driven', name: '抽射', accOther: 0.78, beatSame: 0.46, risk: 0.55 },
+  placed: {
+    id: "placed",
+    name: "推射",
+    accOther: 0.94,
+    beatSame: 0.22,
+    risk: 0.3,
+  },
+  driven: {
+    id: "driven",
+    name: "抽射",
+    accOther: 0.78,
+    beatSame: 0.46,
+    risk: 0.55,
+  },
 };
 
 export const DEFENSE = { saveMatch: 0.78, saveMiss: 0.07, risk: 0.32 };
+export const CHIP = {
+  id: "chip",
+  name: "吊射",
+  accOther: 0.88,
+  beatSame: 0.12,
+  risk: 0.48,
+};
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -60,15 +80,24 @@ export function cashBranches(cash, p, risk, failureIsLoss) {
 }
 
 /** 进攻：6 种组合（3 方向 × 2 射法） */
-export function attackOptions(match, cash, keeperDist) {
+export function attackOptions(match, cash, keeperDist, ctx = {}) {
   const pv = previewOutcomes(match);
   const failureIsLoss = pv.failure.ended === END.LOSS;
   const successEnds = pv.success.ended;
   const options = [];
   for (const dir of DIRS) {
     const guess = keeperDist[dir];
-    for (const t of Object.values(SHOT_TYPES)) {
-      const raw = (1 - guess) * t.accOther + guess * t.beatSame;
+    const types = [
+      ...Object.values(SHOT_TYPES),
+      ...(ctx.enableChip && dir === "C" ? [CHIP] : []),
+    ];
+    for (const t of types) {
+      const modifiers = shotModifiers(ctx.player, t.id, ctx.pressure);
+      const raw =
+        (1 - guess) * t.accOther +
+        guess * t.beatSame +
+        modifiers.traitBonus -
+        modifiers.pressurePenalty;
       const p = clamp(raw, P_MIN, P_MAX);
       options.push({
         kind: PHASE.ATTACK,
@@ -76,6 +105,7 @@ export function attackOptions(match, cash, keeperDist) {
         shot: t.id,
         id: `${dir}-${t.id}`,
         keeperGuessProb: guess,
+        modifiers,
         ...cashBranches(cash, p, t.risk, failureIsLoss),
         failureIsLoss,
         successEnds,
@@ -86,21 +116,26 @@ export function attackOptions(match, cash, keeperDist) {
 }
 
 /** 防守：3 个扑救方向 */
-export function defenseOptions(match, cash, shooterTendency) {
+export function defenseOptions(match, cash, shooterTendency, ctx = {}) {
   const pv = previewOutcomes(match);
   const failureIsLoss = pv.failure.ended === END.LOSS;
   const successEnds = pv.success.ended;
   return DIRS.map((dive) => {
     const raw = DIRS.reduce(
-      (acc, d) => acc + shooterTendency[d] * (d === dive ? DEFENSE.saveMatch : DEFENSE.saveMiss),
-      0
+      (acc, d) =>
+        acc +
+        shooterTendency[d] *
+          (d === dive ? DEFENSE.saveMatch : DEFENSE.saveMiss),
+      0,
     );
-    const p = clamp(raw, P_MIN, P_MAX);
+    const pressurePenalty = PRESSURE_PENALTIES.defend[ctx.pressure?.level ?? 0];
+    const p = clamp(raw - pressurePenalty, P_MIN, P_MAX);
     return {
       kind: PHASE.DEFEND,
       dir: dive,
       id: `dive-${dive}`,
       shooterProb: shooterTendency[dive],
+      modifiers: { traitBonus: 0, pressurePenalty, pressureImmune: false },
       ...cashBranches(cash, p, DEFENSE.risk, failureIsLoss),
       failureIsLoss,
       successEnds,
@@ -111,10 +146,17 @@ export function defenseOptions(match, cash, shooterTendency) {
 /** 当前阶段的全部合法动作 */
 export function legalOptions(match, cash, ctx) {
   if (match.phase === PHASE.ATTACK) {
-    const dist = keeperDiveDistribution(ctx.preMatchTendency, ctx.memory, ctx.archetype);
-    return { options: attackOptions(match, cash, dist), keeperDist: dist };
+    const dist = keeperDiveDistribution(
+      ctx.preMatchTendency,
+      ctx.memory,
+      ctx.archetype,
+    );
+    return { options: attackOptions(match, cash, dist, ctx), keeperDist: dist };
   }
-  return { options: defenseOptions(match, cash, ctx.shooterTendency), keeperDist: null };
+  return {
+    options: defenseOptions(match, cash, ctx.shooterTendency, ctx),
+    keeperDist: null,
+  };
 }
 
 /**
@@ -126,7 +168,7 @@ export function assertMartingale(cash, options, tolerance = 1e-9) {
     const ev = o.p * o.onSuccess + (1 - o.p) * o.onFailure;
     if (Math.abs(ev - cash) > tolerance * Math.max(1, Math.abs(cash))) {
       throw new Error(
-        `鞅条件被破坏：动作 ${o.id} 的期望现金 ${ev} != 当前现金 ${cash}（差 ${ev - cash}）`
+        `鞅条件被破坏：动作 ${o.id} 的期望现金 ${ev} != 当前现金 ${cash}（差 ${ev - cash}）`,
       );
     }
   }

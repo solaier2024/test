@@ -1,0 +1,243 @@
+.depth-panel {
+  color: #e9edf2;
+}
+.panel-lead {
+  color: #c1cbd8;
+  line-height: 1.7;
+}
+.panel-note {
+  font-size: 12px;
+  color: #98a8bb;
+  line-height: 1.7;
+}
+.lineup-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+}
+.lineup-row {
+  display: grid;
+  grid-template-columns: 26px 50px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #354556;
+  background: #192430;
+  border-radius: 10px;
+}
+.lineup-row.chosen {
+  border-color: #ffc35a;
+  background: #302a21;
+}
+.lineup-row.spent {
+  opacity: 0.5;
+}
+.slot-number {
+  color: #8cd5dc;
+  font-size: 22px;
+  font-weight: 700;
+}
+.jersey-badge {
+  flex: none;
+  width: 48px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  font:
+    800 23px "Barlow Condensed",
+    sans-serif;
+  background: var(--kit-color);
+  color: #15222d;
+  clip-path: polygon(
+    25% 0,
+    38% 8%,
+    62% 8%,
+    75% 0,
+    100% 18%,
+    87% 40%,
+    76% 32%,
+    76% 100%,
+    24% 100%,
+    24% 32%,
+    13% 40%,
+    0 18%
+  );
+}
+.player-detail strong {
+  font-size: 17px;
+}
+.player-role {
+  margin-left: 12px;
+  color: #ffc35a;
+  font-size: 12px;
+}
+.player-detail p {
+  margin: 7px 0 0;
+  font-size: 12px;
+  color: #a7b7c6;
+  line-height: 1.6;
+}
+.player-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: end;
+  max-width: 198px;
+}
+.player-controls select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  color: #dbe5eb;
+  background: #111b27;
+  border: 1px solid #475767;
+}
+.panel-button {
+  background: #263647;
+  border: 1px solid #526070;
+  color: #f0f2ec;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 12px;
+  min-height: 36px;
+}
+.panel-button:hover {
+  border-color: #ffc35a;
+}
+.panel-button:disabled {
+  opacity: 0.42;
+}
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: end;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 0;
+}
+.panel-actions > span {
+  margin-right: auto;
+  color: #aab8c9;
+  font-size: 12px;
+}
+.panel-actions .panel-button:last-child {
+  background: #ffc35a;
+  border-color: #ffc35a;
+  color: #241d13;
+  font-weight: 700;
+}
+.pressure-block {
+  background: #222b35;
+  border-left: 3px solid #ffc35a;
+  padding: 14px 18px;
+}
+.pressure-block p {
+  color: #b4c2ce;
+  font-size: 12px;
+}
+.career-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid #3b4a58;
+  padding-bottom: 20px;
+  margin: 16px 0;
+}
+.career-stats div {
+  text-align: center;
+  display: grid;
+  gap: 4px;
+}
+.career-stats strong {
+  font:
+    700 34px "Barlow Condensed",
+    sans-serif;
+  color: #ffc35a;
+}
+.career-stats span {
+  font-size: 12px;
+  color: #a9b8c7;
+}
+.achievement-grid,
+.kit-grid,
+.opponent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.achievement-card,
+.kit-card,
+.opponent-card {
+  border: 1px solid #374757;
+  padding: 17px;
+  background: #192430;
+  border-radius: 8px;
+}
+.achievement-card p,
+.kit-card p,
+.opponent-card p {
+  font-size: 12px;
+  color: #a1b3c4;
+  line-height: 1.7;
+}
+.achievement-card.earned {
+  border-color: #927447;
+}
+.achievement-card.earned strong {
+  color: #ffc35a;
+}
+.kit-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.kit-card p {
+  margin: 0;
+}
+.cup-route {
+  padding-left: 24px;
+  color: #c2cfdd;
+  line-height: 2.2;
+  font-size: 13px;
+}
+.recent-matches p {
+  border-bottom: 1px solid #304051;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.report-highlights {
+  background: #26313b;
+  padding: 14px 22px;
+  border-left: 3px solid #ffc35a;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.report-scroll {
+  overflow-x: auto;
+}
+@media (max-width: 600px) {
+  .lineup-row {
+    grid-template-columns: 22px 42px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+  .jersey-badge {
+    width: 40px;
+    height: 46px;
+  }
+  .player-controls {
+    grid-column: 2 / -1;
+    max-width: none;
+    justify-content: start;
+  }
+  .player-controls select {
+    width: auto;
+    flex: 1;
+  }
+  .player-role {
+    margin-left: 8px;
+  }
+  .opponent-grid {
+    grid-template-columns: 1fr;
+  }
+}
