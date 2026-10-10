@@ -84,8 +84,10 @@
         document.documentElement.lang = locale;
         if (locale === "es") {
           document.title = "LAST KICK · Tanda de penales";
-          document.querySelector("#boot-splash small").textContent =
-            "El estadio contiene el aliento · Entrando al estadio";
+          const bootLabel = document.querySelector("#boot-splash small");
+          if (bootLabel)
+            bootLabel.textContent =
+              "El estadio contiene el aliento · Entrando al estadio";
         }
       })();
     </script>
