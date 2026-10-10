@@ -1,3 +1,4 @@
+import { tr, pressureLabel, directionLetter } from "../i18n/index.js";
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { gsap } from "gsap";
 import { DIRECTIONS, TARGET_X, GOAL_Z } from "./choreography.js";
@@ -16,7 +17,7 @@ const C = {
 const FONT = 'Barlow, "Microsoft YaHei", Arial, sans-serif',
   DISPLAY = '"Barlow Condensed", Bahnschrift, Impact, Arial, sans-serif';
 const money = (n) => `$${Number(n ?? 0).toFixed(2)}`,
-  labels = { L: "左路", C: "中路", R: "右路" };
+  labels = { L: tr("左路"), C: tr("中路"), R: tr("右路") };
 
 export class ShootoutHud {
   constructor(canvas, overlay, scene, handlers) {
@@ -99,12 +100,13 @@ export class ShootoutHud {
       weight = "500",
       align = "left",
       wrap = 0,
+      fit = 0,
       parent = this.main,
       anchor = 0,
     } = {},
   ) {
     const t = new Text({
-      text: str,
+      text: tr(str),
       style: {
         fontFamily: font,
         fontSize: size,
@@ -116,6 +118,12 @@ export class ShootoutHud {
         lineHeight: size * 1.45,
       },
     });
+    if (fit && t.width > fit) {
+      t.style.fontSize = Math.max(8, (size * fit) / t.width);
+      const fullText = t.text;
+      for (let end = fullText.length - 1; t.width > fit && end > 0; end--)
+        t.text = fullText.slice(0, end) + "…";
+    }
     t.position.set(x, y);
     t.anchor.set(anchor, 0);
     parent.addChild(t);
@@ -175,12 +183,13 @@ export class ShootoutHud {
       sub ? 11 : (h - size * 1.4) / 2,
       size,
       primary ? C.dark : (color ?? (active ? C.lime : C.white)),
-      { weight: "700", anchor: 0.5, parent: group },
+      { weight: "700", anchor: 0.5, parent: group, fit: w - 14 },
     );
     if (sub)
       this.text(sub, w / 2, h - 26, 10, primary ? 0x70542c : C.muted, {
         anchor: 0.5,
         parent: group,
+        fit: w - 14,
       });
     group.alpha = disabled ? 0.38 : 1;
     group.eventMode = disabled ? "none" : "static";
@@ -190,7 +199,7 @@ export class ShootoutHud {
     mirror.className = "a11y-control";
     mirror.id = `control-${id}`;
     mirror.type = "button";
-    mirror.textContent = accessibleLabel;
+    mirror.textContent = tr(accessibleLabel);
     Object.assign(mirror.style, {
       left: `${x}px`,
       top: `${y}px`,
@@ -259,13 +268,15 @@ export class ShootoutHud {
     const s = this.state,
       m = s.match,
       round = m?.suddenDeath
-        ? `骤死 ${m.sdSet} / 3`
-        : `第 ${m?.round ?? 1} / 5 轮`,
+        ? tr`骤死 ${m.sdSet} / 3`
+        : tr`第 ${m?.round ?? 1} / 5 轮`,
       bw = this.mobile ? 210 : 285,
       x = (w - bw) / 2;
     this.rect(x, 18, bw, 79, 0x101923, { alpha: 0.86, stroke: 0x5a6470 });
-    const title = ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name;
-    this.text(title ?? "TU EQUIPO", x + 18, 30, 9, this.teamColor);
+    const title = tr(ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name);
+    this.text(title ?? "TU EQUIPO", x + 18, 30, 9, this.teamColor, {
+      fit: bw / 3 - 24,
+    });
     this.text("RIVAL", x + bw - 18, 30, 9, C.muted, { anchor: 1 });
     this.text(String(m?.playerGoals ?? 0), x + 33, 44, 28, C.lime, {
       font: DISPLAY,
@@ -281,7 +292,7 @@ export class ShootoutHud {
     this.text("—", x + bw / 2, 54, 13, C.muted, { anchor: 0.5 });
     const cupStage = CUP_STAGES.find((stage) => stage.id === s.match?.cupStage);
     if (cupStage)
-      this.text(cupStage.name, x + bw / 2, 73, 9, C.teal, { anchor: 0.5 });
+      this.text(tr(cupStage.name), x + bw / 2, 73, 9, C.teal, { anchor: 0.5 });
     const dots = (kind, start) => {
       const events = s.events.filter((e) => e.phase === kind);
       for (let i = 0; i < Math.max(5, events.length); i++) {
@@ -301,7 +312,7 @@ export class ShootoutHud {
       this.text("ESTADIO  ·  MÉXICO", 30, 25, 9, 0xc4dbcf, { weight: "600" });
       this.text("NOCHE DE PENALES", 22, 54, 9, 0xa6bdb1);
     } else {
-      this.text("返还 MXN", 15, 110, 9, C.muted);
+      this.text(tr("返还 MXN"), 15, 110, 9, C.muted);
       this.text(
         money(s.settlement?.payout ?? m?.cashValue ?? s.stake * 0.96),
         15,
@@ -314,14 +325,14 @@ export class ShootoutHud {
   }
   cameraButtons(w) {
     const names = this.scene.cameraModes ?? [
-        ["follow", "跟随"],
-        ["broadcast", "转播"],
-        ["keeper", "门后"],
+        ["follow", tr("跟随")],
+        ["broadcast", tr("转播")],
+        ["keeper", tr("门后")],
       ],
       y = this.mobile ? 173 : 22,
       sw = this.scene.cameraModes ? 76 : this.mobile ? 44 : 46;
     if (names.length === 1) {
-      this.text("现场机位", w - 79, this.mobile ? 113 : 27, 10, C.muted, {
+      this.text(tr("现场机位"), w - 79, this.mobile ? 113 : 27, 10, C.muted, {
         weight: "600",
       });
       return;
@@ -329,7 +340,7 @@ export class ShootoutHud {
     names.forEach(([id, name], i) =>
       this.button(
         `camera-${id}`,
-        `${name}镜头`,
+        tr`${name}镜头`,
         w - (sw + 4) * names.length - 16 + i * (sw + 4),
         y,
         sw,
@@ -361,7 +372,7 @@ export class ShootoutHud {
       anchor: 0.5,
     });
     this.text(
-      "全场屏息。选定球路，拿下关键一球。",
+      tr("全场屏息。选定球路，拿下关键一球。"),
       center,
       titleY + first * 1.04 + last * 1.15,
       this.mobile ? 11 : 13,
@@ -373,12 +384,12 @@ export class ShootoutHud {
       radius: 14,
       stroke: 0x88734d,
     });
-    this.text("5 轮攻防  ·  每一球都算数", center, h - 52, 10, 0xd7c7aa, {
+    this.text(tr("5 轮攻防  ·  每一球都算数"), center, h - 52, 10, 0xd7c7aa, {
       anchor: 0.5,
     });
-    const title = ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name;
+    const title = tr(ACHIEVEMENTS.find((a) => a.id === s.profile.title)?.name);
     if (title)
-      this.text(`已佩戴 · ${title}`, center, h - 83, 10, this.teamColor, {
+      this.text(tr`已佩戴 · ${title}`, center, h - 83, 10, this.teamColor, {
         anchor: 0.5,
       });
     const x = this.mobile ? 18 : 27,
@@ -387,13 +398,13 @@ export class ShootoutHud {
     ["full", "quick"].forEach((mode, i) =>
       this.button(
         `mode-${mode}`,
-        mode === "full" ? "完整模式" : "快速模式",
+        mode === "full" ? tr("完整模式") : tr("快速模式"),
         x + i * (col + 4),
         y,
         col,
         32,
         {
-          label: mode === "full" ? "完整攻防" : "快速 · 自动防守",
+          label: mode === "full" ? tr("完整攻防") : tr("快速 · 自动防守"),
           active: s.mode === mode,
           disabled: s.busy,
           size: 11,
@@ -406,13 +417,13 @@ export class ShootoutHud {
     ["single", "cup"].forEach((competition, i) =>
       this.button(
         `competition-${competition}`,
-        competition === "single" ? "单场比赛" : "三场杯赛",
+        competition === "single" ? tr("单场比赛") : tr("三场杯赛"),
         cx + i * (col + 4),
         cy,
         col,
         32,
         {
-          label: competition === "single" ? "单场比赛" : "三场杯赛",
+          label: competition === "single" ? tr("单场比赛") : tr("三场杯赛"),
           active: s.competition === competition,
           disabled: s.busy,
           size: 11,
@@ -421,12 +432,12 @@ export class ShootoutHud {
       ),
     );
     const iy = this.mobile ? y + 89 : y + 49;
-    this.text("模拟投入 · MXN", x, iy, 10, C.muted);
+    this.text(tr("模拟投入 · MXN"), x, iy, 10, C.muted);
     const chipW = this.mobile ? (w - 48) / 4 : 65;
     [5, 10, 20, 50].forEach((value, i) =>
       this.button(
         `stake-${value}`,
-        `模拟投入 ${value} MXN`,
+        tr`模拟投入 ${value} MXN`,
         x + i * (chipW + 4),
         iy + 22,
         chipW,
@@ -444,13 +455,13 @@ export class ShootoutHud {
       startW = this.mobile ? col : 230;
     this.button(
       "lineup",
-      "安排五人阵容",
+      tr("安排五人阵容"),
       this.mobile ? x : startX,
       this.mobile ? startY : y,
       this.mobile ? col : startW,
       this.mobile ? 56 : 32,
       {
-        label: "安排五人阵容",
+        label: tr("安排五人阵容"),
         sub: this.mobile
           ? s.lineup
               .map((id) => PLAYERS.find((p) => p.id === id).number)
@@ -461,16 +472,18 @@ export class ShootoutHud {
         size: 13,
       },
     );
-    this.button("start", "进入球场", startX, startY, startW, 56, {
-      label: s.busy ? "准备比赛…" : "迎战  →",
+    this.button("start", tr("进入球场"), startX, startY, startW, 56, {
+      label: s.busy ? tr("准备比赛…") : tr("迎战  →"),
       sub:
         s.competition === "cup"
-          ? CUP_STAGES[
-              s.profile.cup?.status === "active" ? s.profile.cup.stage : 0
-            ].name
+          ? tr(
+              CUP_STAGES[
+                s.profile.cup?.status === "active" ? s.profile.cup.stage : 0
+              ].name,
+            )
           : s.mode === "quick"
-            ? "自动防守 · 逐球实况"
-            : "完整攻防 · 逐球实况",
+            ? tr("自动防守 · 逐球实况")
+            : tr("完整攻防 · 逐球实况"),
       primary: true,
       disabled: this.state.busy,
       action: this.handlers.start,
@@ -478,22 +491,22 @@ export class ShootoutHud {
     });
     this.button(
       "lobby-intel",
-      "查看赛前对手简报",
+      tr("查看赛前对手简报"),
       x,
       this.height - 40,
       this.mobile ? col : 140,
       25,
-      { label: "赛前对手简报", size: 10, action: this.handlers.intel },
+      { label: tr("赛前对手简报"), size: 10, action: this.handlers.intel },
     );
     this.button(
       "career",
-      "查看成绩与球衣",
+      tr("查看成绩与球衣"),
       this.mobile ? x + col + 4 : x + 148,
       this.height - 40,
       this.mobile ? col : 140,
       25,
       {
-        label: `生涯 · ${s.profile.stats.wins} 胜`,
+        label: tr`生涯 · ${s.profile.stats.wins} 胜`,
         size: 10,
         action: this.handlers.career,
       },
@@ -511,22 +524,25 @@ export class ShootoutHud {
     this.text(
       s.busy
         ? s.activity === "loading"
-          ? "正在准备本球视频…"
-          : "比赛进行中"
+          ? tr("正在准备本球视频…")
+          : tr("比赛进行中")
         : attack
-          ? `你的回合 · ${q.player.name}`
+          ? tr`你的回合 · ${tr(q.player.name)}`
           : s.mode === "quick"
-            ? "自动防守 · 公开概率策略"
-            : "你的回合 · 扑救",
+            ? tr("自动防守 · 公开概率策略")
+            : tr("你的回合 · 扑救"),
       pad,
       y,
       this.mobile ? 13 : 16,
       C.white,
-      { weight: "700" },
+      {
+        weight: "700",
+        fit: this.mobile && attack ? w - pad - 194 : w - pad * 2,
+      },
     );
     if (!this.mobile)
       this.text(
-        attack ? "选择球路与射法" : "方向以射手视角为准",
+        attack ? tr("选择球路与射法") : tr("方向以射手视角为准"),
         pad,
         y + 29,
         10,
@@ -539,14 +555,18 @@ export class ShootoutHud {
         this.button(
           `shot-${id}`,
           id === "chip" && !s.playableShots.includes(id)
-            ? "吊射视频待补齐"
-            : `选择${{ placed: "推射", driven: "抽射", chip: "吊射" }[id]}`,
+            ? q.options.some((option) => option.shot === "chip")
+              ? tr("吊射视频待补齐")
+              : tr("本场未启用吊射")
+            : tr`选择${{ placed: tr("推射"), driven: tr("抽射"), chip: tr("吊射") }[id]}`,
           start + i * (shotW + 4),
           y - 1,
           shotW,
           29,
           {
-            label: { placed: "推射", driven: "抽射", chip: "吊射" }[id],
+            label: { placed: tr("推射"), driven: tr("抽射"), chip: tr("吊射") }[
+              id
+            ],
             size: 11,
             active: s.shot === id,
             disabled: s.busy || !s.playableShots.includes(id),
@@ -567,12 +587,14 @@ export class ShootoutHud {
       const group = this.button(
         `dir-${dir}`,
         available
-          ? `${labels[dir]}，${attack ? "进球" : "扑救"}概率 ${Math.round(option.p * 100)}%，成功返还 ${money(option.onSuccess)}，失败返还 ${money(option.onFailure)}`
-          : `${labels[dir]}，比赛视频待补齐`,
+          ? tr`${labels[dir]}，${attack ? tr("进球") : tr("扑救")}概率 ${Math.round(option.p * 100)}%，成功返还 ${money(option.onSuccess)}，失败返还 ${money(option.onFailure)}`
+          : !option
+            ? tr`${labels[dir]}，吊射仅限中路`
+            : tr`${labels[dir]}，比赛视频待补齐`,
         pad + i * (cardW + gap),
         cardsY,
         cardW,
-        74,
+        this.mobile ? 94 : 74,
         {
           label: labels[dir],
           active: s.direction === dir,
@@ -582,47 +604,72 @@ export class ShootoutHud {
         },
       );
       if (!available) {
-        this.text("视频待补齐", cardW / 2, 47, 10, C.muted, {
-          anchor: 0.5,
-          parent: group,
-        });
+        this.text(
+          !option ? tr("仅限中路") : tr("视频待补齐"),
+          cardW / 2,
+          47,
+          10,
+          C.muted,
+          {
+            anchor: 0.5,
+            parent: group,
+            fit: cardW - 14,
+          },
+        );
         continue;
       }
       this.text(
         `${Math.round(option.p * 100)}%`,
-        cardW - 12,
-        10,
+        this.mobile ? 12 : cardW - 12,
+        this.mobile ? 29 : 10,
         22,
         s.direction === dir ? C.lime : C.white,
-        { font: DISPLAY, weight: "700", anchor: 1, parent: group },
+        {
+          font: DISPLAY,
+          weight: "700",
+          anchor: this.mobile ? 0 : 1,
+          parent: group,
+        },
       );
       group.children[1].anchor.set(0, 0);
       group.children[1].x = 12;
       group.children[1].y = 11;
-      this.text(`成 ${money(option.onSuccess)}`, 12, 39, 10, C.teal, {
-        parent: group,
-      });
       this.text(
-        `败 ${money(option.onFailure)}`,
+        tr`成 ${money(option.onSuccess)}`,
         12,
-        54,
+        this.mobile ? 59 : 39,
+        10,
+        C.teal,
+        {
+          parent: group,
+          fit: cardW - 24,
+        },
+      );
+      this.text(
+        tr`败 ${money(option.onFailure)}`,
+        12,
+        this.mobile ? 75 : 54,
         10,
         option.failureIsLoss ? C.red : C.muted,
-        { parent: group },
+        { parent: group, fit: cardW - 24 },
       );
     }
-    const actionY = this.mobile ? cardsY + 85 : cardsY,
+    const actionY = this.mobile ? cardsY + 105 : cardsY,
       actionX = this.mobile ? pad : w - 193,
       actionW = this.mobile ? w - pad * 2 - 112 : 170;
     this.button(
       "submit",
-      attack ? "确认射门" : "确认扑救",
+      attack ? tr("确认射门") : tr("确认扑救"),
       actionX,
       actionY,
       actionW,
       this.mobile ? 48 : 74,
       {
-        label: s.busy ? "正在呈现…" : attack ? "确认射门  ↗" : "确认扑救  ↗",
+        label: s.busy
+          ? tr("正在呈现…")
+          : attack
+            ? tr("确认射门  ↗")
+            : tr("确认扑救  ↗"),
         sub: this.mobile
           ? ""
           : `${labels[s.direction]} · ${Math.round((o?.p ?? 0) * 100)}%`,
@@ -634,18 +681,26 @@ export class ShootoutHud {
       },
     );
     if (this.mobile)
-      this.button("intel", "查看对手情报", w - pad - 104, actionY, 104, 48, {
-        label: "对手情报",
-        sub: `${s.info?.memory.samples ?? 0} 次记录`,
-        action: this.handlers.intel,
-        size: 11,
-      });
+      this.button(
+        "intel",
+        tr("查看对手情报"),
+        w - pad - 104,
+        actionY,
+        104,
+        48,
+        {
+          label: tr("对手情报"),
+          sub: tr`${s.info?.memory.samples ?? 0} 次记录`,
+          action: this.handlers.intel,
+          size: 11,
+        },
+      );
     const hint =
       q.keyBall?.text ??
-      (attack ? q.keeperHint : "观察射手的方向倾向，选择你的扑救位置");
+      (attack ? q.keeperHint : tr("观察射手的方向倾向，选择你的扑救位置"));
     if (!this.mobile)
       this.text(
-        `${q.keyBall ? "◆" : "•"}  ${hint}`,
+        `${q.keyBall ? "◆" : "•"}  ${tr(hint)}`,
         pad,
         h + 211,
         10,
@@ -655,15 +710,15 @@ export class ShootoutHud {
     else {
       const statusY = actionY + 55;
       if (q.canCashOut)
-        this.button("cash", "收取当前返还", pad, statusY, w - pad * 2, 26, {
-          label: `收取 ${money(q.cashValue)}  ·  或继续下一轮`,
+        this.button("cash", tr("收取当前返还"), pad, statusY, w - pad * 2, 26, {
+          label: tr`收取 ${money(q.cashValue)}  ·  或继续下一轮`,
           size: 10,
           disabled: s.busy,
           action: this.handlers.cash,
         });
       else
         this.text(
-          q.keyBall?.text ?? "完成本轮攻防后可收取当前返还",
+          q.keyBall?.text ?? tr("完成本轮攻防后可收取当前返还"),
           pad,
           statusY,
           10,
@@ -677,27 +732,29 @@ export class ShootoutHud {
       q = s.quote,
       p = this.mobile ? 16 : 24,
       dist = q.phase === "attack" ? q.keeperDist : s.info.shooterTendency;
-    const kind = q.phase === "attack" ? "门将押向" : "射手威胁";
+    const kind = q.phase === "attack" ? tr("门将押向") : tr("射手威胁");
     this.text(
       `${kind}   ← ${Math.round(dist.L * 100)}%   ↑ ${Math.round(dist.C * 100)}%   → ${Math.round(dist.R * 100)}%`,
       p,
       h + 10,
       this.mobile ? 10 : 12,
       C.teal,
-      { weight: "600" },
+      { weight: "600", fit: this.mobile ? w - p * 2 - 80 : w - p * 2 - 145 },
     );
     const remaining = s.info.remaining;
-    const status = `压力 ${q.pressure.name} · 剩余 ${remaining.player}/${remaining.opp} · ${q.phase === "attack" ? q.player.role : "守门员"}`;
-    this.text(status, p, h + 33, 10, q.pressure.level === 2 ? C.red : C.muted);
+    const status = tr`压力 ${pressureLabel(q.pressure.level)} · 剩余 ${remaining.player}/${remaining.opp} · ${q.phase === "attack" ? tr(q.player.role) : tr("守门员")}`;
+    this.text(status, p, h + 33, 10, q.pressure.level === 2 ? C.red : C.muted, {
+      fit: this.mobile ? w - p * 2 : w - p * 2 - 145,
+    });
     this.button(
       "coach",
-      q.canAdjust ? "使用教练调整" : "查看本场阵容和压力",
+      q.canAdjust ? tr("使用教练调整") : tr("查看本场阵容和压力"),
       this.mobile ? w - 88 : w - 157,
-      h + 30,
+      h + (this.mobile ? 5 : 30),
       this.mobile ? 72 : 128,
       25,
       {
-        label: q.canAdjust ? "教练调整" : "阵容·压力",
+        label: q.canAdjust ? tr("教练调整") : tr("阵容·压力"),
         size: 10,
         disabled: s.busy,
         action: this.handlers.lineup,
@@ -716,8 +773,8 @@ export class ShootoutHud {
       s.screen === "bet"
         ? "THE LAST KICK"
         : s.screen === "settled"
-          ? "比赛已结算"
-          : "当前返还 · MXN",
+          ? tr("比赛已结算")
+          : tr("当前返还 · MXN"),
       p,
       54,
       11,
@@ -733,7 +790,7 @@ export class ShootoutHud {
       { font: DISPLAY, weight: "700" },
     );
     this.text(
-      `模拟投入 ${money(s.stake)}   ·   ${((s.settlement?.payout ?? s.match?.cashValue ?? s.stake * 0.96) / s.stake).toFixed(2)}×`,
+      tr`模拟投入 ${money(s.stake)}   ·   ${((s.settlement?.payout ?? s.match?.cashValue ?? s.stake * 0.96) / s.stake).toFixed(2)}×`,
       p,
       151,
       10,
@@ -741,7 +798,7 @@ export class ShootoutHud {
     );
     this.line(p, 184, p + w, 184);
     if (s.screen === "bet") {
-      this.text("为这一场安排阵容", p, 208, 17, C.white, { weight: "700" });
+      this.text(tr("为这一场安排阵容"), p, 208, 17, C.white, { weight: "700" });
       s.lineup.forEach((id, i) => {
         const player = PLAYERS.find((v) => v.id === id),
           y = 252 + i * 49;
@@ -749,17 +806,17 @@ export class ShootoutHud {
           font: DISPLAY,
           weight: "700",
         });
-        this.text(player.name, p + 40, y, 14, C.white, { weight: "700" });
-        this.text(player.role, p + w, y + 2, 11, C.muted, { anchor: 1 });
+        this.text(tr(player.name), p + 40, y, 14, C.white, { weight: "700" });
+        this.text(tr(player.role), p + w, y + 2, 11, C.muted, { anchor: 1 });
       });
-      this.button("sidebar-lineup", "编辑阵容顺序", p, 521, w, 37, {
-        label: "编辑阵容顺序",
+      this.button("sidebar-lineup", tr("编辑阵容顺序"), p, 521, w, 37, {
+        label: tr("编辑阵容顺序"),
         action: this.handlers.lineup,
       });
       this.text(
         s.mode === "quick"
-          ? "自动防守读取公开概率，轮末决定继续。"
-          : "完整攻防 · 轮末可以收取返还。",
+          ? tr("自动防守读取公开概率，轮末决定继续。")
+          : tr("完整攻防 · 轮末可以收取返还。"),
         p,
         579,
         11,
@@ -767,7 +824,7 @@ export class ShootoutHud {
         { wrap: w },
       );
       this.text(
-        "特质改变概率与波动，称号和球衣是外观成长。",
+        tr("特质改变概率与波动，称号和球衣是外观成长。"),
         p,
         623,
         10,
@@ -779,7 +836,7 @@ export class ShootoutHud {
     const option = this.handlers.option();
     if (option) {
       this.text(
-        `${s.quote.phase === "attack" ? "进球" : "扑救"}成功`,
+        tr`${s.quote.phase === "attack" ? tr("进球") : tr("扑救")}成功`,
         p,
         207,
         10,
@@ -791,7 +848,7 @@ export class ShootoutHud {
         anchor: 1,
       });
       this.text(
-        option.failureIsLoss ? "失败 · 比赛落败" : "本次失败",
+        option.failureIsLoss ? tr("失败 · 比赛落败") : tr("本次失败"),
         p,
         242,
         10,
@@ -802,10 +859,10 @@ export class ShootoutHud {
         weight: "700",
         anchor: 1,
       });
-      this.button("cash", "收取当前返还", p, 277, w, 43, {
+      this.button("cash", tr("收取当前返还"), p, 277, w, 43, {
         label: s.quote.canCashOut
-          ? `收取 ${money(s.quote.cashValue)}`
-          : "完成本轮后可收取",
+          ? tr`收取 ${money(s.quote.cashValue)}`
+          : tr("完成本轮后可收取"),
         size: 12,
         disabled: s.busy || !s.quote.canCashOut,
         action: this.handlers.cash,
@@ -815,27 +872,29 @@ export class ShootoutHud {
         font: DISPLAY,
         weight: "700",
       });
-      this.text("打开战报，回顾每次决策。", p, 254, 11, C.muted);
-      this.button("report", "查看比赛战报", p, 279, w, 43, {
+      this.text(tr("打开战报，回顾每次决策。"), p, 254, 11, C.muted);
+      this.button("report", tr("查看比赛战报"), p, 279, w, 43, {
         action: this.handlers.report,
       });
     }
     this.line(p, 345, p + w, 345);
     this.text(
-      s.quote?.phase === "defend" ? "对手射手倾向" : "门将情报",
+      s.quote?.phase === "defend" ? tr("对手射手倾向") : tr("门将情报"),
       p,
       365,
       11,
       C.muted,
       { weight: "600" },
     );
-    this.button("intel", "查看对手情报", p + w - 65, 360, 65, 24, {
-      label: "详情",
+    this.button("intel", tr("查看对手情报"), p + w - 65, 360, 65, 24, {
+      label: tr("详情"),
       size: 10,
       action: this.handlers.intel,
     });
     this.text(
-      s.quote?.phase === "defend" ? "对手射手" : (s.info?.archetypeName ?? ""),
+      s.quote?.phase === "defend"
+        ? tr("对手射手")
+        : (tr(s.info?.archetypeName) ?? ""),
       p,
       388,
       22,
@@ -864,7 +923,7 @@ export class ShootoutHud {
         );
       });
     this.text(
-      `本场记录 · ${s.quote?.phase === "defend" ? "对手真实球路" : "我的射门"}`,
+      tr`本场记录 · ${s.quote?.phase === "defend" ? tr("对手真实球路") : tr("我的射门")}`,
       p,
       573,
       10,
@@ -876,7 +935,7 @@ export class ShootoutHud {
         : s.info?.memory.history
       )
         .map((d) => ({ L: "←", C: "↑", R: "→" })[d])
-        .join("   ") || "首球使用赛前情报",
+        .join("   ") || tr("首球使用赛前情报"),
       p,
       596,
       14,
@@ -884,18 +943,25 @@ export class ShootoutHud {
       { wrap: w },
     );
     if (totalHeight > 715)
-      this.text(s.info?.archetypeDesc ?? "", p, totalHeight - 59, 10, C.muted, {
-        wrap: w,
-      });
+      this.text(
+        tr(s.info?.archetypeDesc) ?? "",
+        p,
+        totalHeight - 59,
+        10,
+        C.muted,
+        {
+          wrap: w,
+        },
+      );
   }
   settledScreen(w, h) {
     const s = this.state,
       st = s.settlement,
       title = {
-        win: "赢下比赛",
-        loss: "比赛结束",
-        draw: "平局收官",
-        cashed: "已收取返还",
+        win: tr("赢下比赛"),
+        loss: tr("比赛结束"),
+        draw: tr("平局收官"),
+        cashed: tr("已收取返还"),
       }[st.reason],
       cardW = Math.min(w - 40, 380),
       x = (w - cardW) / 2,
@@ -918,14 +984,14 @@ export class ShootoutHud {
       st.reason === "loss" ? C.white : C.lime,
       { font: DISPLAY, weight: "800", anchor: 0.5 },
     );
-    this.text("最终返还 · MXN · 包含本金", w / 2, y + 185, 10, C.muted, {
+    this.text(tr("最终返还 · MXN · 包含本金"), w / 2, y + 185, 10, C.muted, {
       anchor: 0.5,
     });
     const attacks = s.events.filter((e) => e.phase === "attack"),
       saved = s.events.filter((e) => e.phase === "defend" && e.success);
     const by = h + 18;
     this.text(
-      `进球 ${attacks.filter((e) => e.success).length}/${attacks.length}   ·   扑出 ${saved.length}   ·   生涯 ${s.profile.stats.wins} 胜`,
+      tr`进球 ${attacks.filter((e) => e.success).length}/${attacks.length}   ·   扑出 ${saved.length}   ·   生涯 ${s.profile.stats.wins} 胜`,
       w / 2,
       by,
       12,
@@ -934,20 +1000,20 @@ export class ShootoutHud {
     );
     const reward = s.rewards?.unlocked
       .slice(0, 2)
-      .map((id) => ACHIEVEMENTS.find((a) => a.id === id).name)
+      .map((id) => tr(ACHIEVEMENTS.find((a) => a.id === id).name))
       .join(" · ");
     const rewardLabel = reward
-      ? `解锁：${reward}${s.rewards.unlocked.length > 2 ? ` 等 ${s.rewards.unlocked.length} 项` : ""}`
+      ? tr`解锁：${reward}${s.rewards.unlocked.length > 2 ? tr` 等 ${s.rewards.unlocked.length} 项` : ""}`
       : "";
     const cup = st.config.cupStage
       ? s.profile.cup?.status === "completed"
-        ? "杯赛冠军 · 三场独立结算已完成"
+        ? tr("杯赛冠军 · 三场独立结算已完成")
         : s.profile.cup?.status === "active"
-          ? `晋级 ${CUP_STAGES[s.profile.cup.stage].name} · 下场重新投入`
-          : "本届杯赛结束 · 可重新挑战"
+          ? tr`晋级 ${tr(CUP_STAGES[s.profile.cup.stage].name)} · 下场重新投入`
+          : tr("本届杯赛结束 · 可重新挑战")
       : "";
     this.text(
-      cup || rewardLabel || "打开战报回顾阵容、压力与关键球。",
+      cup || rewardLabel || tr("打开战报回顾阵容、压力与关键球。"),
       w / 2,
       by + 25,
       10,
@@ -958,7 +1024,7 @@ export class ShootoutHud {
       this.text(rewardLabel, w / 2, by + 42, 9, C.muted, { anchor: 0.5 });
     this.button(
       "restart",
-      "再来一场",
+      tr("再来一场"),
       (w - Math.min(270, w - 44)) / 2,
       by + 64,
       Math.min(270, w - 44),
@@ -966,8 +1032,8 @@ export class ShootoutHud {
       {
         label:
           st.config.cupStage && s.profile.cup?.status === "active"
-            ? "准备下一场  →"
-            : "再来一场  →",
+            ? tr("准备下一场  →")
+            : tr("再来一场  →"),
         primary: true,
         action: this.handlers.reset,
         size: 17,
@@ -975,25 +1041,25 @@ export class ShootoutHud {
     );
     this.button(
       "report-bottom",
-      "查看比赛战报",
+      tr("查看比赛战报"),
       w / 2 - 140,
       by + 130,
       135,
       34,
       {
-        label: "查看战报与结果验证",
+        label: tr("查看战报与结果验证"),
         size: 11,
         action: this.handlers.report,
       },
     );
     this.button(
       "career-settled",
-      "查看成绩与球衣",
+      tr("查看成绩与球衣"),
       w / 2 + 5,
       by + 130,
       135,
       34,
-      { label: "成绩与球衣", size: 11, action: this.handlers.career },
+      { label: tr("成绩与球衣"), size: 11, action: this.handlers.career },
     );
   }
   updateAim() {
@@ -1012,6 +1078,7 @@ export class ShootoutHud {
         p.y >= 108 &&
         p.y <= this.sceneHeight - 20;
       if (!group.visible) continue;
+      group.children[1].text = directionLetter(dir);
       group.position.set(p.x, p.y);
       const active = dir === s.direction,
         size = this.mobile ? 22 : 28;

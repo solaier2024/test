@@ -200,6 +200,25 @@ test("independent chip has one legal target and cannot borrow straight-shot foot
       phase: "attack",
       dir: "C",
       shot: "chip",
+      success: true,
+    }).key,
+    "chip-goal-C-R",
+  );
+  assert.equal(
+    selectShotClip(manifest, {
+      phase: "attack",
+      dir: "C",
+      shot: "chip",
+      success: false,
+    }).key,
+    "chip-save-C-C",
+  );
+  delete manifest.gameplay.shots["chip-save-C-C"];
+  assert.equal(
+    selectShotClip(manifest, {
+      phase: "attack",
+      dir: "C",
+      shot: "chip",
       success: false,
     }),
     null,

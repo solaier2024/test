@@ -35,8 +35,12 @@
       "media/stadium-live-idle-landscape.webp",
       "media/stadium-live-idle-portrait.webp"
     ],
-    "next": ["intro"],
-    "deferred": ["shots"]
+    "next": [
+      "intro"
+    ],
+    "deferred": [
+      "shots"
+    ]
   },
   "gameplay": {
     "presentation": "video",
@@ -58,9 +62,18 @@
         "historyId": "9ciw7vp5wSS10woOxFKX",
         "framing": "locked full goal with live stands",
         "targets": {
-          "L": [0.31, 0.36],
-          "C": [0.503, 0.36],
-          "R": [0.71, 0.36]
+          "L": [
+            0.31,
+            0.36
+          ],
+          "C": [
+            0.503,
+            0.36
+          ],
+          "R": [
+            0.71,
+            0.36
+          ]
         }
       },
       "portrait": {
@@ -77,9 +90,18 @@
         "historyId": "9ciw7vp5wSS10woOxFKX",
         "framing": "full-goal 4:3 crop over blurred vertical padding",
         "targets": {
-          "L": [0.24666666666666667, 0.4096875],
-          "C": [0.504, 0.4096875],
-          "R": [0.7799999999999999, 0.4096875]
+          "L": [
+            0.24666666666666667,
+            0.4096875
+          ],
+          "C": [
+            0.504,
+            0.4096875
+          ],
+          "R": [
+            0.7799999999999999,
+            0.4096875
+          ]
         }
       }
     },
@@ -374,9 +396,141 @@
           "impactAt": 3.541667,
           "framing": "full-goal 4:3 crop over blurred vertical padding"
         }
+      },
+      "goal-C-R": {
+        "status": "approved",
+        "crowdMotion": "approved",
+        "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: one central ball enters the middle net; keeper dives screen right without touching it; net deforms and the ball remains inside. Spectator sections move throughout. Standard shot rises during flight, distinct from the lob arc. No titles or countdown.",
+        "landscape": {
+          "src": "media/goal-C-R-landscape.mp4",
+          "poster": "media/goal-C-R-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "IrrfysvAJ9wpruWjniPV",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "standard",
+          "kickAt": 3.03,
+          "impactAt": 3.92,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/goal-C-R-portrait.mp4",
+          "poster": "media/goal-C-R-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "IrrfysvAJ9wpruWjniPV",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "standard",
+          "kickAt": 3.03,
+          "impactAt": 3.92,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      },
+      "chip-goal-C-R": {
+        "status": "approved",
+        "crowdMotion": "approved",
+        "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: right boot lifts one ball into a clear upward then downward arc, descending into the central net; keeper dives screen right without contact; same ball falls inside the goal. Moving spectator sections and net reaction. No titles or countdown.",
+        "chipTrajectory": "approved",
+        "landscape": {
+          "src": "media/chip-goal-C-R-landscape.mp4",
+          "poster": "media/chip-goal-C-R-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KY20g5EB70Rz42rR529w",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "chip",
+          "kickAt": 2.96,
+          "impactAt": 4.29,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/chip-goal-C-R-portrait.mp4",
+          "poster": "media/chip-goal-C-R-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KY20g5EB70Rz42rR529w",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "chip",
+          "kickAt": 2.96,
+          "impactAt": 4.29,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      },
+      "chip-save-C-C": {
+        "status": "approved",
+        "crowdMotion": "approved",
+        "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: one ball rises then descends centrally; standing keeper secures it overhead in both gloves before the line and lowers it to his chest. No lateral dive or net entry. Spectators move throughout. No titles or countdown.",
+        "chipTrajectory": "approved",
+        "landscape": {
+          "src": "media/chip-save-C-C-landscape.mp4",
+          "poster": "media/chip-save-C-C-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "HLyi4dmNrz05QYuK52tn",
+          "ballDir": "C",
+          "diveDir": "C",
+          "saved": true,
+          "shotType": "chip",
+          "kickAt": 2.48,
+          "impactAt": 4.42,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/chip-save-C-C-portrait.mp4",
+          "poster": "media/chip-save-C-C-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "HLyi4dmNrz05QYuK52tn",
+          "ballDir": "C",
+          "diveDir": "C",
+          "saved": true,
+          "shotType": "chip",
+          "kickAt": 2.48,
+          "impactAt": 4.42,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
       }
     },
-    "shotPackStatus": "partial"
+    "shotPackStatus": "complete",
+    "chipPackStatus": "complete"
   },
   "audio": {
     "whistle": {

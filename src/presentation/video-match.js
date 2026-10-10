@@ -1,3 +1,4 @@
+import { tr } from "../i18n/index.js";
 import { assetUrl, mediaVariant } from "./assets.js";
 import { choreography } from "./choreography.js";
 import { VideoBase } from "./video-base.js";
@@ -45,7 +46,7 @@ export class VideoMatchScene {
     this.width = 1;
     this.height = 1;
     this.mode = "follow";
-    this.cameraModes = [["follow", "比赛机位"]];
+    this.cameraModes = [["follow", tr("比赛机位")]];
     this.showcase = true;
     this.shotAbort = null;
     this.warmTimer = null;
@@ -57,13 +58,13 @@ export class VideoMatchScene {
     this.player = new VideoBase(this.video, manifest, {
       portrait: () => this.portrait,
     });
-    this.onProgress(0.3, "正在载入电影球场…");
+    this.onProgress(0.3, tr("正在载入电影球场…"));
     const entry = manifest.gameplay?.idle ?? manifest.cinematics?.intro;
     const clip = mediaVariant(entry, false);
     const image = new Image();
     image.src = assetUrl(clip.poster);
     await image.decode();
-    this.onProgress(1, "写实画面就绪");
+    this.onProgress(1, tr("写实画面就绪"));
     await this.prepare("attack");
   }
   get portrait() {
@@ -107,7 +108,7 @@ export class VideoMatchScene {
   async preflight(option, phase) {
     const requiresCrowd = this.manifest.gameplay.crowdMotionRequired;
     if (requiresCrowd && this.manifest.gameplay.idle.crowdMotion !== "approved")
-      throw new Error("动态看台视频正在制作，本球尚未提交");
+      throw new Error(tr("动态看台视频正在制作，本球尚未提交"));
     const outcomes = [true, false].map((success) =>
       selectShotClip(
         this.manifest,
@@ -116,12 +117,12 @@ export class VideoMatchScene {
       ),
     );
     if (outcomes.some((clip) => !clip))
-      throw new Error("对应比赛视频仍在准备中，本球尚未提交");
+      throw new Error(tr("对应比赛视频仍在准备中，本球尚未提交"));
     if (
       requiresCrowd &&
       outcomes.some((clip) => clip.crowdMotion !== "approved")
     )
-      throw new Error("本球观众反应视频尚未就绪，本球尚未提交");
+      throw new Error(tr("本球观众反应视频尚未就绪，本球尚未提交"));
     await Promise.all(outcomes.map((clip) => this.clips.load(clip)));
   }
   warm(quote, option) {
@@ -181,7 +182,7 @@ export class VideoMatchScene {
   }
   async play(resolution, { onKick = () => {}, onImpact = () => {} } = {}) {
     const selected = selectShotClip(this.manifest, resolution, this.portrait);
-    if (!selected) throw new Error("本球视频尚未就绪");
+    if (!selected) throw new Error(tr("本球视频尚未就绪"));
     this.shotAbort?.abort();
     const abort = new AbortController();
     this.shotAbort = abort;
@@ -212,7 +213,7 @@ export class VideoMatchScene {
         },
       });
       if (!played && !abort.signal.aborted)
-        throw new Error("本球视频播放中断，可用回放重看");
+        throw new Error(tr("本球视频播放中断，可用回放重看"));
       return played;
     } finally {
       unpin?.();

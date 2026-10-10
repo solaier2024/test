@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#090d14" />
     <meta
       name="description"
-      content="LAST KICK · 实时 3D 点球大战，观察门将，选择球路，掌控比赛节奏。模拟币演示。"
+      content="A cinematic penalty shootout. Read the keeper, choose your shot and take control. Demo credits only."
     />
-    <title>LAST KICK · 点球大赛</title>
+    <title>LAST KICK · Penalty shootout</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <style>
       body {
@@ -66,9 +66,29 @@
     <div id="app">
       <div id="boot-splash" role="status">
         <i aria-hidden="true"></i><strong>LAST <span>KICK.</span></strong
-        ><small>全场屏息 · 正在进入球场</small>
+        ><small>The crowd holds its breath · Entering the stadium</small>
       </div>
     </div>
+    <script>
+      (() => {
+        let saved;
+        try {
+          saved = localStorage.getItem("last-kick-locale-v1");
+        } catch {}
+        const locale =
+          saved === "en" || saved === "es"
+            ? saved
+            : navigator.language.toLowerCase().startsWith("es")
+              ? "es"
+              : "en";
+        document.documentElement.lang = locale;
+        if (locale === "es") {
+          document.title = "LAST KICK · Tanda de penales";
+          document.querySelector("#boot-splash small").textContent =
+            "El estadio contiene el aliento · Entrando al estadio";
+        }
+      })();
+    </script>
     <script type="module" src="./src/ui/app.js"></script>
     <noscript
       style="
@@ -78,7 +98,7 @@
         display: block;
       "
     >
-      本演示需要启用 JavaScript。
+      This demo requires JavaScript. / Esta demo requiere JavaScript.
     </noscript>
   </body>
 </html>

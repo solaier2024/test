@@ -1,3 +1,4 @@
+import { tr, pressureLabel } from "../i18n/index.js";
 import {
   PLAYERS,
   DEFAULT_LINEUP,
@@ -10,7 +11,7 @@ import { ACHIEVEMENTS, KITS } from "../shell/progress.js";
 
 const el = (tag, text, className) => {
   const node = document.createElement(tag);
-  if (text != null) node.textContent = text;
+  if (text != null) node.textContent = tr(text);
   if (className) node.className = className;
   return node;
 };
@@ -46,8 +47,12 @@ export class DepthPanels {
         el(
           "p",
           preparing
-            ? "安排五名不同球员的出场顺序。常规赛每人一球；骤死从第一名重新轮转。"
-            : "每场一次，轮末交换两名未出场球员。不会重置比分、压力或门将记忆。",
+            ? tr(
+                "安排五名不同球员的出场顺序。常规赛每人一球；骤死从第一名重新轮转。",
+              )
+            : tr(
+                "每场一次，轮末交换两名未出场球员。不会重置比分、压力或门将记忆。",
+              ),
           "panel-lead",
         ),
       );
@@ -55,12 +60,16 @@ export class DepthPanels {
         const pressure = s.match.pressure,
           block = el("div", null, "pressure-block");
         block.append(
-          el("strong", `当前压力：${pressure.name}`),
-          el("p", pressure.sources.join(" · ") || "近期稳定，尚无情境压力"),
-          el("p", pressure.recovery),
+          el("strong", tr`当前压力：${pressureLabel(pressure.level)}`),
           el(
             "p",
-            `当前扣减：推射 ${PRESSURE_PENALTIES.placed[pressure.level] * 100}，抽射 ${PRESSURE_PENALTIES.driven[pressure.level] * 100}，扑救 ${PRESSURE_PENALTIES.defend[pressure.level] * 100} 个百分点。冰血只免本人射门的这项扣减。`,
+            pressure.sources.map((source) => tr(source)).join(" · ") ||
+              tr("近期稳定，尚无情境压力"),
+          ),
+          el("p", tr(pressure.recovery)),
+          el(
+            "p",
+            tr`当前扣减：推射 ${PRESSURE_PENALTIES.placed[pressure.level] * 100}，抽射 ${PRESSURE_PENALTIES.driven[pressure.level] * 100}，扑救 ${PRESSURE_PENALTIES.defend[pressure.level] * 100} 个百分点。冰血只免本人射门的这项扣减。`,
           ),
         );
         node.append(block);
@@ -80,17 +89,21 @@ export class DepthPanels {
         );
         const detail = el("div", null, "player-detail");
         detail.append(
-          el("strong", p.name),
-          el("span", `${p.role}${used ? " · 已出场" : ""}`, "player-role"),
-          el("p", p.desc),
+          el("strong", tr(p.name)),
+          el(
+            "span",
+            used ? tr("{0} · Already played", tr(p.role)) : tr(p.role),
+            "player-role",
+          ),
+          el("p", tr(p.desc)),
         );
         row.append(detail);
         const controls = el("div", null, "player-controls");
         if (preparing) {
           const select = el("select");
-          select.setAttribute("aria-label", `第 ${i + 1} 名球员`);
+          select.setAttribute("aria-label", tr`第 ${i + 1} 名球员`);
           PLAYERS.forEach((p) => {
-            const option = el("option", `${p.name} · ${p.role}`);
+            const option = el("option", `${tr(p.name)} · ${tr(p.role)}`);
             option.value = p.id;
             select.append(option);
           });
@@ -105,7 +118,7 @@ export class DepthPanels {
           controls.append(
             select,
             button(
-              "上移",
+              tr("上移"),
               () => {
                 [draft[i], draft[i - 1]] = [draft[i - 1], draft[i]];
                 render();
@@ -113,7 +126,7 @@ export class DepthPanels {
               i === 0,
             ),
             button(
-              "下移",
+              tr("下移"),
               () => {
                 [draft[i], draft[i + 1]] = [draft[i + 1], draft[i]];
                 render();
@@ -124,7 +137,11 @@ export class DepthPanels {
         } else
           controls.append(
             button(
-              selected.includes(i) ? "已选" : used ? "已出场" : "选择交换",
+              selected.includes(i)
+                ? tr("已选")
+                : used
+                  ? tr("已出场")
+                  : tr("选择交换"),
               () => {
                 const at = selected.indexOf(i);
                 if (at >= 0) selected.splice(at, 1);
@@ -141,18 +158,18 @@ export class DepthPanels {
       const footer = el("div", null, "panel-actions");
       if (preparing)
         footer.append(
-          button("恢复默认", () => {
+          button(tr("恢复默认"), () => {
             draft.splice(0, 5, ...DEFAULT_LINEUP);
             render();
           }),
-          button("沿用上场", () => {
+          button(tr("沿用上场"), () => {
             draft.splice(0, 5, ...c.progress.profile.lineup);
             render();
           }),
-          button("确认阵容", () => {
+          button(tr("确认阵容"), () => {
             c.setLineup(draft);
             this.close();
-            this.toast("五人出场顺序已更新");
+            this.toast(tr("五人出场顺序已更新"));
           }),
         );
       else
@@ -160,17 +177,17 @@ export class DepthPanels {
           el(
             "span",
             s.match.adjustmentsUsed
-              ? "本场调整已用完"
+              ? tr("本场调整已用完")
               : s.quote?.canAdjust
-                ? "调整剩余 1 次"
-                : "需要轮末且至少两名未出场球员",
+                ? tr("调整剩余 1 次")
+                : tr("需要轮末且至少两名未出场球员"),
           ),
           button(
-            "确认交换",
+            tr("确认交换"),
             async () => {
               if (await c.adjust(...selected)) {
                 this.close();
-                this.toast("阵容已交换，当前报价已更新");
+                this.toast(tr("阵容已交换，当前报价已更新"));
               }
             },
             selected.length !== 2 || s.busy,
@@ -182,8 +199,8 @@ export class DepthPanels {
           el(
             "p",
             s.mode === "quick"
-              ? QUICK_POLICY.desc
-              : "完整模式由你逐球选择射门与扑救方向。",
+              ? tr(QUICK_POLICY.desc)
+              : tr("完整模式由你逐球选择射门与扑救方向。"),
             "panel-note",
           ),
         );
@@ -191,13 +208,15 @@ export class DepthPanels {
         node.append(
           el(
             "p",
-            "吊射动作素材待补齐。艺术家暂时仅能使用没有特质加成的推射和抽射，也可在赛前替换为重炮。",
+            tr(
+              "吊射动作素材待补齐。艺术家暂时仅能使用没有特质加成的推射和抽射，也可在赛前替换为重炮。",
+            ),
             "panel-note",
           ),
         );
     };
     render();
-    this.open(preparing ? "五人阵容" : "本场阵容 · 压力 · 教练", node);
+    this.open(preparing ? tr("五人阵容") : tr("本场阵容 · 压力 · 教练"), node);
   }
   career() {
     const c = this.controller(),
@@ -205,11 +224,11 @@ export class DepthPanels {
       node = el("div", null, "depth-panel");
     const stats = el("div", null, "career-stats");
     for (const [label, value] of [
-      ["比赛", p.stats.matches],
-      ["胜场", p.stats.wins],
-      ["进球", p.stats.goals],
-      ["扑救", p.stats.saves],
-      ["冠军", p.stats.cups],
+      [tr("比赛"), p.stats.matches],
+      [tr("胜场"), p.stats.wins],
+      [tr("进球"), p.stats.goals],
+      [tr("扑救"), p.stats.saves],
+      [tr("冠军"), p.stats.cups],
     ]) {
       const item = el("div");
       item.append(el("strong", String(value)), el("span", label));
@@ -219,20 +238,24 @@ export class DepthPanels {
       stats,
       el(
         "p",
-        `等级 ${1 + Math.floor(p.stats.xp / 100)} · ${p.stats.xp} 经验。成绩和外观不会修改成功率、报价或返还。`,
+        tr`等级 ${1 + Math.floor(p.stats.xp / 100)} · ${p.stats.xp} 经验。成绩和外观不会修改成功率、报价或返还。`,
         "panel-lead",
       ),
     );
-    node.append(el("h3", "称号与成就"));
+    node.append(el("h3", tr("称号与成就")));
     const achievements = el("div", null, "achievement-grid");
     ACHIEVEMENTS.forEach((a) => {
       const earned = p.achievements.includes(a.id),
         card = el("div", null, `achievement-card${earned ? " earned" : ""}`);
       card.append(
-        el("strong", `${earned ? "✓ " : "○ "}${a.name}`),
-        el("p", a.desc),
+        el("strong", `${earned ? "✓ " : "○ "}${tr(a.name)}`),
+        el("p", tr(a.desc)),
         button(
-          p.title === a.id ? "已佩戴" : earned ? "佩戴称号" : "待解锁",
+          p.title === a.id
+            ? tr("已佩戴")
+            : earned
+              ? tr("佩戴称号")
+              : tr("待解锁"),
           () => {
             c.progress.preferences({ title: a.id });
             c.emit();
@@ -243,11 +266,11 @@ export class DepthPanels {
       );
       achievements.append(card);
     });
-    node.append(achievements, el("h3", "球衣徽章"));
+    node.append(achievements, el("h3", tr("球衣徽章")));
     node.append(
       el(
         "p",
-        "解锁出场名单和比分牌的球衣徽章；当前拍摄视频中的球员服装固定。",
+        tr("解锁出场名单和比分牌的球衣徽章；当前拍摄视频中的球员服装固定。"),
         "panel-note",
       ),
     );
@@ -257,10 +280,10 @@ export class DepthPanels {
         card = el("div", null, `kit-card${unlocked ? " earned" : ""}`);
       card.append(
         jersey({ number: 10 }, k.color),
-        el("strong", k.name),
-        el("p", k.requirement),
+        el("strong", tr(k.name)),
+        el("p", tr(k.requirement)),
         button(
-          p.kit === k.id ? "已装备" : unlocked ? "装备" : "待解锁",
+          p.kit === k.id ? tr("已装备") : unlocked ? tr("装备") : tr("待解锁"),
           () => {
             c.progress.preferences({ kit: k.id });
             c.emit();
@@ -271,45 +294,53 @@ export class DepthPanels {
       );
       kits.append(card);
     });
-    node.append(kits, el("h3", "对手图鉴"));
+    node.append(kits, el("h3", tr("对手图鉴")));
     const opponents = el("div", null, "opponent-grid");
     Object.values(ARCHETYPES).forEach((a) => {
       const seen = p.opponents.includes(a.id),
         card = el("div", null, "opponent-card");
       card.append(
-        el("strong", seen ? a.name : "未遇见"),
+        el("strong", seen ? tr(a.name) : tr("未遇见")),
         el(
           "p",
           seen
-            ? `${a.desc}。学习权重 ${a.learn}，记忆衰减 ${a.decay}。`
-            : "完成一场与该原型的比赛后解锁。",
+            ? tr`${tr(a.desc)}。学习权重 ${a.learn}，记忆衰减 ${a.decay}。`
+            : tr("完成一场与该原型的比赛后解锁。"),
         ),
       );
       opponents.append(card);
     });
-    node.append(opponents, el("h3", "杯赛路线"));
+    node.append(opponents, el("h3", tr("杯赛路线")));
     const route = el("ol", null, "cup-route");
     CUP_STAGES.forEach((stage, i) => {
       const status =
         p.cup?.stage > i
-          ? "✓ 已晋级"
+          ? tr("✓ 已晋级")
           : p.cup?.stage === i
             ? p.cup.status === "active"
-              ? "当前关卡"
-              : "本届已结束"
-            : "等待挑战";
-      route.append(el("li", `${stage.name} · ${stage.rival}　${status}`));
+              ? tr("当前关卡")
+              : tr("本届已结束")
+            : tr("等待挑战");
+      const item = el("li");
+      item.append(
+        el("span", `${tr(stage.name)} · ${tr(stage.rival)}`),
+        document.createTextNode(" "),
+        el("span", status),
+      );
+      route.append(item);
     });
     node.append(
       route,
       el(
         "p",
-        "每场独立开局、投入与结算。只在胜利时晋级；平局、落败或主动收取均结束本届。没有连场金钱加成。",
+        tr(
+          "每场独立开局、投入与结算。只在胜利时晋级；平局、落败或主动收取均结束本届。没有连场金钱加成。",
+        ),
         "panel-note",
       ),
     );
     if (p.records.length) {
-      node.append(el("h3", "最近比赛"));
+      node.append(el("h3", tr("最近比赛")));
       const records = el("div", null, "recent-matches");
       [...p.records]
         .reverse()
@@ -318,7 +349,7 @@ export class DepthPanels {
           records.append(
             el(
               "p",
-              `${{ win: "胜", loss: "负", draw: "平", cashed: "主动收取" }[r.reason]} · ${r.goals}:${r.oppGoals} · 进球 ${r.goals}/${r.shots} · 扑出 ${r.saves} · ${r.mode === "quick" ? "自动防守" : "完整攻防"}`,
+              tr`${{ win: tr("胜"), loss: tr("负"), draw: tr("平"), cashed: tr("主动收取") }[r.reason]} · ${r.goals}:${r.oppGoals} · 进球 ${r.goals}/${r.shots} · 扑出 ${r.saves} · ${r.mode === "quick" ? tr("自动防守") : tr("完整攻防")}`,
             ),
           ),
         );
@@ -328,11 +359,11 @@ export class DepthPanels {
       el(
         "p",
         c.progress.storageAvailable
-          ? "成长和阵容保存在当前浏览器。更换浏览器不会自动同步。"
-          : "浏览器未允许持久保存，本次成长保存在内存中。",
+          ? tr("成长和阵容保存在当前浏览器。更换浏览器不会自动同步。")
+          : tr("浏览器未允许持久保存，本次成长保存在内存中。"),
         "panel-note",
       ),
     );
-    this.open("生涯 · 成绩 · 杯赛", node);
+    this.open(tr("生涯 · 成绩 · 杯赛"), node);
   }
 }

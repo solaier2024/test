@@ -30,17 +30,27 @@ test("reviewed production pack unlocks both outcomes on each available direction
   scene.clips = { load: async (clip) => loaded.push(clip.key) };
   for (const phase of ["attack", "defend"])
     for (const dir of ["L", "C", "R"]) {
-      if (phase === "attack" && dir === "C") {
-        assert.equal(scene.supports({ dir }, phase), false);
-        await assert.rejects(scene.preflight({ dir }, phase));
-        continue;
-      }
       for (const shot of ["placed", "driven"]) {
         assert.equal(scene.supports({ dir, shot }, phase), true);
         await scene.preflight({ dir, shot }, phase);
       }
     }
-  assert.equal(new Set(loaded).size, 7);
+  assert.equal(new Set(loaded).size, 8);
+  for (const success of [true, false]) {
+    const clip = selectShotClip(scene.manifest, {
+      phase: "attack",
+      dir: "C",
+      shot: "chip",
+      success,
+    });
+    assert.equal(clip.key, success ? "chip-goal-C-R" : "chip-save-C-C");
+    assert.equal(clip.shotType, "chip");
+  }
+  assert.equal(scene.supports({ dir: "C", shot: "chip" }, "attack"), true);
+  await scene.preflight({ dir: "C", shot: "chip" }, "attack");
+  assert.equal(new Set(loaded).size, 10);
+  assert.equal(scene.manifest.gameplay.shotPackStatus, "complete");
+  assert.equal(scene.manifest.gameplay.chipPackStatus, "complete");
   const trimmed = scene.manifest.gameplay.shots["save-L-L"].landscape;
   assert.ok(trimmed.duration > trimmed.impactAt && trimmed.duration < 3.58);
 });
@@ -67,7 +77,10 @@ test("right driven goal reuses footage with its actual right ball and right dive
     selectShotClip(manifest, { ...resolution, success: false }).key,
     "save-R-R",
   );
-  assert.equal(selectShotClip(manifest, { ...resolution, dir: "C" }), null);
+  assert.equal(
+    selectShotClip(manifest, { ...resolution, dir: "C" }).key,
+    "goal-C-R",
+  );
 });
 
 test("missing direction is visibly unavailable without changing the authoritative quote", async () => {
@@ -79,6 +92,8 @@ test("missing direction is visibly unavailable without changing the authoritativ
     ),
   );
   const provider = new LocalProvider({ seed: "partial-video-pack" });
+  delete scene.manifest.gameplay.shots["goal-C-R"];
+  delete scene.manifest.gameplay.shots["chip-save-C-C"];
   const controller = new MatchController({
     provider,
     present: {
@@ -419,7 +434,7 @@ test("missing footage never fabricates kick or impact callbacks", async () => {
         onImpact: () => callbacks++,
       },
     ),
-    /视频尚未就绪/,
+    /Kick video is not ready/,
   );
   assert.equal(callbacks, 0);
 });
@@ -522,7 +537,10 @@ test("both result clips require reviewed spectator reactions before either is do
   }
   const loaded = [];
   scene.clips = { load: async (clip) => loaded.push(clip.key) };
-  await assert.rejects(scene.preflight({ dir: "L" }, "attack"), /观众反应视频/);
+  await assert.rejects(
+    scene.preflight({ dir: "L" }, "attack"),
+    /Crowd reactions are not ready/,
+  );
   assert.deepEqual(loaded, []);
   scene.manifest.gameplay.shots["save-L-L"].crowdMotion = "approved";
   await scene.preflight({ dir: "L" }, "attack");

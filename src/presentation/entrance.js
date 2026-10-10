@@ -1,3 +1,4 @@
+import { tr } from "../i18n/index.js";
 import { gsap } from "gsap";
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -28,7 +29,7 @@ export class LoadingSequence {
     });
   }
   async finish() {
-    this.progress(1, "全场就绪 · 你的关键一球");
+    this.progress(1, tr("全场就绪 · 你的关键一球"));
     this.node.dataset.ready = "true";
     await new Promise((resolve) =>
       gsap.to(this.node, {

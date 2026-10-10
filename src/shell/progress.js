@@ -1,3 +1,4 @@
+import { tr } from "../i18n/index.js";
 import { DEFAULT_LINEUP, validateLineup, CUP_STAGES } from "../math/depth.js";
 
 export const PROGRESS_KEY = "last-kick-progress-v1";
@@ -248,25 +249,25 @@ export function matchHighlights(settlement) {
     lines = [];
   const goals = shots.filter((e) => e.success).length;
   lines.push(
-    `实际罚球 ${goals}/${shots.length}，扑出 ${saves.length}/${events.filter((e) => e.kind === "defend").length}。`,
+    tr`实际罚球 ${goals}/${shots.length}，扑出 ${saves.length}/${events.filter((e) => e.kind === "defend").length}。`,
   );
   const coach = events.find((e) => e.kind === "coach");
   if (coach)
     lines.push(
-      `第 ${coach.round} 轮前交换第 ${coach.slots[0] + 1} 与第 ${coach.slots[1] + 1} 名球员，保留了比分、压力与门将记忆。`,
+      tr`第 ${coach.round} 轮前交换第 ${coach.slots[0] + 1} 与第 ${coach.slots[1] + 1} 名球员，保留了比分、压力与门将记忆。`,
     );
   const key = [...events]
     .reverse()
     .find((e) => e.keyBallBefore && e.kind !== "coach");
   if (key && lines.length < 3)
     lines.push(
-      `${key.suddenDeath ? "骤死" : "常规"}第 ${key.round} ${key.suddenDeath ? "组" : "轮"}关键球：${key.kind === "attack" ? (key.success ? "罚进" : "未进") : key.success ? "扑出" : "失球"}，比分 ${key.score.player}:${key.score.opp}。`,
+      tr`${key.suddenDeath ? tr("骤死") : tr("常规")}第 ${key.round} ${key.suddenDeath ? tr("组") : tr("轮")}关键球：${key.kind === "attack" ? (key.success ? tr("罚进") : tr("未进")) : key.success ? tr("扑出") : tr("失球")}，比分 ${key.score.player}:${key.score.opp}。`,
     );
   if (lines.length < 3) {
     const repeated = shots.find((e, i) => i && shots[i - 1].dir === e.dir);
     if (repeated)
       lines.push(
-        `连续选择同一方向，第二次出脚时门将押该方向 ${Math.round(repeated.keeperDistBefore[repeated.dir] * 100)}%。本场记录已参与报价。`,
+        tr`连续选择同一方向，第二次出脚时门将押该方向 ${Math.round(repeated.keeperDistBefore[repeated.dir] * 100)}%。本场记录已参与报价。`,
       );
   }
   return lines.slice(0, 3);
