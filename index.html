@@ -1,19 +1,106 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#0a1220">
-<meta name="description" content="点球大赛即时赢游戏 · 首版灰盒（S0+S1）· 开发期演示，模拟币，18+">
-<title>点球大赛 Tanda de Penales · 灰盒</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="./src/ui/style.css">
-</head>
-<body>
-<div id="app"></div>
-<script type="module" src="./src/ui/app.js"></script>
-<noscript style="color:#e8eef7;font-family:sans-serif;padding:16px;display:block">
-  本演示需要启用 JavaScript。
-</noscript>
-</body>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#090d14" />
+    <meta
+      name="description"
+      content="A cinematic penalty shootout. Read the keeper, choose your shot and take control. Demo credits only."
+    />
+    <title>LAST KICK · Penalty shootout</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <style>
+      body {
+        margin: 0;
+        background: #090d14;
+      }
+      #boot-splash {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 23px;
+        background:
+          radial-gradient(ellipse at 50% 70%, #562e1b35, transparent 50%),
+          #090d14;
+        color: #f4f2eb;
+        font-family: Impact, "Microsoft YaHei", sans-serif;
+      }
+      #boot-splash strong {
+        font-size: clamp(40px, 7vw, 80px);
+        letter-spacing: -1px;
+      }
+      #boot-splash strong span {
+        color: #ffc35a;
+      }
+      #boot-splash i {
+        width: 50px;
+        height: 50px;
+        border: 1px solid #34404f;
+        border-top: 2px solid #ffc35a;
+        border-radius: 50%;
+        animation: boot-orbit 1.4s linear infinite;
+      }
+      #boot-splash small {
+        font:
+          11px "Microsoft YaHei",
+          sans-serif;
+        color: #aeb8c5;
+        letter-spacing: 3px;
+      }
+      @keyframes boot-orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash i {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="boot-splash" role="status">
+        <i aria-hidden="true"></i><strong>LAST <span>KICK.</span></strong
+        ><small>The crowd holds its breath · Entering the stadium</small>
+      </div>
+    </div>
+    <script>
+      (() => {
+        let saved;
+        try {
+          saved = localStorage.getItem("last-kick-locale-v1");
+        } catch {}
+        const locale =
+          saved === "en" || saved === "es"
+            ? saved
+            : navigator.language.toLowerCase().startsWith("es")
+              ? "es"
+              : "en";
+        document.documentElement.lang = locale;
+        if (locale === "es") {
+          document.title = "LAST KICK · Tanda de penales";
+          const bootLabel = document.querySelector("#boot-splash small");
+          if (bootLabel)
+            bootLabel.textContent =
+              "El estadio contiene el aliento · Entrando al estadio";
+        }
+      })();
+    </script>
+    <script type="module" src="./src/ui/app.js"></script>
+    <noscript
+      style="
+        color: #e8eef7;
+        font-family: sans-serif;
+        padding: 16px;
+        display: block;
+      "
+    >
+      This demo requires JavaScript. / Esta demo requiere JavaScript.
+    </noscript>
+  </body>
 </html>

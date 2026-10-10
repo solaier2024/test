@@ -6,8 +6,8 @@
 // - 记忆有衰减且偏移有上限，重复不会让某个方向永久不可用
 // - 不同原型的学习与衰减速度不同
 
-export const DIRS = ['L', 'C', 'R'];
-export const DIR_LABEL = { L: '左', C: '中', R: '右' };
+export const DIRS = ["L", "C", "R"];
+export const DIR_LABEL = { L: "左", C: "中", R: "右" };
 
 /**
  * 三种门将原型。
@@ -18,27 +18,27 @@ export const DIR_LABEL = { L: '左', C: '中', R: '右' };
  */
 export const ARCHETYPES = {
   anticipator: {
-    id: 'anticipator',
-    name: '预判型',
-    desc: '关注最近射门方向，容易提前移动',
+    id: "anticipator",
+    name: "预判型",
+    desc: "关注最近射门方向，容易提前移动",
     learn: 1.0,
     decay: 0.55,
     memW: 0.72,
     cap: 0.62,
   },
   reactor: {
-    id: 'reactor',
-    name: '反应型',
-    desc: '较少提前移动，不同射法有不同应对表现',
+    id: "reactor",
+    name: "反应型",
+    desc: "较少提前移动，不同射法有不同应对表现",
     learn: 0.45,
     decay: 0.75,
     memW: 0.38,
-    cap: 0.50,
+    cap: 0.5,
   },
   stubborn: {
-    id: 'stubborn',
-    name: '固执型',
-    desc: '初始方向偏好明显，调整较慢',
+    id: "stubborn",
+    name: "固执型",
+    desc: "初始方向偏好明显，调整较慢",
     learn: 0.3,
     decay: 0.9,
     memW: 0.25,
@@ -54,7 +54,11 @@ function normalize(w) {
 
 /** 从 PRF 导出一个确定性的赛前倾向（不同 seed 得到不同对手） */
 export function makePreMatchTendency(rand) {
-  const raw = { L: 0.6 + rand() * 1.4, C: 0.5 + rand() * 1.0, R: 0.6 + rand() * 1.4 };
+  const raw = {
+    L: 0.6 + rand() * 1.4,
+    C: 0.5 + rand() * 1.0,
+    R: 0.6 + rand() * 1.4,
+  };
   return normalize(raw);
 }
 
@@ -113,7 +117,8 @@ export function keeperDiveDistribution(preMatch, memory, archetype) {
     const room = DIRS.filter((d) => capped[d] < a.cap);
     const roomTotal = room.reduce((s, d) => s + (a.cap - capped[d]), 0);
     if (roomTotal > 0) {
-      for (const d of room) capped[d] += overflow * ((a.cap - capped[d]) / roomTotal);
+      for (const d of room)
+        capped[d] += overflow * ((a.cap - capped[d]) / roomTotal);
     }
   }
   return normalize(capped);
@@ -124,18 +129,24 @@ export function keeperDiveDistribution(preMatch, memory, archetype) {
  * 线索的生成过程与实际概率一致 —— 不是装饰。
  */
 export function keeperHint(dist, memory) {
-  const top = DIRS.reduce((best, d) => (dist[d] > dist[best] ? d : best), 'L');
-  const spread = Math.max(dist.L, dist.C, dist.R) - Math.min(dist.L, dist.C, dist.R);
+  const top = DIRS.reduce((best, d) => (dist[d] > dist[best] ? d : best), "L");
+  const spread =
+    Math.max(dist.L, dist.C, dist.R) - Math.min(dist.L, dist.C, dist.R);
   if (memory.samples === 0) {
     return `赛前情报：门将偏向${DIR_LABEL[top]}侧（本场尚无记录）`;
   }
-  if (spread < 0.08) return `门将站位居中，暂无明显偏向（本场 ${memory.samples} 次记录）`;
-  const strength = spread > 0.25 ? '明显' : '略微';
+  if (spread < 0.08)
+    return `门将押向较均衡，暂无明显偏向（本场 ${memory.samples} 次记录）`;
+  const strength = spread > 0.25 ? "明显" : "略微";
   return `门将${strength}偏向${DIR_LABEL[top]}侧（本场 ${memory.samples} 次记录）`;
 }
 
 /** 对手射手的方向倾向（玩家防守时可读，D1 的防守侧信息） */
 export function makeShooterTendency(rand) {
-  const raw = { L: 0.6 + rand() * 1.5, C: 0.4 + rand() * 0.9, R: 0.6 + rand() * 1.5 };
+  const raw = {
+    L: 0.6 + rand() * 1.5,
+    C: 0.4 + rand() * 0.9,
+    R: 0.6 + rand() * 1.5,
+  };
   return normalize(raw);
 }

@@ -10,7 +10,15 @@
 // 同时检查每个动作的失败分支都确实让现金下降（d > 0），
 // 这是 v1 方案的那个硬 bug：失败不扣现金 + 五轮内不会被淘汰 = 无损增值。
 
-import { PHASE, END, initialMatch, applyAttack, applyDefend, evaluateEnd } from '../src/math/rules.js';
+import { pathToFileURL } from "node:url";
+import {
+  PHASE,
+  END,
+  initialMatch,
+  applyAttack,
+  applyDefend,
+  evaluateEnd,
+} from "../src/math/rules.js";
 import {
   ARCHETYPES,
   initialMemory,
@@ -18,9 +26,9 @@ import {
   keeperDiveDistribution,
   makePreMatchTendency,
   makeShooterTendency,
-} from '../src/math/keeper.js';
-import { attackOptions, defenseOptions } from '../src/math/actions.js';
-import { prf } from '../src/math/prf.js';
+} from "../src/math/keeper.js";
+import { attackOptions, defenseOptions } from "../src/math/actions.js";
+import { prf } from "../src/math/prf.js";
 
 const TOL = 1e-9;
 
@@ -46,12 +54,16 @@ function run() {
       function phiMax(match, memory) {
         const end = match.ended ?? evaluateEnd(match);
         if (end) return end === END.LOSS ? 0 : 1;
-        const key = `${match.suddenDeath ? 'sd' + match.sdSet : 'r' + match.round}|${match.phase}|${match.playerGoals}|${match.oppGoals}|${match.playerTaken}|${match.oppTaken}#${memory.history.join('')}`;
+        const key = `${match.suddenDeath ? "sd" + match.sdSet : "r" + match.round}|${match.phase}|${match.playerGoals}|${match.oppGoals}|${match.playerTaken}|${match.oppTaken}#${memory.history.join("")}`;
         if (phiCache.has(key)) return phiCache.get(key);
 
         const options =
           match.phase === PHASE.ATTACK
-            ? attackOptions(match, 1, keeperDiveDistribution(preMatchTendency, memory, archetype))
+            ? attackOptions(
+                match,
+                1,
+                keeperDiveDistribution(preMatchTendency, memory, archetype),
+              )
             : defenseOptions(match, 1, shooterTendency);
 
         let best = -Infinity;
@@ -73,7 +85,9 @@ function run() {
             sM = applyDefend(match, true);
             fM = applyDefend(match, false);
           }
-          const ev = o.p * o.onSuccess * phiMax(sM, sMem) + (1 - o.p) * o.onFailure * phiMax(fM, fMem);
+          const ev =
+            o.p * o.onSuccess * phiMax(sM, sMem) +
+            (1 - o.p) * o.onFailure * phiMax(fM, fMem);
           best = Math.max(best, ev);
         }
         phiCache.set(key, best);
@@ -85,13 +99,15 @@ function run() {
       function walk(match, memory) {
         const end = match.ended ?? evaluateEnd(match);
         if (end) return;
-        const key = `${match.suddenDeath ? 'sd' + match.sdSet : 'r' + match.round}|${match.phase}|${match.playerGoals}|${match.oppGoals}|${match.playerTaken}|${match.oppTaken}#${memory.history.join('')}`;
+        const key = `${match.suddenDeath ? "sd" + match.sdSet : "r" + match.round}|${match.phase}|${match.playerGoals}|${match.oppGoals}|${match.playerTaken}|${match.oppTaken}#${memory.history.join("")}`;
         if (seen.has(key)) return;
         seen.add(key);
 
         // 收钱窗口：进攻阶段开始前且双方已罚同样次数且非第一轮之前
         const canCash =
-          match.phase === PHASE.ATTACK && match.playerTaken > 0 && match.playerTaken === match.oppTaken;
+          match.phase === PHASE.ATTACK &&
+          match.playerTaken > 0 &&
+          match.playerTaken === match.oppTaken;
         if (canCash) {
           cashWindows += 1;
           const continueValue = phiMax(match, memory); // 归一化：收钱价值为 1
@@ -102,7 +118,11 @@ function run() {
 
         const options =
           match.phase === PHASE.ATTACK
-            ? attackOptions(match, 1, keeperDiveDistribution(preMatchTendency, memory, archetype))
+            ? attackOptions(
+                match,
+                1,
+                keeperDiveDistribution(preMatchTendency, memory, archetype),
+              )
             : defenseOptions(match, 1, shooterTendency);
         for (const o of options) {
           if (match.phase === PHASE.ATTACK) {
@@ -119,18 +139,25 @@ function run() {
     }
   }
 
-  console.log('=== S0-8 无损继续区间检查 ===\n');
+  console.log(
+    "=== S0-8 基础赛制无损继续检查（生产扩展见 verify-depth.js）===\n",
+  );
   console.log(`检查的收钱窗口状态数：${cashWindows}`);
   console.log(`检查的动作数：${checkedActions}`);
   console.log(`「继续」严格优于「收钱」的状态数：${freerolls}`);
-  console.log(`max(继续最优值 − 收钱值)：${maxContinueEdge.toExponential(3)}（容差 ${TOL.toExponential(1)}）`);
+  console.log(
+    `max(继续最优值 − 收钱值)：${maxContinueEdge.toExponential(3)}（容差 ${TOL.toExponential(1)}）`,
+  );
   console.log(`失败分支不扣现金的动作数：${noDownside}`);
   console.log(`最小失败损失比例 d：${minLossFraction.toFixed(4)}`);
 
   const pass = freerolls === 0 && noDownside === 0 && maxContinueEdge <= TOL;
-  console.log(`\n${pass ? 'PASS' : 'FAIL'} —— ${pass ? '不存在无损继续区间' : '发现无损继续区间'}`);
+  console.log(
+    `\n${pass ? "PASS" : "FAIL"} —— ${pass ? "不存在无损继续区间" : "发现无损继续区间"}`,
+  );
   if (!pass) process.exitCode = 1;
   return pass;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  run();

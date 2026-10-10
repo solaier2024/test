@@ -6,8 +6,9 @@
 // 表现层与 shootout-math 都不需要改动。
 //
 // 接口约定：
-//   start({ stake })        -> { state, quote, info }
+//   start({ stake, lineup, mode, cupStage, enableChip }) -> { state, quote, info }
 //   submit(actionId, quoteId) -> { resolution, state, quote, info, settlement? }
+//   adjust(first, second, quoteId) -> { event, state, quote, info }
 //   cashOut(quoteId)        -> { settlement, state }
 //   getState()              -> MatchState 快照
 //
@@ -18,16 +19,19 @@
 
 /** @interface */
 export class OutcomeProvider {
+  async adjust() {
+    throw new Error("OutcomeProvider.adjust not implemented");
+  }
   async start(_opts) {
-    throw new Error('未实现');
+    throw new Error("未实现");
   }
   async submit(_actionId, _quoteId) {
-    throw new Error('未实现');
+    throw new Error("未实现");
   }
   async cashOut(_quoteId) {
-    throw new Error('未实现');
+    throw new Error("未实现");
   }
   getState() {
-    throw new Error('未实现');
+    throw new Error("未实现");
   }
 }

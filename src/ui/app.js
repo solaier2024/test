@@ -1,612 +1,759 @@
-// 表现层 —— 首版程序化占位美术
-//
-// 边界：本文件不含任何游戏逻辑与权威计算。
-// 它只做三件事：把 provider 返回的报价画出来、收集玩家选择、呈现 RoundResolution。
-// 按架构约定，整层可在 S3 替换为 Pixi + 视频基座而不影响 shootout-math。
+import {
+  tr,
+  getLocale,
+  setLocale,
+  onLocaleChange,
+  translateDom,
+  pressureLabel,
+} from "../i18n/index.js";
+import "./style.css";
+import "./entrance.css";
+import "./depth.css";
+import { LocalProvider } from "../providers/localProvider.js";
+import { MatchController } from "../shell/match-controller.js";
+import {
+  loadManifest,
+  loadFonts,
+  assetUrl,
+  mediaVariant,
+} from "../presentation/assets.js";
+import { VideoMatchScene } from "../presentation/video-match.js";
+import { choreography } from "../presentation/choreography.js";
+import { ShootoutHud } from "../presentation/hud.js";
+import { VideoBase } from "../presentation/video-base.js";
+import { commitment } from "../math/prf.js";
+import { LoadingSequence, OpeningSequence } from "../presentation/entrance.js";
+import { StadiumAudio } from "../presentation/stadium-audio.js";
+import { renderStadiumPreview } from "../presentation/audio-preview.js";
+import { GameProgress, matchHighlights } from "../shell/progress.js";
+import { DepthPanels } from "./depth-panels.js";
+import { CUP_STAGES, QUICK_POLICY } from "../math/depth.js";
+import { verifySettlement } from "../math/replay.js";
 
-import { LocalProvider } from '../providers/localProvider.js';
-import { DIRS, DIR_LABEL } from '../math/keeper.js';
-import { SHOT_TYPES } from '../math/actions.js';
+const $ = (selector) => document.querySelector(selector);
+const money = (n) => `$${Number(n).toFixed(2)}`;
+const dirNames = { L: tr("左"), C: tr("中"), R: tr("右") };
+const icon = (paths) =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+$("#app").innerHTML = `
+  <header class="topbar">
+    <div class="brand"><svg viewBox="0 0 48 52" aria-hidden="true"><path d="M24 2 44 10v20L24 49 4 30V10z" fill="#1e222b" stroke="#856638"/><path d="M15 13h7v21h12v6H15z" fill="#ffc35a"/><path d="m28 13 11 7-11 7z" fill="#f28136"/></svg><div class="wordmark">LAST KICK<small>TANDA DE PENALES</small></div></div>
+    <div class="top-tools"><span class="demo-badge">模拟币演示</span>
+      <select id="language" class="language-picker" aria-label="Language"><option value="en" data-language>EN</option><option value="es" data-language>ES</option></select>
+      <button id="sound" class="tool" aria-label="关闭声音" aria-pressed="true">${icon('<path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>')}</button>
+      <button id="replay" class="tool" aria-label="回放上一球" disabled>${icon('<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/><path d="m11 8 6 4-6 4z"/>')}</button>
+      <button id="career" class="tool" aria-label="生涯成绩与杯赛">${icon('<path d="M7 3h10v7a5 5 0 0 1-10 0zM7 5H3v3a4 4 0 0 0 4 4m10-7h4v3a4 4 0 0 1-4 4M12 15v5m-5 1h10"/>')}</button>
+      <button id="help" class="tool" aria-label="玩法说明">${icon('<circle cx="12" cy="12" r="9"/><path d="M9.4 9a2.6 2.6 0 1 1 4.4 1.8c-1.2.6-1.8 1.3-1.8 2.7m0 2.7v.3"/>')}</button>
+      <button id="fullscreen" class="tool" aria-label="全屏">${icon('<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>')}</button>
+    </div>
+  </header>
+  <main class="game-shell"><section id="arena" aria-label="点球比赛">
+    <div id="match-poster" aria-hidden="true"></div>
+    <video id="match-video" muted playsinline aria-label="写实点球比赛画面"></video>
+    <div class="lobby-backdrop" aria-hidden="true"></div>
+    <div class="scene-vignette"></div><video id="cinematic" muted playsinline aria-label="球场短片"></video>
+    <canvas id="hud" aria-hidden="true"></canvas><div id="a11y"></div><div id="live" role="status" aria-live="polite"></div>
+    <div class="cinema-overlay" hidden>
+      <button class="skip-video" type="button" aria-label="跳过开场">${icon('<path d="m6 5 9 7-9 7zM18 5v14"/>')}</button>
+    </div>
+    <div class="loading">
+      <div class="loading-beam beam-left" aria-hidden="true"></div><div class="loading-beam beam-right" aria-hidden="true"></div>
+      <span class="loading-eyebrow">THE STADIUM IS CALLING</span>
+      <div class="loading-orbit" aria-hidden="true"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><circle class="orbit-track" cx="50" cy="50" r="46"/><path d="m50 31 18 13-7 22H39l-7-22zM50 4v27M5 36l27 8M22 88l17-22m39 22L61 66m34-30-27 8"/></svg></div>
+      <h1>LAST<span>KICK</span><b>.</b></h1>
+      <p class="loading-tagline">全场屏息，等待你的关键一球。</p>
+      <div class="loading-readout"><span class="loading-status" role="status">正在点亮球场…</span><span><b class="loading-percent">0</b>%</span></div>
+      <progress max="1" value="0" aria-label="场景加载进度"></progress>
+      <div class="loading-steps"><span>01 · 球场</span><span>02 · 视频</span><span>03 · 比赛</span></div>
+    </div>
+  </section><footer class="footer"><span><b>18+ · 模拟币演示</b>　所有返还均包含本金，比赛落败返还为 0。</span><span>5 ROUNDS · ONE LAST KICK</span></footer></main>
+  <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-head"><h2 id="dialog-title"></h2><div class="dialog-tools"><select id="dialog-language" class="language-picker" aria-label="Language"><option value="en" data-language>EN</option><option value="es" data-language>ES</option></select><button class="tool" aria-label="关闭">×</button></div></div><div class="dialog-body"></div><div class="dialog-footer" hidden><button id="help-dismiss" type="button">我知道了</button></div></dialog>`;
 
-const STAKES = [5, 10, 20, 50];
-const MONEY = (v) => v.toFixed(2);
-
-const el = (tag, cls, html) => {
-  const n = document.createElement(tag);
-  if (cls) n.className = cls;
-  if (html != null) n.innerHTML = html;
-  return n;
-};
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/** 动画播放期间禁用所有动作按钮，避免重复提交 */
-function disableOptions() {
-  for (const b of document.querySelectorAll('.opt, .btn.cash')) b.disabled = true;
-}
-
-const state = {
-  provider: null,
-  stake: 10,
-  shotType: 'placed',
-  quote: null,
-  match: null,
-  info: null,
-  settlement: null,
-  busy: false,
-  screen: 'bet',
-  lastResolution: null,
-  history: [],
-  prevKeeperDist: null, // 上一次进攻时的门将倾向，用于显示记忆带来的变化
-};
-
-const root = document.getElementById('app');
-
-// ---------------------------------------------------------------- 渲染
-
-function render() {
-  root.innerHTML = '';
-  const head = el('div', 'full');
-  head.appendChild(el('h1', null, '点球大赛 <span style="color:var(--dim);font-weight:400;font-size:13px">Tanda de Penales</span>'));
-  head.appendChild(
-    el('div', 'sub', '首版灰盒 · S0+S1 · 程序化占位美术 · 本地模拟（服务端后期接入）')
-  );
-  root.appendChild(head);
-
-  if (state.screen === 'bet') return renderBet();
-  if (state.screen === 'settled') return renderSettled();
-  renderPlay();
-}
-
-function renderBet() {
-  const c = el('div', 'card');
-  c.appendChild(el('h2', null, '选择下注额（MXN）'));
-  const row = el('div', 'stakes');
-  for (const s of STAKES) {
-    const b = el('button', state.stake === s ? 'on' : null, String(s));
-    b.onclick = () => {
-      state.stake = s;
-      render();
-    };
-    row.appendChild(b);
+function refreshLanguage() {
+  document.documentElement.lang = getLocale();
+  document.title = tr("LAST KICK · Penalty shootout");
+  document.querySelector('meta[name="description"]').content =
+    tr("Page description");
+  translateDom($("#app"));
+  $("#language").value = getLocale();
+  $("#dialog-language").value = getLocale();
+  if (controller && hud?.state) {
+    hud.render();
+    announce(controller.state);
   }
-  c.appendChild(row);
-  c.appendChild(
-    el(
-      'div',
-      'note',
-      `目标 RTP 96%。开局可兑现金额为 <b style="color:var(--accent)">${MONEY(
-        state.stake * 0.96
-      )}</b>，之后随每次结果上下浮动 —— 任何打法的期望返还都等于这个数，你选择的是波动形态而不是期望值。`
-    )
-  );
-  const go = el('button', 'btn primary', '开始点球大战');
-  go.onclick = startMatch;
-  c.appendChild(go);
-  root.appendChild(c);
-
-  const rules = el('div', 'card');
-  rules.appendChild(el('h2', null, '规则'));
-  rules.appendChild(
-    el(
-      'div',
-      'gate',
-      `常规赛最多 <b>5 轮</b>，每轮你先罚球再扑救。<br>
-       提前锁定胜负即终局。平局进入 <b>限定骤死赛（最多 3 组）</b>，仍平则按当前可兑现金额全额返还。<br>
-       收钱窗口在每个完整攻防轮结束后。<br>
-       <b>常规落败返还为零</b> —— 此前每次报价都已把该风险计入。<br>
-       首版不含压力、阵容、教练调整、快速模式与双倍罚球。`
-    )
-  );
-  root.appendChild(rules);
-
-  const gates = el('div', 'card');
-  gates.appendChild(el('h2', null, '本版已通过的数学门禁'));
-  gates.appendChild(
-    el(
-      'div',
-      'gate',
-      `<b>S0-7</b> 完整状态求解：穷举 1,850,400 个状态，Vmax = Vmin = W×r（偏差 1.2e-14）<br>
-       <b>S0-8</b> 无损继续区间：97,020 个收钱窗口、2,141,208 个动作，0 处「继续严格优于收钱」<br>
-       <b>S0-9</b> 蒙特卡洛回归：14 组策略 × 6 万局，RTP 全部落在目标置信区间内<br>
-       <b>单元测试</b> 28 项全通过（PRF 决定性、幂等、竞态、终局表、记忆上限）`
-    )
-  );
-  root.appendChild(gates);
 }
+$("#language").onchange = (event) => setLocale(event.target.value);
+$("#dialog-language").onchange = (event) => setLocale(event.target.value);
+onLocaleChange(refreshLanguage);
 
-function pips(taken, goals, total) {
-  const wrap = el('span', 'pips');
-  for (let i = 0; i < total; i++) {
-    const p = el('span', 'pip');
-    if (i < taken) p.classList.add(i < goals ? 'goal' : 'miss');
-    wrap.appendChild(p);
+let scene,
+  hud,
+  media,
+  controller,
+  introPending = false,
+  audioEnabled = true,
+  replayBusy = false,
+  audioEntries = null;
+refreshLanguage();
+const audio = new StadiumAudio({ enabled: audioEnabled });
+const opening = new OpeningSequence($("#arena"), $(".cinema-overlay"), audio);
+const dialog = $("#dialog");
+let helpReturnTarget = null;
+const panels = new DepthPanels({
+  controller: () => controller,
+  open: openDialog,
+  close: () => dialog.close(),
+  toast,
+});
+$("#career").onclick = () => controller && panels.career();
+dialog.querySelector("button").onclick = () => dialog.close();
+$("#help-dismiss").onclick = () => dialog.close();
+dialog.addEventListener("close", () => {
+  if (helpReturnTarget) $(helpReturnTarget)?.focus({ preventScroll: true });
+  helpReturnTarget = null;
+});
+function openDialog(title, content, { gameplayHelp = false } = {}) {
+  helpReturnTarget = null;
+  dialog.classList.toggle("gameplay-help", gameplayHelp);
+  dialog.querySelector(".dialog-footer").hidden = !gameplayHelp;
+  dialog.querySelector("h2").textContent = tr(title);
+  dialog.querySelector(".dialog-body").replaceChildren();
+  if (typeof content === "string")
+    dialog.querySelector(".dialog-body").innerHTML = content;
+  else dialog.querySelector(".dialog-body").append(content);
+  translateDom(dialog);
+  $("#dialog-language").value = getLocale();
+  if (!dialog.open) dialog.showModal();
+  dialog.scrollTop = 0;
+  dialog.querySelector(".dialog-body").scrollTop = 0;
+}
+function toast(message) {
+  $("#arena .toast")?.remove();
+  const node = document.createElement("div");
+  node.className = "toast";
+  node.setAttribute("role", "alert");
+  node.textContent = tr(message);
+  $("#arena").append(node);
+  setTimeout(() => node.remove(), 4000);
+}
+function sound(success) {
+  audio.result(success);
+}
+$("#sound").onclick = () => {
+  audioEnabled = !audioEnabled;
+  $("#sound").setAttribute("aria-pressed", String(audioEnabled));
+  $("#sound").setAttribute(
+    "aria-label",
+    audioEnabled ? tr("关闭声音") : tr("开启声音"),
+  );
+  $("#sound").innerHTML = icon(
+    audioEnabled
+      ? '<path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>'
+      : '<path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6m0-6-5 6"/>',
+  );
+  audio.setEnabled(audioEnabled);
+  if (audioEnabled && audioEntries) audio.load(audioEntries);
+  if (audioEnabled && controller?.state.screen === "play") audio.ambience();
+};
+$("#fullscreen").onclick = async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await $("#app").requestFullscreen();
+  } catch {
+    toast(tr("当前浏览器不支持全屏，可直接继续比赛"));
   }
-  return wrap;
+};
+function showGameplayHelp() {
+  openDialog(
+    tr("玩法说明"),
+    `<p class="help-lead">五轮点球，每一球都由你决定。</p>
+    <ol class="help-steps">
+      <li><div><strong>赛前准备</strong><p>选择完整或快速模式，安排五人阵容与出场顺序，设置模拟投入后开局。也可以挑战三场杯赛。</p></div></li>
+      <li><div><strong>轮到你射门</strong><p>观察门将倾向，选择可用方向与射法，查看成功率和返还后确认射门。</p></div></li>
+      <li><div><strong>轮到你扑救</strong><p>参考对手射手威胁，选择扑救方向并确认。快速模式会自动选择公开成功率最高的防守方向。</p></div></li>
+      <li><div><strong>一轮之后，再做选择</strong><p>完成一攻一守后，可继续比赛、收取当前返还，或使用一次教练调整交换未出场球员。五轮打平进入骤死。</p></div></li>
+    </ol>
+    <p class="help-shortcuts">键盘：1 / 2 / 3 选方向 · P / D 切换射法 · Enter 确认</p>
+    <details class="help-rules"><summary>查看完整规则、阵容特质与杯赛说明</summary>
+    <p>你与对手交替罚球，共 5 轮；若比分已经无法追平，比赛提前结束。常规打平后最多 3 组骤死，仍打平则按当前现金价值返还。</p><h3>阵容与射法</h3><p>${tr("Roster rules")}</p><h3>观察与压力</h3><p>主操作区持续显示门将押向或射手威胁。低、中、高三级压力受近期结果、比分落后、常规末轮与骤死影响；进球或扑救可以降低近期压力。当前成功率和成功／失败返还已经包括特质与压力，详情可在“阵容·压力”查看。</p><h3>教练与收取</h3><p>完成攻防一轮后可收取当前返还。每场一次教练调整，只能在轮末交换两名未出场球员，不重置比分、压力和门将记忆。交换后会发布新报价。</p><h3>快速模式</h3><p><span>${tr(QUICK_POLICY.desc)}</span> <span>${tr("Quick mode timing")}</span></p><h3>杯赛与成长</h3><p>三场杯赛分别面对边路先锋、反应猎手和预判大师。每场独立投入、开局与结算，胜利才晋级；平局、落败或主动收取结束本届。成绩、称号和球衣徽章保存在当前浏览器，不改变概率或返还。</p><h3>返还与操作</h3><p>成功返还上升，失败返还下降；比赛落败返还为 0。初始现金价值为模拟投入的 96%，所有金额包含本金，改变选择不提高长期期望返还。顶部回放只重演已接受的结果。本演示不涉及真实资金。</p>
+    </details>`,
+    { gameplayHelp: true },
+  );
 }
-
-function renderPlay() {
-  const m = state.match;
-  const q = state.quote;
-  const info = state.info;
-
-  // ---- HUD
-  const hud = el('div', 'card');
-  const grid = el('div', 'hud');
-  const mk = (lbl, val, cls) => {
-    const b = el('div', 'box');
-    b.appendChild(el('div', 'lbl', lbl));
-    b.appendChild(el('div', `val ${cls ?? ''}`, val));
-    return b;
-  };
-  grid.appendChild(mk('比分', `${m.playerGoals} <small>:</small> ${m.oppGoals}`));
-  grid.appendChild(
-    mk('可兑现', `${MONEY(m.cashValue)}`, 'cash')
-  );
-  grid.appendChild(
-    mk('轮次', m.suddenDeath ? `骤死 ${m.sdSet}/3` : `${m.round}<small>/5</small>`)
-  );
-  hud.appendChild(grid);
-
-  const shots = el('div', 'shots');
-  const me = el('span', null, '你 ');
-  me.appendChild(pips(m.playerTaken, m.playerGoals, m.suddenDeath ? m.playerTaken : 5));
-  const opp = el('span', null, '对手 ');
-  opp.appendChild(pips(m.oppTaken, m.oppGoals, m.suddenDeath ? m.oppTaken : 5));
-  shots.appendChild(me);
-  shots.appendChild(opp);
-  hud.appendChild(shots);
-  root.appendChild(hud);
-
-  // ---- 球门
-  const pitchCard = el('div', 'card');
-  pitchCard.appendChild(buildPitch());
-  // 关键球
-  if (q?.keyBall) pitchCard.appendChild(el('div', 'keyball', `⚡ ${q.keyBall.text}`));
-  // 线索
-  if (q?.phase === 'attack') {
-    pitchCard.appendChild(el('div', 'hint', `👁 ${q.keeperHint}`));
-  } else if (q) {
-    pitchCard.appendChild(
-      el('div', 'hint', `👁 对手射手倾向如下（赛前情报 · 本场已罚 ${m.oppTaken} 次）`)
+$("#help").onclick = showGameplayHelp;
+function showIntel() {
+  const s = controller.state;
+  if (s.screen === "bet") {
+    const stage =
+      s.competition === "cup"
+        ? CUP_STAGES[
+            s.profile.cup?.status === "active" ? s.profile.cup.stage : 0
+          ]
+        : null;
+    const preview = controller.provider.preview?.({
+      cupStage: stage?.id ?? null,
+    });
+    if (!preview) return;
+    const node = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = stage
+      ? `${tr(stage.name)} · ${tr(stage.rival)}`
+      : tr(preview.archetypeName);
+    const desc = document.createElement("p");
+    desc.textContent = tr(stage?.desc) ?? tr(preview.archetypeDesc);
+    node.append(title, desc);
+    for (const [label, dist] of [
+      [tr("门将赛前押向"), preview.preMatchTendency],
+      [tr("射手威胁"), preview.shooterTendency],
+    ]) {
+      const line = document.createElement("p");
+      line.textContent = tr`${label}：左 ${Math.round(dist.L * 100)}% · 中 ${Math.round(dist.C * 100)}% · 右 ${Math.round(dist.R * 100)}%`;
+      node.append(line);
+    }
+    const note = document.createElement("p");
+    note.textContent = tr(
+      "这是本次开局的公开简报。进入比赛后，球员特质、压力与门将记忆共同形成当前动作报价。",
     );
+    node.append(note);
+    openDialog(tr("赛前对手简报"), node);
+    return;
   }
-  root.appendChild(pitchCard);
-
-  // ---- 动作
-  if (q) root.appendChild(buildActions(q, info));
-
-  // ---- 倾向图
-  root.appendChild(buildTendency(q, info));
-
-  // ---- 日志
-  if (state.history.length) {
-    const lg = el('div', 'card');
-    lg.appendChild(el('h2', null, '本场记录'));
-    const box = el('div', 'log');
-    for (const h of [...state.history].reverse()) box.appendChild(el('div', null, h));
-    lg.appendChild(box);
-    root.appendChild(lg);
-  }
-}
-
-function buildPitch() {
-  const p = el('div', 'pitch');
-  const frame = el('div', 'goalframe');
-  const zones = el('div', 'zones');
-  const q = state.quote;
-  const dist = q?.keeperDist;
-  for (const d of DIRS) {
-    const z = el('div', 'zone');
-    const heat = el('div', 'heat');
-    if (dist) heat.style.opacity = String(Math.min(0.55, Math.max(0, (dist[d] - 0.2) * 1.5)));
-    z.appendChild(heat);
-    if (dist) z.appendChild(el('div', 'pct', `${Math.round(dist[d] * 100)}%`));
-    zones.appendChild(z);
-  }
-  frame.appendChild(zones);
-  p.appendChild(frame);
-
-  const keeper = el('div', 'keeper');
-  keeper.id = 'keeper';
-  frame.appendChild(keeper);
-
-  const ball = el('div', 'ball');
-  ball.id = 'ball';
-  p.appendChild(ball);
-  p.appendChild(el('div', 'spot'));
-
-  const banner = el('div', 'banner');
-  banner.id = 'banner';
-  p.appendChild(banner);
-  return p;
-}
-
-function buildActions(q, info) {
-  const c = el('div', 'card');
-  if (q.phase === 'attack') {
-    c.appendChild(el('h2', null, '进攻 · 选择方向与射法'));
-    const tr = el('div', 'typeRow');
-    for (const t of Object.values(SHOT_TYPES)) {
-      const b = el(
-        'button',
-        state.shotType === t.id ? 'on' : null,
-        `${t.name}<span style="font-size:11px;color:var(--dim)"> · 风险 ${Math.round(t.risk * 100)}%</span>`
-      );
-      b.onclick = () => {
-        state.shotType = t.id;
-        render();
-      };
-      tr.appendChild(b);
-    }
-    c.appendChild(tr);
-
-    const opts = el('div', 'opts cols3');
-    for (const d of DIRS) {
-      const o = q.options.find((x) => x.dir === d && x.shot === state.shotType);
-      opts.appendChild(optButton(o, DIR_LABEL[d], q));
-    }
-    c.appendChild(opts);
-    c.appendChild(
-      el(
-        'div',
-        'note',
-        '门将会记住你罚过的方向。重复同一侧会被盯上 —— 命中率下降，但赔付同步上升，期望值不变。'
+  const defending = s.quote?.phase === "defend",
+    prior = defending ? s.info.shooterTendency : s.info.preMatchTendency,
+    dist = defending ? prior : (s.quote?.keeperDist ?? prior);
+  const node = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = defending ? tr("对手射手") : tr(s.info.archetypeName);
+  node.append(heading);
+  const desc = document.createElement("p");
+  desc.textContent = defending
+    ? tr(
+        "射手威胁权重影响各方向的公开扑救概率。本场实际球路与玩家扑救方向分开记录；当前视频矩阵中的动作方向依结果匹配，不把少量视频样本当成威胁权重的频率估计。",
       )
-    );
-  } else {
-    c.appendChild(el('h2', null, '防守 · 选择扑救方向'));
-    const opts = el('div', 'opts cols3');
-    for (const d of DIRS) {
-      const o = q.options.find((x) => x.dir === d);
-      opts.appendChild(
-        optButton(o, DIR_LABEL[d], q, `对手 ${Math.round((o?.shooterProb ?? 0) * 100)}%`)
-      );
-    }
-    c.appendChild(opts);
-    c.appendChild(
-      el('div', 'note', '扑对方向概率高但赔付低；扑冷门概率低但赔付高。两者期望值相同。')
-    );
+    : tr(s.info.archetypeDesc);
+  node.append(desc);
+  const table = document.createElement("table");
+  table.innerHTML = tr(
+    "<thead><tr><th>方向</th><th>赛前倾向</th><th>当前倾向</th></tr></thead><tbody></tbody>",
+  );
+  for (const dir of ["L", "C", "R"]) {
+    const row = table.querySelector("tbody").insertRow();
+    [
+      dirNames[dir],
+      `${Math.round(prior[dir] * 100)}%`,
+      `${Math.round(dist[dir] * 100)}%`,
+    ].forEach((v) => {
+      row.insertCell().textContent = v;
+    });
   }
+  node.append(table);
+  const history = document.createElement("p");
+  history.textContent = defending
+    ? tr`对手实际球路：${s.info.opponentHistory.map((e) => `${dirNames[e.ballDir]}${e.saved ? tr("（扑出）") : tr("（进球）")}`).join(" → ") || tr("尚未罚球")}`
+    : tr`门将本场 ${s.info.memory.samples} 次记录：${s.info.memory.history.map((d) => dirNames[d]).join(" → ") || tr("暂无。首球使用赛前倾向。")}`;
+  node.append(history);
+  openDialog(
+    s.quote?.phase === "defend" ? tr("对手射手情报") : tr("门将情报"),
+    node,
+  );
+}
+function showReport() {
+  const s = controller.state,
+    st = s.settlement,
+    node = document.createElement("div");
+  const summary = document.createElement("p");
+  summary.textContent = tr`最终比分 ${s.match.playerGoals} : ${s.match.oppGoals} · 模拟投入 ${money(st.stake)} · 返还 ${money(st.payout)}`;
+  node.append(summary);
+  const highlights = document.createElement("div");
+  highlights.className = "report-highlights";
+  matchHighlights(st).forEach((line) => {
+    const p = document.createElement("p");
+    p.textContent = line;
+    highlights.append(p);
+  });
+  node.append(highlights);
+  const timing = document.createElement("p");
+  const preparation =
+    s.preparationMs == null
+      ? tr("准备计时未保存")
+      : tr`准备 ${(s.preparationMs / 1000).toFixed(1)} 秒`;
+  timing.textContent = tr`${st.config.mode === "quick" ? tr("快速模式 · 自动防守") : tr("完整模式")} · ${preparation} · 开局至结算 ${(st.elapsedMs / 1000).toFixed(1)} 秒（含等待和离开）${st.config.cupStage ? ` · ${tr(CUP_STAGES.find((stage) => stage.id === st.config.cupStage).name)}` : ""}`;
+  node.append(timing);
+  const table = document.createElement("table");
+  table.innerHTML = tr(
+    "<thead><tr><th>事件</th><th>球员／动作</th><th>真实球路／扑向</th><th>概率／压力</th><th>结果</th><th>返还</th></tr></thead><tbody></tbody>",
+  );
+  st.events.forEach((e, i) => {
+    const row = table.querySelector("tbody").insertRow();
+    const success = e.kind === "attack" ? tr("进球") : tr("扑出");
+    const failure = e.kind === "attack" ? tr("未进") : tr("失球");
+    [
+      String(i + 1),
+      e.kind === "coach"
+        ? tr`交换第 ${e.slots[0] + 1} 与 ${e.slots[1] + 1} 名`
+        : `${tr(e.player?.name) ?? tr("守门员")} · ${dirNames[e.dir]}${e.shot ? ` · ${{ placed: tr("推射"), driven: tr("抽射"), chip: tr("吊射") }[e.shot]}` : ""}`,
+      e.kind === "coach"
+        ? tr("保留原记忆")
+        : tr`球 ${dirNames[e.ballDir]}／扑 ${dirNames[e.diveDir]}`,
+      e.kind === "coach"
+        ? tr("发布新报价")
+        : `${Math.round(e.probability * 100)}%／${pressureLabel(e.pressureBefore.level)}`,
+      e.kind === "coach" ? tr("调整") : e.success ? success : failure,
+      money(e.cashAfter),
+    ].forEach((v) => {
+      row.insertCell().textContent = v;
+    });
+  });
+  const scroll = document.createElement("div");
+  scroll.className = "report-scroll";
+  scroll.append(table);
+  node.append(scroll);
+  const title = document.createElement("h3");
+  title.textContent = tr("本地演示结果校验");
+  node.append(title);
+  const note = document.createElement("p");
+  note.textContent = verifySettlement(st)
+    ? tr(
+        "Seed 与开局承诺一致；已按初始阵容、配置、教练事件与全部动作重演，概率、方向、比分和返还一致。此处为本地演示校验。",
+      )
+    : tr("校验失败");
+  node.append(note);
+  for (const [label, value] of [
+    ["Seed", st.seedRevealed],
+    ["Commitment", st.commitment],
+    [tr("配置版本"), st.configVersion],
+    [tr("结算编号"), st.settlementId],
+  ]) {
+    const p = document.createElement("p");
+    p.textContent = label;
+    const code = document.createElement("code");
+    code.textContent = value;
+    node.append(p, code);
+  }
+  openDialog(tr("比赛战报"), node);
+}
+function announce(s) {
+  const stage =
+    s.screen === "bet"
+      ? tr("选择模拟投入并进入球场")
+      : s.screen === "settled"
+        ? tr`比赛已结算，返还 ${money(s.settlement.payout)}`
+        : tr(
+            s.match.suddenDeath ? "Sudden status" : "Round status",
+            s.match.suddenDeath ? s.match.sdSet : s.match.round,
+            s.quote?.phase === "attack"
+              ? tr`${tr(s.quote.player.name)}射门`
+              : tr("扑救"),
+            pressureLabel(s.quote?.pressure.level),
+            s.match.playerGoals,
+            s.match.oppGoals,
+            money(s.match.cashValue),
+          );
+  if ($("#live").textContent !== stage) $("#live").textContent = stage;
+  $("#arena").dataset.screen = s.screen;
+  $("#arena").dataset.busy = String(s.busy);
+  $("#arena").dataset.phase = s.quote?.phase ?? s.screen;
+  $("#replay").disabled = s.busy || replayBusy || !s.lastResolution;
+}
+async function replay() {
+  const s = controller.state;
+  if (s.busy || replayBusy || !s.lastResolution) return;
+  replayBusy = true;
+  s.busy = true;
+  controller.emit();
+  try {
+    $("#arena").dataset.cinematic = "replay";
+    scene.resize($("#arena").clientWidth, $("#arena").clientHeight);
+    await scene.prepare(s.lastResolution.phase);
+    await scene.setCamera("broadcast");
+    await scene.play(s.lastResolution, {
+      onKick: () => audio.kick(),
+      onImpact: () => {
+        sound(s.lastResolution.success);
+      },
+    });
+  } catch (error) {
+    toast(tr("回放暂时不可用，比赛可继续"));
+  } finally {
+    delete $("#arena").dataset.cinematic;
+    try {
+      hud.resize($("#arena").clientWidth, $("#arena").clientHeight);
+      await scene.setCamera(hud.mode);
+      await scene.prepare(s.quote?.phase ?? "attack");
+    } catch {
+      toast(tr("球场视频暂时不可用，可重试回放"));
+    }
+    replayBusy = false;
+    s.busy = false;
+    controller.emit();
+  }
+}
+$("#replay").onclick = replay;
 
-  if (q.canCashOut) {
-    const row = el('div', 'btnRow');
-    const cash = el('button', 'btn cash', `收钱 ${MONEY(q.cashValue)}`);
-    cash.onclick = doCashOut;
-    const cont = el('button', 'btn ghost', '继续比赛');
-    cont.onclick = () => {
-      /* 继续就是直接选动作，这里只作说明 */
+async function boot() {
+  const loading = $(".loading");
+  const loader = new LoadingSequence(loading);
+  try {
+    loader.progress(0.06, tr("正在点亮球场…"));
+    const manifest = await loadManifest();
+    audioEntries = manifest.audio;
+    loader.progress(0.12, tr("聚光灯已开启"));
+    const lobby = $(".lobby-backdrop");
+    const setLobbyPoster = () => {
+      const clip = mediaVariant(
+        manifest.cinematics?.intro,
+        $("#arena").clientWidth < 850,
+      );
+      if (clip?.source === "OpenArt / Seedance 2.0")
+        lobby.style.backgroundImage = `url("${assetUrl(clip.poster)}")`;
     };
-    cont.disabled = true;
-    cont.style.opacity = '.6';
-    cont.textContent = '↑ 选择一个动作即继续';
-    row.appendChild(cash);
-    row.appendChild(cont);
-    c.appendChild(row);
-  }
-  return c;
-}
-
-function optButton(o, label, q, extra) {
-  const b = el('button', 'opt' + (o?.failureIsLoss ? ' allin' : ''));
-  b.appendChild(el('div', 'dir', label));
-  b.appendChild(el('div', 'p', `${(o.p * 100).toFixed(0)}%`));
-  const br = el('div', 'br');
-  br.innerHTML =
-    `<b>成 ${MONEY(o.onSuccess)}</b><br><i>败 ${MONEY(o.onFailure)}${
-      o.failureIsLoss ? ' 全失' : ''
-    }</i>` + (extra ? `<br><span style="color:#7e8fa6">${extra}</span>` : '');
-  b.appendChild(br);
-  b.disabled = state.busy;
-  b.onclick = () => doSubmit(o.id, q.quoteId);
-  return b;
-}
-
-function buildTendency(q, info) {
-  const c = el('div', 'card');
-  const isAttack = q?.phase === 'attack';
-  c.appendChild(
-    el('h2', null, isAttack ? '门将倾向（赛前情报 + 本场记录）' : '对手射手倾向（赛前情报）')
-  );
-  const dist = isAttack ? q.keeperDist : info.shooterTendency;
-  const prev = isAttack ? state.prevKeeperDist : null;
-  const top = DIRS.reduce((a, d) => (dist[d] > dist[a] ? d : a), 'L');
-  const row = el('div', 'tend');
-  for (const d of DIRS) {
-    const t = el('div', 't' + (d === top ? ' hot' : ''));
-    t.appendChild(el('div', 'd', DIR_LABEL[d]));
-    const bar = el('div', 'bar');
-    const span = el('span');
-    span.style.width = `${Math.round(dist[d] * 100)}%`;
-    bar.appendChild(span);
-    t.appendChild(bar);
-    const pct = Math.round(dist[d] * 100);
-    let deltaHtml = '';
-    if (prev) {
-      const dp = pct - Math.round(prev[d] * 100);
-      if (dp !== 0) {
-        const up = dp > 0;
-        deltaHtml = `<span class="delta ${up ? 'up' : 'down'}">${up ? '▲' : '▼'}${Math.abs(dp)}</span>`;
+    setLobbyPoster();
+    scene = new VideoMatchScene($("#match-video"), $("#match-poster"), {
+      onProgress: (v, text) => {
+        loader.progress(0.12 + v * 0.65, text);
+      },
+    });
+    const fontReady = loadFonts(),
+      audioReady = audio.load(manifest.audio);
+    audioReady.then((failed) => {
+      if (failed)
+        toast(tr("部分现场声音加载失败，比赛可继续；重新开启声音可重试"));
+    });
+    await scene.init(manifest);
+    // Font/audio requests continue in the background after this bounded wait.
+    await Promise.race([
+      Promise.all([fontReady, audioReady]),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+    loader.progress(0.85, tr("写实画面就绪 · 比赛即将开始"));
+    const present = {
+      prepare: async (phase) => {
+        await scene.prepare(phase);
+        if (introPending) {
+          introPending = false;
+          await opening.play(media, scene);
+        }
+      },
+      play: async (resolution) => {
+        await scene.play(resolution, {
+          onKick: () => audio.kick(),
+          onImpact: () => {
+            sound(resolution.success);
+          },
+        });
+      },
+      preflight: (option, phase) => scene.preflight(option, phase),
+      supports: (option, phase) => scene.supports(option, phase),
+    };
+    let storage = null;
+    try {
+      storage = window.localStorage;
+    } catch {
+      /* In-memory progression remains available. */
+    }
+    const provider = new LocalProvider({
+      storage,
+      seed: import.meta.env.DEV
+        ? (new URLSearchParams(location.search).get("seed") ?? undefined)
+        : undefined,
+    });
+    controller = new MatchController({
+      provider,
+      present,
+      progress: new GameProgress(storage),
+      onChange: (s) => {
+        scene.showcase = s.screen === "bet";
+        audio.match(s);
+        hud.update(s);
+        announce(s);
+        if (!s.busy && s.screen === "play")
+          scene.warm(s.quote, controller.currentOption());
+      },
+      onError: (error) => toast(error.message),
+    });
+    hud = new ShootoutHud($("#hud"), $("#a11y"), scene, {
+      stake: (n) => controller.setStake(n),
+      mode: (mode) => controller.setMode(mode),
+      competition: (competition) => controller.setCompetition(competition),
+      lineup: () => panels.lineup(),
+      career: () => panels.career(),
+      shot: (id) => controller.setShot(id),
+      direction: (dir) => controller.setDirection(dir),
+      option: () => controller.currentOption(),
+      start: async () => {
+        await audio.activate();
+        introPending = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+        scene.showcase = false;
+        if (await controller.start()) {
+          audio.ambience();
+          $("#control-submit")?.focus({ preventScroll: true });
+        }
+      },
+      submit: () => controller.submit(),
+      cash: () => controller.cashOut(),
+      reset: () => {
+        if (controller.reset()) {
+          audio.stopAmbience();
+          scene.prepare("attack");
+          media.warm("intro");
+        }
+      },
+      intel: showIntel,
+      report: showReport,
+      camera: (id) => {
+        if (controller.state.busy) return;
+        hud.mode = id;
+        hud.render();
+        scene.setCamera(id);
+      },
+    });
+    await hud.init();
+    fontReady.then(() => !hud.destroyed && hud.state && hud.render());
+    loader.progress(0.95, tr("全场就绪"));
+    media = new VideoBase($("#cinematic"), manifest, {
+      portrait: () => hud.mobile,
+    });
+    const resize = () => {
+      setLobbyPoster();
+      const arena = $("#arena"),
+        size = hud.resize(arena.clientWidth, arena.clientHeight);
+      for (const node of [
+        $("#cinematic"),
+        $(".scene-vignette"),
+        $(".lobby-backdrop"),
+      ])
+        Object.assign(node.style, {
+          width: `${size.width}px`,
+          height: `${size.height}px`,
+        });
+      if ($("#cinematic").classList.contains("playing")) {
+        opening.stop();
+        media.stop();
       }
-    }
-    t.appendChild(el('div', 'v', `${pct}%${deltaHtml}`));
-    row.appendChild(t);
-  }
-  c.appendChild(row);
-  if (isAttack && prev) {
-    c.appendChild(
-      el('div', 'note', '▲▼ 表示相对你上一次罚球时的变化 —— 门将记忆正在生效。')
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe($("#arena"));
+    resize();
+    if (!(await controller.restore())) controller.emit();
+    if (provider.restoreError) toast(provider.restoreError);
+    document.addEventListener(
+      "pointerdown",
+      () => audio.activate().catch(() => {}),
+      { once: true },
     );
+    document.addEventListener(
+      "keydown",
+      () => audio.activate().catch(() => {}),
+      { once: true },
+    );
+    media.warm("intro");
+    await loader.finish();
+    if (!dialog.open) {
+      showGameplayHelp();
+      helpReturnTarget =
+        controller.state.screen === "bet"
+          ? "#control-start"
+          : controller.state.screen === "play"
+            ? "#control-submit"
+            : "#control-restart";
+    }
+    for (const canvas of [$("#hud")]) {
+      canvas.addEventListener("webglcontextlost", (event) => {
+        event.preventDefault();
+        opening.stop();
+        media.stop();
+        scene.suspend();
+        toast(tr("图形设备正在恢复，比赛结果会保留"));
+      });
+      canvas.addEventListener("webglcontextrestored", () => {
+        resize();
+        controller.emit();
+      });
+    }
+    document.addEventListener("keydown", (event) => {
+      if (
+        dialog.open ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        $(".capture") ||
+        controller.state.screen !== "play" ||
+        controller.state.busy
+      )
+        return;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName))
+        return;
+      const dir = { 1: "L", 2: "C", 3: "R" }[event.key];
+      if (dir) {
+        event.preventDefault();
+        controller.setDirection(dir);
+      }
+      if (event.key.toLowerCase() === "p") controller.setShot("placed");
+      if (event.key.toLowerCase() === "d") controller.setShot("driven");
+      if (event.key === "Enter" && event.target.tagName !== "BUTTON") {
+        event.preventDefault();
+        controller.submit();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      audio.setHidden(document.hidden);
+      scene.setHidden(document.hidden);
+      if (!document.hidden) hud.invalidate();
+    });
+    window.addEventListener("pagehide", (event) => {
+      if (event.persisted) {
+        audio.setHidden(true);
+        scene.setHidden(true);
+        return;
+      }
+      opening.stop();
+      audio.destroy();
+      media.destroy();
+      scene.destroy();
+      hud.destroy();
+      observer.disconnect();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        audio.setHidden(document.hidden);
+        scene.setHidden(document.hidden);
+        hud.invalidate();
+      }
+    });
+    if (
+      import.meta.env.DEV &&
+      new URLSearchParams(location.search).has("audio-preview")
+    )
+      createAudioPreview(manifest);
+    if (
+      import.meta.env.DEV &&
+      new URLSearchParams(location.search).has("clip-preview")
+    )
+      createClipPreview(manifest);
+  } catch (error) {
+    scene?.destroy();
+    hud?.destroy();
+    loader.fail(tr`球场加载失败：${error.message}`);
+    const retry = document.createElement("button");
+    retry.textContent = tr("重新加载球场");
+    retry.onclick = () => location.reload();
+    loading.append(retry);
+    console.error(error);
   }
-
-  const a = info;
-  c.appendChild(
-    el(
-      'div',
-      'note',
-      isAttack
-        ? `对手门将：<b style="color:var(--ink)">${a.archetypeName}</b> —— ${a.archetypeDesc}。` +
-            `<br>你的射门记录：${
-              a.memory.history.length
-                ? a.memory.history.map((h) => DIR_LABEL[h]).join(' → ')
-                : '尚无'
-            }（${a.memory.samples} 次样本，小样本不代表确定预测）`
-        : '赛前情报来自对手配置，第一轮即可使用。本场记录样本较少时不代表确定预测。'
-    )
-  );
-  return c;
 }
-
-function renderSettled() {
-  const s = state.settlement;
-  const won = s.payout > 0;
-  const reasonText = {
-    win: '赢下点球大战',
-    loss: '点球大战落败 · 返还为零',
-    draw: '骤死赛三组仍平 · 按可兑现金额返还',
-    cashed: '主动收钱',
-  }[s.reason];
-
-  const c = el('div', 'card');
-  const r = el('div', 'result');
-  r.appendChild(
-    el('div', `big ${won ? 'win' : 'lose'}`, `${won ? '+' : ''}${MONEY(s.payout)} MXN`)
-  );
-  r.appendChild(el('div', 'why', `${reasonText} · 下注 ${MONEY(s.stake)}`));
-  c.appendChild(r);
-  root.appendChild(c);
-
-  // 战报（D6）—— 来自真实事件日志
-  const rep = el('div', 'card');
-  rep.appendChild(el('h2', null, '战报'));
-  const ul = el('ul', 'report');
-  for (const line of buildReport(s)) ul.appendChild(el('li', null, line));
-  rep.appendChild(ul);
-  rep.appendChild(
-    el(
-      'div',
-      'note',
-      '战报只陈述发生过的事件与状态变化，不把单次随机结果说成技术正确或失误。'
-    )
-  );
-  root.appendChild(rep);
-
-  const pf = el('div', 'card');
-  pf.appendChild(el('h2', null, '可验证性'));
-  pf.appendChild(
-    el(
-      'div',
-      'proof',
-      `承诺值 commitment：${s.commitment}<br>揭示的 seed：${s.seedRevealed}<br>` +
-        `配置版本：${s.configVersion}<br>结算标识：${s.settlementId}<br>` +
-        `动作日志：${s.actionLog.join(' → ')}`
-    )
-  );
-  pf.appendChild(
-    el(
-      'div',
-      'note',
-      '同一个 seed 与同一条决策路径必定重放出同一场比赛。注意：阶段一的承诺只是占位实现 —— 单独的 seed 哈希不证明 seed 生成过程无偏，正式随机流程需单独定义与验证。'
-    )
-  );
-  root.appendChild(pf);
-
-  const again = el('button', 'btn primary', '再来一场');
-  again.onclick = () => {
-    state.screen = 'bet';
-    state.settlement = null;
-    state.history = [];
-    state.prevKeeperDist = null;
-    render();
+// Development-only audio authoring export, isolated from match/provider state.
+function createAudioPreview(manifest) {
+  const box = document.createElement("div");
+  box.className = "capture";
+  const button = document.createElement("button");
+  button.textContent = tr("导出24秒现场声音");
+  button.onclick = async () => {
+    button.disabled = true;
+    button.textContent = tr("正在合成球场声场…");
+    try {
+      const blob = await renderStadiumPreview(manifest);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "last-kick-stadium-live.wav";
+      a.textContent = tr("下载心跳、呼吸与观众试听");
+      box.append(a);
+      box.dataset.audio = "rendered";
+    } catch (error) {
+      toast(error.message);
+    }
+    button.textContent = tr("导出24秒现场声音");
+    button.disabled = false;
   };
-  const wrap = el('div', 'card full');
-  wrap.appendChild(again);
-  wrap.appendChild(
-    el(
-      'div',
-      'disclaimer',
-      '本页为开发期灰盒演示，使用模拟币，无真实货币交易。仅限 18 岁以上。' +
-        '竞品差异化结论仍按待验证假设处理，竞品实测任务未完成。'
-    )
+  box.append(button);
+  $("#arena").append(box);
+}
+
+// Authoring preview: exercise the real video scene without a provider submit.
+// Keep the final frame until the reviewer leaves, and keep these controls off
+// the picture. This utility is removed from the production bundle.
+function createClipPreview(manifest) {
+  const select = document.createElement("select");
+  select.className = "tool clip-preview-control";
+  select.setAttribute("aria-label", tr("选择预览视频"));
+  const resolutions = ["attack", "defend"].flatMap((phase) =>
+    ["L", "C", "R"].flatMap((dir) =>
+      [true, false].flatMap((success) =>
+        ["placed", "driven"].map((shot) => ({ phase, dir, success, shot })),
+      ),
+    ),
   );
-  root.appendChild(wrap);
-}
-
-function buildReport(s) {
-  const out = [];
-  const ev = s.events;
-  const atk = ev.filter((e) => e.kind === 'attack');
-  const scored = atk.filter((e) => e.success).length;
-  out.push(`本场实际射门 <b>${scored}/${atk.length}</b>，扑救 <b>${ev.filter((e) => e.kind === 'defend' && e.success).length}/${ev.filter((e) => e.kind === 'defend').length}</b>。`);
-
-  // 找出重复方向后的被扑
-  const dirs = atk.map((e) => e.dir);
-  for (let i = 1; i < atk.length; i++) {
-    if (dirs[i] === dirs[i - 1] && !atk[i].success) {
-      out.push(
-        `你连续两次射向${DIR_LABEL[dirs[i]]}侧，第二次被扑出 —— 重复改变了门将倾向、提高了被扑概率，本次结果仍由随机分支决定。`
+  resolutions.push(
+    ...[true, false].map((success) => ({
+      phase: "attack",
+      dir: "C",
+      success,
+      shot: "chip",
+    })),
+  );
+  const choices = new Map();
+  for (const [key, entry] of Object.entries(manifest.gameplay.shots)) {
+    const clip = entry.landscape;
+    const resolution = resolutions.find((r) => {
+      const plan = choreography(r);
+      return (
+        (r.shot === "chip") === (clip.shotType === "chip") &&
+        plan.ballDir === clip.ballDir &&
+        plan.diveDir === clip.diveDir &&
+        plan.saved === clip.saved
       );
-      break;
+    });
+    if (!resolution || entry.status !== "approved") continue;
+    choices.set(key, resolution);
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = tr`${clip.shotType === "chip" ? tr("吊射 · ") : ""}${clip.saved ? tr("扑出") : tr("进球")} · 球${dirNames[clip.ballDir]} / 门将${dirNames[clip.diveDir]}`;
+    select.append(option);
+  }
+  const button = document.createElement("button");
+  button.className = "tool clip-preview-control";
+  button.textContent = tr("预览射门视频");
+  const arena = $("#arena");
+  let active = false;
+  button.onclick = async () => {
+    if (active) {
+      active = false;
+      select.disabled = false;
+      delete arena.dataset.cinematic;
+      hud.resize(arena.clientWidth, arena.clientHeight);
+      await scene.prepare(controller.state.quote?.phase ?? "attack");
+      controller.state.busy = false;
+      controller.emit();
+      if (controller.state.screen !== "play") audio.stopAmbience();
+      button.textContent = tr("预览射门视频");
+      return;
     }
-  }
-  // 找出变向后的进球
-  for (let i = 1; i < atk.length; i++) {
-    if (dirs[i] !== dirs[i - 1] && atk[i].success && atk[i].keeperSamples >= 2) {
-      out.push(
-        `第 ${i + 1} 次射门你从${DIR_LABEL[dirs[i - 1]]}侧改打${DIR_LABEL[dirs[i]]}侧并进球。`
-      );
-      break;
+    if (controller.state.busy) return;
+    active = true;
+    select.disabled = true;
+    button.disabled = true;
+    controller.state.busy = true;
+    controller.emit();
+    await audio.activate();
+    audio.ambience();
+    arena.dataset.cinematic = "preview";
+    scene.resize(arena.clientWidth, arena.clientHeight);
+    try {
+      await scene.play(choices.get(select.value), {
+        onKick: () => audio.kick(),
+        onImpact: () => sound(choices.get(select.value).success),
+      });
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      button.textContent = tr("返回比赛");
+      button.disabled = false;
     }
-  }
-  const peak = Math.max(...ev.map((e) => e.cashAfter));
-  out.push(`本场可兑现金额最高到过 <b>${MONEY(peak)}</b>，最终结算 <b>${MONEY(s.payout)}</b>。`);
-  if (s.reason === 'cashed') out.push('你在轮末主动收钱，锁定了当时的可兑现金额。');
-  if (s.reason === 'loss') out.push('对手锁定胜局，按规则返还为零 —— 此前每次报价都已计入该风险。');
-  return out;
+  };
+  const controls = document.createElement("div");
+  controls.className = "clip-preview-tools";
+  controls.append(select, button);
+  $(".topbar").classList.add("clip-preview-header");
+  $(".topbar").insertBefore(controls, $(".top-tools"));
 }
 
-// ---------------------------------------------------------------- 动画
-
-// 球门框占 pitch 宽度的 10%~90%，所以三个区域中心对应 pitch 的 28% / 50% / 72%
-const BALL_X = { L: '28%', C: '50%', R: '72%' };
-// 门将在球门框内，坐标相对框本身
-const KEEPER_X = { L: '20%', C: '50%', R: '80%' };
-
-/**
- * 在「当前」DOM 上播放一次结果动画。
- * 必须在重新渲染之前调用 —— 重建 DOM 会丢掉初始样式，CSS 过渡就没有可插值的起点。
- */
-async function animate(res) {
-  const ball = document.getElementById('ball');
-  const keeper = document.getElementById('keeper');
-  const banner = document.getElementById('banner');
-  if (!ball || !keeper || !banner) return;
-
-  // 回到起点并强制一次重排，保证过渡有起点可插值
-  ball.style.transition = 'none';
-  ball.style.left = '50%';
-  ball.style.bottom = '8px';
-  ball.style.opacity = '1';
-  void ball.offsetWidth;
-  ball.style.transition = '';
-
-  const isAttack = res.phase === 'attack';
-  // 进攻：命中则门将扑错方向，被扑则扑对方向
-  // 防守：res.dir 是我方扑救方向，命中(扑出)说明对手射向同侧
-  const keeperDir = isAttack
-    ? res.success
-      ? DIRS.filter((d) => d !== res.dir)[0]
-      : res.dir
-    : res.dir;
-  const ballDir = isAttack ? res.dir : res.success ? res.dir : DIRS.filter((d) => d !== res.dir)[0];
-
-  await sleep(30);
-  keeper.style.left = KEEPER_X[keeperDir];
-  ball.style.left = BALL_X[ballDir];
-  if (isAttack) {
-    ball.style.bottom = res.success ? '92px' : '64px';
-  } else {
-    ball.style.bottom = res.success ? '52px' : '92px';
-  }
-  ball.style.transform = 'translateX(-50%) scale(1.15)';
-
-  await sleep(380);
-  banner.textContent = isAttack
-    ? res.success
-      ? '进球！'
-      : '被扑出'
-    : res.success
-      ? '扑出了！'
-      : '对手进球';
-  banner.className = `banner show ${res.success ? 'good' : 'bad'}`;
-
-  await sleep(900);
-}
-
-// ---------------------------------------------------------------- 交互
-
-async function startMatch() {
-  state.provider = new LocalProvider();
-  const r = await state.provider.start({ stake: state.stake });
-  state.match = r.state;
-  state.quote = r.quote;
-  state.info = r.info;
-  state.settlement = null;
-  state.history = [];
-  state.prevKeeperDist = null;
-  state.screen = 'play';
-  render();
-}
-
-async function doSubmit(actionId, quoteId) {
-  if (state.busy) return;
-  state.busy = true;
-  try {
-    const r = await state.provider.submit(actionId, quoteId);
-    const res = r.resolution;
-    state.lastResolution = res;
-
-    // 记下本次进攻时的门将倾向，下次进攻界面用它显示记忆带来的变化
-    if (res.phase === 'attack' && state.quote?.keeperDist) {
-      state.prevKeeperDist = { ...state.quote.keeperDist };
-    }
-
-    // 先在当前 DOM 上播完动画，再提交新状态并重绘。
-    // 顺序很重要：重绘会重建球门元素，动画就没有插值起点了。
-    disableOptions();
-    await animate(res);
-
-    state.match = r.state;
-    state.info = r.info;
-    state.quote = r.quote;
-
-    const label =
-      res.phase === 'attack'
-        ? `${DIR_LABEL[res.dir]}·${SHOT_TYPES[res.shot]?.name ?? ''}`
-        : `扑${DIR_LABEL[res.dir]}`;
-    state.history.push(
-      `<span class="${res.success ? 'g' : 'b'}">${res.success ? '○' : '×'}</span> ` +
-        `${res.phase === 'attack' ? '攻' : '守'} ${label} ` +
-        `${(res.probability * 100).toFixed(0)}% · ${MONEY(res.cashBefore)}→${MONEY(res.cashAfter)} · ${res.score.player}:${res.score.opp}`
-    );
-
-    if (r.settlement) {
-      state.settlement = r.settlement;
-      state.screen = 'settled';
-    }
-  } catch (e) {
-    console.error(e);
-    alert(`操作失败：${e.message}`);
-  } finally {
-    // 必须先解除 busy 再重绘：按钮的 disabled 取自 state.busy，
-    // 若顺序颠倒会渲染出一屏永久禁用的按钮。
-    state.busy = false;
-    render();
-  }
-}
-
-async function doCashOut() {
-  if (state.busy) return;
-  state.busy = true;
-  try {
-    const r = await state.provider.cashOut(state.quote.quoteId);
-    state.settlement = r.settlement;
-    state.match = r.state;
-    state.screen = 'settled';
-  } catch (e) {
-    alert(`收钱失败：${e.message}`);
-  } finally {
-    state.busy = false;
-    render();
-  }
-}
-
-// 暴露给自动化验证用（不参与游戏逻辑）
-window.__psc = {
-  state,
-  startMatch,
-  submit: doSubmit,
-  cashOut: doCashOut,
-  getQuote: () => state.quote,
-};
-
-render();
+boot();

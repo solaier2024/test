@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "date": "2026-10-09",
+  "authorization": {
+    "approved": true,
+    "totalCreditsLimit": 3000,
+    "userReply": "同意用 3,000 积分补三条视频",
+    "themeRemake": false
+  },
+  "projectId": "dzBUOY8x5d89tygpjtpE",
+  "model": "byte-plus-seedance-2",
+  "mode": "image2video",
+  "jobs": [
+    {
+      "id": "goal-C-R",
+      "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, the same lime-green goalkeeper, regulation full-width white goal, fine net, natural night-stadium lighting, grass and packed moving spectators. Keep the camera completely locked; no cut, dolly or zoom. The centre of the goal is the halfway point between its two goalposts: this ball MUST cross the goal line within the CENTRAL 10 percent of the goal width, directly beneath the centre of the crossbar. This is a CENTRAL low ground-level shot, NOT a shot into either side. One football only, one right-foot kick only, real-time normal speed. 0 to 0.7 seconds: ready stance with subtle breathing; stationary ball on penalty mark, keeper ready. 0.7 to 1.8: two natural run-up steps and one firm inside-right-foot kick. 1.8 to 3.0: the single ball travels low and straight through the exact central lane, about 20 centimetres above the grass. Goalkeeper commits unmistakably to SCREEN RIGHT from the striker's perspective, diving away from the centre before the ball reaches the line, and never touches the ball. Ball crosses the goal line at the geometric centre, strikes and deforms the CENTRAL net directly beneath the middle of the crossbar, then falls inside the central goal. 3.0 to 5.0: retain the same one ball inside the central net, keeper remains grounded on screen right, subtle natural striker reaction; spectators in several stand sections raise arms and clap continuously. Preserve consistent anatomy, identities, contact shadows, goal dimensions and continuous ball trajectory; no morphing or duplicate ball. Keep the entire goal and keeper visible. No titles, text, numbers, countdown, HUD, sponsor, logo, watermark, motion trails, slow motion, cartoon or stylized CGI. Silent footage, no generated audio.",
+      "status": "COMPLETED",
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "historyId": "IrrfysvAJ9wpruWjniPV",
+      "integrated": true,
+      "params": {
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "generateAudio": false,
+        "mode": "normal",
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick approved stadium and players"
+        },
+        "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, the same lime-green goalkeeper, regulation full-width white goal, fine net, natural night-stadium lighting, grass and packed moving spectators. Keep the camera completely locked; no cut, dolly or zoom. The centre of the goal is the halfway point between its two goalposts: this ball MUST cross the goal line within the CENTRAL 10 percent of the goal width, directly beneath the centre of the crossbar. This is a CENTRAL low ground-level shot, NOT a shot into either side. One football only, one right-foot kick only, real-time normal speed. 0 to 0.7 seconds: ready stance with subtle breathing; stationary ball on penalty mark, keeper ready. 0.7 to 1.8: two natural run-up steps and one firm inside-right-foot kick. 1.8 to 3.0: the single ball travels low and straight through the exact central lane, about 20 centimetres above the grass. Goalkeeper commits unmistakably to SCREEN RIGHT from the striker's perspective, diving away from the centre before the ball reaches the line, and never touches the ball. Ball crosses the goal line at the geometric centre, strikes and deforms the CENTRAL net directly beneath the middle of the crossbar, then falls inside the central goal. 3.0 to 5.0: retain the same one ball inside the central net, keeper remains grounded on screen right, subtle natural striker reaction; spectators in several stand sections raise arms and clap continuously. Preserve consistent anatomy, identities, contact shadows, goal dimensions and continuous ball trajectory; no morphing or duplicate ball. Keep the entire goal and keeper visible. No titles, text, numbers, countdown, HUD, sponsor, logo, watermark, motion trails, slow motion, cartoon or stylized CGI. Silent footage, no generated audio."
+      },
+      "resources": [
+        {
+          "id": "qMGmw7r3r8cyMwrGTrZc",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154891497500000000000000000000ffffc0a85d85c6a745_1791549086963_e26337ec.mp4",
+          "status": "completed",
+          "aspectRatio": "16:9",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154891497500000000000000000000ffffc0a85d85c6a745_1791549092015_54bbc5ca.webp",
+          "metadata": {
+            "width": 1920,
+            "height": 1080,
+            "duration": 5.041667,
+            "fps": 24,
+            "hasAudio": false
+          }
+        }
+      ],
+      "reviewedAt": "2026-10-10",
+      "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: one central ball enters the middle net; keeper dives screen right without touching it; net deforms and the ball remains inside. Spectator sections move throughout. Standard shot rises during flight, distinct from the lob arc. No titles or countdown.",
+      "crowdMotion": "approved",
+      "packaged": {
+        "landscape": {
+          "src": "media/goal-C-R-landscape.mp4",
+          "poster": "media/goal-C-R-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "IrrfysvAJ9wpruWjniPV",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "standard",
+          "kickAt": 3.03,
+          "impactAt": 3.92,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/goal-C-R-portrait.mp4",
+          "poster": "media/goal-C-R-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "IrrfysvAJ9wpruWjniPV",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "standard",
+          "kickAt": 3.03,
+          "impactAt": 3.92,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      }
+    },
+    {
+      "id": "chip-goal-C-R",
+      "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, same lime-green goalkeeper, full regulation white goal, fine net, grass, night-stadium broadcast lighting and packed moving spectators. Camera is completely locked, no cuts, zoom or dolly. This is a TRUE CENTRAL CHIPPED PENALTY: the right boot scoops UNDER the single ball, which visibly rises in a high soft arc and then falls into the EXACT CENTRE of the goal, halfway between both posts, directly beneath the midpoint of the crossbar. NOT a low straight shot, NOT a side shot. One ball only and one kick only, normal real-time speed. 0 to 0.7 seconds: same ready pose, subtle breathing, ball stationary on penalty mark. 0.7 to 1.8: natural two-step approach; one gentle right-foot scoop with toe lifting under the ball. 1.8 to 3.3: the ball rises well above goalkeeper shoulder height in the central lane, slows near its apex below the crossbar height, then visibly DESCENDS over the goal line at the central 10 percent of the goal width and into the middle net. The goalkeeper has already dived fully to SCREEN RIGHT from the striker's perspective, stays away from the central lane and NEVER touches the ball. The central net deforms; the same ball drops onto grass INSIDE the central goal. 3.3 to 5.0: keeper grounded on screen right, only the same ball inside the middle net; subtle striker response and multiple crowd sections clap and raise arms in continuous natural movement. Keep full goal, whole trajectory and keeper in view. Stable goal dimensions, identities, limbs, clothing, anatomy, contact shadows. No second ball, second kick, bouncing duplicate, morphing, magical trails or result change. No text, titles, countdown, HUD, logos, sponsors, watermark, slow motion, cartoon or game-engine CGI. Real filmed sports cinematography. Silent footage, no generated audio.",
+      "status": "COMPLETED",
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "historyId": "KY20g5EB70Rz42rR529w",
+      "integrated": true,
+      "params": {
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "generateAudio": false,
+        "mode": "normal",
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick approved stadium and players"
+        },
+        "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, same lime-green goalkeeper, full regulation white goal, fine net, grass, night-stadium broadcast lighting and packed moving spectators. Camera is completely locked, no cuts, zoom or dolly. This is a TRUE CENTRAL CHIPPED PENALTY: the right boot scoops UNDER the single ball, which visibly rises in a high soft arc and then falls into the EXACT CENTRE of the goal, halfway between both posts, directly beneath the midpoint of the crossbar. NOT a low straight shot, NOT a side shot. One ball only and one kick only, normal real-time speed. 0 to 0.7 seconds: same ready pose, subtle breathing, ball stationary on penalty mark. 0.7 to 1.8: natural two-step approach; one gentle right-foot scoop with toe lifting under the ball. 1.8 to 3.3: the ball rises well above goalkeeper shoulder height in the central lane, slows near its apex below the crossbar height, then visibly DESCENDS over the goal line at the central 10 percent of the goal width and into the middle net. The goalkeeper has already dived fully to SCREEN RIGHT from the striker's perspective, stays away from the central lane and NEVER touches the ball. The central net deforms; the same ball drops onto grass INSIDE the central goal. 3.3 to 5.0: keeper grounded on screen right, only the same ball inside the middle net; subtle striker response and multiple crowd sections clap and raise arms in continuous natural movement. Keep full goal, whole trajectory and keeper in view. Stable goal dimensions, identities, limbs, clothing, anatomy, contact shadows. No second ball, second kick, bouncing duplicate, morphing, magical trails or result change. No text, titles, countdown, HUD, logos, sponsors, watermark, slow motion, cartoon or game-engine CGI. Real filmed sports cinematography. Silent footage, no generated audio."
+      },
+      "resources": [
+        {
+          "id": "M9VueZiGcwIS5i6spfu4",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154891383400000000000000000000ffffc0a87bec968841_1791549076073_a0af4c85.mp4",
+          "status": "completed",
+          "aspectRatio": "16:9",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154891383400000000000000000000ffffc0a87bec968841_1791549081647_9e4dfa2b.webp",
+          "metadata": {
+            "width": 1920,
+            "height": 1080,
+            "duration": 5.041667,
+            "fps": 24,
+            "hasAudio": false
+          }
+        }
+      ],
+      "reviewedAt": "2026-10-10",
+      "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: right boot lifts one ball into a clear upward then downward arc, descending into the central net; keeper dives screen right without contact; same ball falls inside the goal. Moving spectator sections and net reaction. No titles or countdown.",
+      "crowdMotion": "approved",
+      "packaged": {
+        "landscape": {
+          "src": "media/chip-goal-C-R-landscape.mp4",
+          "poster": "media/chip-goal-C-R-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KY20g5EB70Rz42rR529w",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "chip",
+          "kickAt": 2.96,
+          "impactAt": 4.29,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/chip-goal-C-R-portrait.mp4",
+          "poster": "media/chip-goal-C-R-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "KY20g5EB70Rz42rR529w",
+          "ballDir": "C",
+          "diveDir": "R",
+          "saved": false,
+          "shotType": "chip",
+          "kickAt": 2.96,
+          "impactAt": 4.29,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      },
+      "chipTrajectory": "approved"
+    },
+    {
+      "id": "chip-save-C-C",
+      "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, same lime-green goalkeeper, full regulation white goal, fine net, grass, night-stadium broadcast lighting and packed moving spectators. Camera is completely locked; no cuts, zoom or dolly. This is a TRUE CENTRAL CHIPPED PENALTY SAVED IN THE CENTRE: right boot scoops UNDER one ball, which visibly rises in a soft high arc then descends into the central keeper's two gloves BEFORE the goal line. NOT a low straight shot or side shot. One football and one kick only, normal real-time speed. 0 to 0.7 seconds: ready pose, subtle breathing, ball stationary at penalty mark. 0.7 to 1.8: natural two-step run-up; one gentle right-foot scoop, lifting the ball. 1.8 to 3.2: one ball rises above shoulder height in the CENTRAL lane, visibly reaches an apex below the crossbar, then DESCENDS. The keeper stays exactly in the CENTRE, midway between both goalposts, does NOT dive sideways; he makes a small forward step and raises both gloved hands. At about 3.2 seconds the descending ball is visibly CAUGHT and secured between both gloves just above chest height, in FRONT of the goal line. The ball MUST NOT enter the net or cross the goal line. 3.2 to 5.0: keeper lowers and securely holds the SAME ONE ball to his chest, still standing in the centre; no loose or second ball, striker shows subtle natural disappointment. Spectators keep moving with realistic varied gestures and clapping, rather than a frozen photograph. Keep complete goal, trajectory and catch visible throughout. Stable identities, goal dimensions, anatomy, limbs, cloth, contact shadows. No morphing, extra balls, duplicated people, second kick, magic trails or result reversal. No titles, text, countdown, HUD, logos, branding, watermark, slow motion, cartoon or stylized CGI. Real high-end filmed sports photography. Silent footage, no generated audio.",
+      "status": "COMPLETED",
+      "quotedCredits": 1000,
+      "creditsCharged": null,
+      "historyId": "HLyi4dmNrz05QYuK52tn",
+      "integrated": true,
+      "params": {
+        "videoCount": 1,
+        "duration": 5,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "generateAudio": false,
+        "mode": "normal",
+        "startFrame": {
+          "type": "image",
+          "id": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "url": "https://raw.githubusercontent.com/solaier2024/test/357a25a7c5a8b08f28365891fa5754e76bd9a850/public/assets/media/seedance-intro-landscape.webp",
+          "label": "Last Kick approved stadium and players"
+        },
+        "prompt": "Single continuous locked-camera photorealistic live-action football penalty, beginning from this exact supplied ready frame. Preserve the identical adult male striker in dark teal shirt and dark shorts with white boots in the left foreground, same lime-green goalkeeper, full regulation white goal, fine net, grass, night-stadium broadcast lighting and packed moving spectators. Camera is completely locked; no cuts, zoom or dolly. This is a TRUE CENTRAL CHIPPED PENALTY SAVED IN THE CENTRE: right boot scoops UNDER one ball, which visibly rises in a soft high arc then descends into the central keeper's two gloves BEFORE the goal line. NOT a low straight shot or side shot. One football and one kick only, normal real-time speed. 0 to 0.7 seconds: ready pose, subtle breathing, ball stationary at penalty mark. 0.7 to 1.8: natural two-step run-up; one gentle right-foot scoop, lifting the ball. 1.8 to 3.2: one ball rises above shoulder height in the CENTRAL lane, visibly reaches an apex below the crossbar, then DESCENDS. The keeper stays exactly in the CENTRE, midway between both goalposts, does NOT dive sideways; he makes a small forward step and raises both gloved hands. At about 3.2 seconds the descending ball is visibly CAUGHT and secured between both gloves just above chest height, in FRONT of the goal line. The ball MUST NOT enter the net or cross the goal line. 3.2 to 5.0: keeper lowers and securely holds the SAME ONE ball to his chest, still standing in the centre; no loose or second ball, striker shows subtle natural disappointment. Spectators keep moving with realistic varied gestures and clapping, rather than a frozen photograph. Keep complete goal, trajectory and catch visible throughout. Stable identities, goal dimensions, anatomy, limbs, cloth, contact shadows. No morphing, extra balls, duplicated people, second kick, magic trails or result reversal. No titles, text, countdown, HUD, logos, branding, watermark, slow motion, cartoon or stylized CGI. Real high-end filmed sports photography. Silent footage, no generated audio."
+      },
+      "resources": [
+        {
+          "id": "L6oiGpcc6nS23oxUb8v9",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154892069200000000000000000000ffffc0a8bb6fdac0e0_1791549155257_8715165d.mp4",
+          "status": "completed",
+          "aspectRatio": "16:9",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179154892069200000000000000000000ffffc0a8bb6fdac0e0_1791549161231_169e1260.webp",
+          "metadata": {
+            "width": 1920,
+            "height": 1080,
+            "duration": 5.041667,
+            "fps": 24,
+            "hasAudio": false
+          }
+        }
+      ],
+      "reviewedAt": "2026-10-10",
+      "reviewNotes": "Reviewed 24 fps contact frames and full-width samples: one ball rises then descends centrally; standing keeper secures it overhead in both gloves before the line and lowers it to his chest. No lateral dive or net entry. Spectators move throughout. No titles or countdown.",
+      "crowdMotion": "approved",
+      "packaged": {
+        "landscape": {
+          "src": "media/chip-save-C-C-landscape.mp4",
+          "poster": "media/chip-save-C-C-landscape.webp",
+          "duration": 5.04,
+          "width": 1280,
+          "height": 720,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "HLyi4dmNrz05QYuK52tn",
+          "ballDir": "C",
+          "diveDir": "C",
+          "saved": true,
+          "shotType": "chip",
+          "kickAt": 2.48,
+          "impactAt": 4.42,
+          "framing": "original wide shot"
+        },
+        "portrait": {
+          "src": "media/chip-save-C-C-portrait.mp4",
+          "poster": "media/chip-save-C-C-portrait.webp",
+          "duration": 5.04,
+          "width": 720,
+          "height": 1280,
+          "fps": 24.0,
+          "audio": false,
+          "codec": "H.264",
+          "source": "OpenArt / Seedance 2.0",
+          "historyId": "HLyi4dmNrz05QYuK52tn",
+          "ballDir": "C",
+          "diveDir": "C",
+          "saved": true,
+          "shotType": "chip",
+          "kickAt": 2.48,
+          "impactAt": 4.42,
+          "framing": "full-goal 4:3 crop over blurred vertical padding"
+        }
+      },
+      "chipTrajectory": "approved"
+    }
+  ],
+  "updatedAt": "2026-10-10",
+  "accountingNote": "The completed creation responses did not return creditsCharged. Preserve unknown actual charges as null; quoted total was 3000 credits. No additional generation or remake was submitted during integration."
+}
