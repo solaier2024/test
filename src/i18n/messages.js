@@ -240,7 +240,7 @@ Seed 与开局承诺一致；已按初始阵容、配置、教练事件与全部
 自动防守读取公开概率，轮末决定继续。|Auto defence uses public odds. You decide after each round.|La defensa automática usa probabilidades públicas. Tú decides tras cada ronda.
 完整攻防 · 轮末可以收取返还。|Full play · Collect after a round.|Juego completo · Cobra tras una ronda.
 特质改变概率与波动，称号和球衣是外观成长。|Traits affect odds and risk. Titles and kits are cosmetic rewards.|Las habilidades afectan probabilidad y riesgo. Los títulos y camisetas son premios visuales.
-{0}成功|{0} success|{0} acertado
+{0}成功|{0} success|Acierto: {0}
 失败 · 比赛落败|Failure · Match loss|Fallo · Derrota
 本次失败|This attempt fails|Fallo en este intento
 收取 {0}|Collect {0}|Cobrar {0}
