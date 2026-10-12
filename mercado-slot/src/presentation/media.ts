@@ -109,12 +109,9 @@ export class MarketMedia {
   }
   opening(): Promise<void> {
     this.skip();
-    if (
-      !this.manifest ||
-      this.hidden ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches
-    )
-      return Promise.resolve();
+    // This video is requested by Enter or Watch opening. Reduced-motion
+    // preferences shorten reels/CSS, but must not silently hide that request.
+    if (!this.manifest || this.hidden) return Promise.resolve();
     const generation = ++this.generation;
     this.cinematic = true;
     this.release();

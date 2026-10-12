@@ -31,9 +31,6 @@ type Preferences = {
   mode: Mode;
   turbo: boolean;
   sound: boolean;
-  guide: boolean;
-  guideV2: boolean;
-  entranceSeen: boolean;
   music: boolean;
   ambient: boolean;
   volume: number;
@@ -46,9 +43,6 @@ const defaults: Preferences = {
   mode: "standard",
   turbo: false,
   sound: true,
-  guide: false,
-  guideV2: false,
-  entranceSeen: false,
   music: true,
   ambient: true,
   volume: 0.65,
@@ -82,16 +76,7 @@ try {
     prefs.quality = saved.quality;
   if (typeof saved.volume === "number" && Number.isFinite(saved.volume))
     prefs.volume = Math.max(0, Math.min(1, saved.volume));
-  for (const key of [
-    "turbo",
-    "sound",
-    "guide",
-    "guideV2",
-    "entranceSeen",
-    "music",
-    "ambient",
-    "haptics",
-  ] as const)
+  for (const key of ["turbo", "sound", "music", "ambient", "haptics"] as const)
     if (typeof saved[key] === "boolean") prefs[key] = saved[key];
 } catch {
   /* A private browser can still play with default preferences. */
@@ -277,7 +262,7 @@ function renderStatic() {
     `${text(prefs.mode === "extra" ? "extra" : "standard")} · ${text("fiveLines")}`,
   );
   $(".machine").classList.toggle("extra-active", prefs.mode === "extra");
-  put("#enter", text(provider.history.length ? "resume" : "play"));
+  put("#enter", text("play"));
   put("#skip-cinematic", text("skip"));
   put("#note", notice ? text(notice) : "");
   if (lastLanguage !== prefs.locale) {
@@ -762,13 +747,10 @@ async function enter() {
   $<HTMLDialogElement>("#entrance-dialog").close();
   $("#app").classList.add("entered");
   void audio.unlock();
-  if (!prefs.entranceSeen) {
-    await playOpening();
-    prefs.entranceSeen = true;
-    savePreferences();
-  }
-  if (!prefs.guideV2) tutorial();
-  else $("#spin").focus();
+  // Entry presentation belongs to this visit, not to persistent preferences.
+  // QA and earlier visits must never consume the next player's opening/tour.
+  await playOpening();
+  tutorial();
   void view?.setQuality(chosenQuality());
 }
 $("#enter").addEventListener("click", () => void enter());
@@ -810,9 +792,6 @@ $("#receipt-button").addEventListener("click", () => {
   if (flow.lastResult) receipt(flow.lastResult);
 });
 $("#guide-dialog").addEventListener("close", () => {
-  prefs.guideV2 = true;
-  prefs.guide = true;
-  savePreferences();
   $("#spin").focus();
 });
 $("#entrance-dialog").addEventListener("cancel", (event) => {

@@ -1,10 +1,10 @@
 {
   "status": "PASS",
-  "script_and_css_gzip_bytes": 233445,
+  "script_and_css_gzip_bytes": 233350,
   "art_bytes": 1204186,
   "critical_art_bytes": 547362,
   "fonts_woff2_bytes": 89720,
-  "production_critical_transfer_bytes": 870527,
+  "production_critical_transfer_bytes": 870432,
   "progressive_media_bytes": 1813399,
   "videos": [
     {
@@ -32,8 +32,8 @@
       "has_audio": true
     }
   ],
-  "standalone_bytes": 1721394,
-  "standalone_gzip_bytes": 951862,
+  "standalone_bytes": 1721139,
+  "standalone_gzip_bytes": 951769,
   "renderer": "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
   "media_policy": "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
   "scope": "Build and asset budgets; physical mobile FPS and memory are not certified"
