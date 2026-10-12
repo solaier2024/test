@@ -15,7 +15,53 @@
       "width": 1600,
       "height": 900,
       "alpha": false,
-      "sha256": "79e0b24966f7b7c3d295ed0e5695bc587a69dfac4050787d92b0ce72f9604bb9"
+      "sha256": "79e0b24966f7b7c3d295ed0e5695bc587a69dfac4050787d92b0ce72f9604bb9",
+      "critical": false
+    },
+    {
+      "file": "brand-sign-v2.webp",
+      "bytes": 139186,
+      "width": 768,
+      "height": 294,
+      "alpha": true,
+      "critical": true,
+      "sha256": "ca2b9beea870813f7a11ff55b01be798c14958d028018fdf44226543a0748afe"
+    },
+    {
+      "file": "salsa-bottle-v2.webp",
+      "bytes": 130084,
+      "width": 287,
+      "height": 960,
+      "alpha": true,
+      "critical": true,
+      "sha256": "9c61c17bff2218c0045efc480c3db68e99266c953c8bf3ee2342a1c0cf057856"
+    },
+    {
+      "file": "food-atlas-full.webp",
+      "bytes": 505870,
+      "width": 1776,
+      "height": 888,
+      "alpha": true,
+      "critical": false,
+      "sha256": "d4dae83e57181cfaa43f4ab51e00c0a916f459c1f44c30d5b585d676b13ad571"
+    },
+    {
+      "file": "market-landscape-v2.webp",
+      "width": 1280,
+      "height": 720,
+      "alpha": false,
+      "critical": true,
+      "bytes": 50992,
+      "sha256": "eeda83c02f5edc25dace33ed347387cc46074ec9e24337023a63ad8223ecbd66"
+    },
+    {
+      "file": "market-portrait-v2.webp",
+      "width": 720,
+      "height": 1280,
+      "alpha": false,
+      "critical": true,
+      "bytes": 31896,
+      "sha256": "169028671c5aced0450727279306314185b5d56a1e4ddb45e1fccb50ad092546"
     }
   ]
 }

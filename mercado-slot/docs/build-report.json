@@ -1,11 +1,40 @@
 {
   "status": "PASS",
-  "script_and_css_gzip_bytes": 220892,
-  "art_bytes": 346158,
+  "script_and_css_gzip_bytes": 233445,
+  "art_bytes": 1204186,
+  "critical_art_bytes": 547362,
   "fonts_woff2_bytes": 89720,
-  "production_critical_transfer_bytes": 656770,
-  "standalone_bytes": 1410172,
-  "standalone_gzip_bytes": 737300,
-  "renderer": "PixiJS WebGL; DPR capped at 1.5; 15 recycled food sprites",
+  "production_critical_transfer_bytes": 870527,
+  "progressive_media_bytes": 1813399,
+  "videos": [
+    {
+      "role": "landscape-environment",
+      "bytes": 441097,
+      "width": 1280,
+      "height": 720,
+      "duration_seconds": 5.5,
+      "has_audio": false
+    },
+    {
+      "role": "portrait-environment",
+      "bytes": 323359,
+      "width": 720,
+      "height": 1280,
+      "duration_seconds": 5.5,
+      "has_audio": false
+    },
+    {
+      "role": "opening-cinematic",
+      "bytes": 1036004,
+      "width": 1920,
+      "height": 1080,
+      "duration_seconds": 4,
+      "has_audio": true
+    }
+  ],
+  "standalone_bytes": 1721394,
+  "standalone_gzip_bytes": 951862,
+  "renderer": "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
+  "media_policy": "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
   "scope": "Build and asset budgets; physical mobile FPS and memory are not certified"
 }

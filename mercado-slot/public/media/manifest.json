@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "reviewed": true,
+  "generator": "OpenArt Seedance 2.0",
+  "assets": {
+    "landscape-environment": {
+      "file": "market-landscape.mp4",
+      "historyId": "OLiYCfeQrHaXjY6PPvKN",
+      "bytes": 441097,
+      "sha256": "6add79ccd5199c37469ca61bc3f9c75cef3ef5d67ec0c681919a61e2f75d20f7",
+      "width": 1280,
+      "height": 720,
+      "fps": 24.0,
+      "duration": 5.5,
+      "hasAudio": false
+    },
+    "portrait-environment": {
+      "file": "market-portrait.mp4",
+      "historyId": "rsjofGPAShjHgSUCoWGZ",
+      "bytes": 323359,
+      "sha256": "bfaa533f462eaf6b2508413bac878d1011d41826acdb59701b1684e6cc11b2c1",
+      "width": 720,
+      "height": 1280,
+      "fps": 24.0,
+      "duration": 5.5,
+      "hasAudio": false
+    },
+    "opening-cinematic": {
+      "file": "opening.mp4",
+      "historyId": "95e6SynnRjqIEGrOsjqW",
+      "bytes": 1036004,
+      "sha256": "d3979da045609a3f71d7eb96164d47091a0c4a289c29ee8684dd3222c2593904",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24.0,
+      "duration": 4.0,
+      "hasAudio": true
+    }
+  },
+  "audio": {
+    "file": "grill-ambience.m4a",
+    "bytes": 12939,
+    "sha256": "072bf69ebc53f3cb77fe89f0744de232ff01cf21d6f681523c94812c6556bee4",
+    "source": "opening-cinematic / first 1.15 seconds"
+  }
+}

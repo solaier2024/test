@@ -15,59 +15,90 @@ import {
   REELS,
   type Grid,
   type Mode,
-  type SymbolId,
 } from "../core/config.ts";
+import { gridAt } from "../core/rng.ts";
 import type { Result } from "../core/provider.ts";
+import type { RoundEvent } from "../shell/round-controller.ts";
 import { t, type Locale } from "../i18n.ts";
 import { assetUrl } from "./assets.ts";
+import { reelFrame, stopPosition, winTier, type Quality } from "./motion.ts";
 
-const WIDTH = 820,
-  HEIGHT = 444,
-  CELL_W = 170,
-  CELL_H = 132;
-const X = [24, 210, 396] as const,
-  TOP = 24,
-  AXIS_X = 628;
+const W = 1000,
+  H = 528,
+  CW = 218,
+  CH = 160,
+  TOP = 24;
+const X = [24, 256, 488] as const;
+const AX = 768,
+  AC = AX + 100;
+const IDLE = [12, 24, 38] as const;
+const COLORS = [0xf6b32e, 0x39ab87, 0x549cce, 0xdf7452, 0xa074c2] as const;
 type Column = {
   group: Container;
   sprites: Sprite[];
+  ghosts: Sprite[];
   labels: Text[];
-  progress: number;
-  stopped: boolean;
+  position: number;
+  moving: boolean;
   bounce: number;
-  target: readonly SymbolId[];
+  blur: number;
+  pulse: number;
 };
+export type Cue =
+  "spin" | "stop" | "axis" | "line" | "win" | "big" | "grand" | "return";
 export class ReelView {
   private app = new Application();
-  private atlas: Texture | null = null;
+  private initialized = false;
   private textures: Texture[] = [];
+  private atlas: Texture | null = null;
   private columns: Column[] = [];
-  private axisTexts: Text[] = [];
-  private axisDecorations: Sprite[] = [];
-  private lines = new Graphics();
-  private timeline: gsap.core.Timeline | null = null;
-  private completion: (() => void) | null = null;
-  private axis = {
-    progress: 0,
-    stopped: true,
-    multiplier: 1,
-    mode: "standard" as Mode,
+  private highlight = new Graphics();
+  private wire = new Graphics();
+  private bottleGroup = new Container();
+  private bottle!: Sprite;
+  private multiplierText!: Text;
+  private multiplierCaption!: Text;
+  private particles: Sprite[] = [];
+  private particleTexture: Texture | null = null;
+  private fx = {
+    burst: 1,
+    glow: 0,
+    bottleScale: 1,
+    bottleRotation: 0,
+    axisProgress: 0,
+    axisRevealed: true,
   };
+  private award = { progress: 0 };
+  private timeline: gsap.core.Timeline | null = null;
+  private resolve: (() => void) | null = null;
   private locale: Locale = "es-MX";
   private result: Result | null = null;
+  private multiplier = 1;
+  private mode: Mode = "standard";
   private skipping = false;
-  private frames = 0;
   private lost = false;
+  private selectedLine = 0;
+  private quality: Quality = "lite";
+  private qualitySequence = 0;
+  private currentAtlasPath = "food-atlas.webp";
+  private reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  private frames = 0;
+  private startTime = 0;
+  private pausedAt = 0;
+  private pausedTime = 0;
+  private emitting: ((event: RoundEvent) => void) | null = null;
   constructor(
     private host: HTMLElement,
-    private cue: (kind: "stop" | "axis") => void,
+    private cue: (cue: Cue) => void,
     private onContext: (lost: boolean) => void,
+    private progress: (value: number) => void = () => {},
   ) {}
 
   async init() {
+    this.progress(0.08);
     await this.app.init({
-      width: WIDTH,
-      height: HEIGHT,
+      width: W,
+      height: H,
       backgroundAlpha: 0,
       autoStart: false,
       sharedTicker: false,
@@ -76,322 +107,636 @@ export class ReelView {
       preference: "webgl",
     });
     this.app.stop();
+    this.progress(0.28);
     this.host.replaceChildren(this.app.canvas);
-    this.app.canvas.setAttribute("role", "img");
     this.app.canvas.style.width = "100%";
     this.app.canvas.style.height = "100%";
+    this.app.canvas.setAttribute("role", "img");
     this.app.canvas.addEventListener("webglcontextlost", this.contextLost);
     this.app.canvas.addEventListener(
       "webglcontextrestored",
       this.contextRestored,
     );
     this.atlas = await Assets.load<Texture>(assetUrl("food-atlas.webp"));
-    for (let i = 0; i < 8; i++)
-      this.textures.push(
+    this.progress(0.58);
+    this.textures = this.framesFrom(this.atlas);
+    const bottle = await Assets.load<Texture>(assetUrl("salsa-bottle-v2.webp"));
+    this.progress(0.78);
+    this.buildBoard();
+    this.bottle = new Sprite(bottle);
+    this.bottle.anchor.set(0.5);
+    this.bottle.height = 446;
+    this.bottle.scale.x = this.bottle.scale.y;
+    this.bottleGroup.position.set(AC, H / 2);
+    this.bottleGroup.addChild(this.bottle);
+    this.multiplierText = new Text({
+      text: "×1",
+      style: {
+        fontFamily: "Barlow Condensed, sans-serif",
+        fontSize: 68,
+        fontWeight: "700",
+        fill: "#ffdb8c",
+        stroke: { color: "#321404", width: 2 },
+        dropShadow: { color: "#000000", alpha: 0.5, blur: 3, distance: 3 },
+      },
+    });
+    this.multiplierText.anchor.set(0.5);
+    this.multiplierText.y = 33;
+    this.multiplierCaption = new Text({
+      text: "",
+      style: {
+        fontFamily: "Barlow, sans-serif",
+        fontSize: 12,
+        fontWeight: "600",
+        fill: "#ffdda0",
+        letterSpacing: 2,
+      },
+    });
+    this.multiplierCaption.anchor.set(0.5);
+    this.multiplierCaption.y = 81;
+    this.bottleGroup.addChild(this.multiplierText, this.multiplierCaption);
+    this.app.stage.addChild(this.bottleGroup);
+    this.buildParticles();
+    this.app.stage.addChild(this.wire);
+    this.initialized = true;
+    this.host.dataset["quality"] = this.quality;
+    this.setLocale(this.locale);
+    this.showIdle("standard");
+    this.progress(1);
+  }
+  private framesFrom(atlas: Texture) {
+    const side = atlas.width / 4;
+    return Array.from(
+      { length: 8 },
+      (_, i) =>
         new Texture({
-          source: this.atlas.source,
+          source: atlas.source,
           frame: new Rectangle(
-            (i % 4) * 256,
-            Math.floor(i / 4) * 256,
-            256,
-            256,
+            (i % 4) * side,
+            Math.floor(i / 4) * side,
+            side,
+            side,
           ),
         }),
-      );
-    const background = new Graphics();
-    this.app.stage.addChild(background);
+    );
+  }
+  private buildBoard() {
+    const back = new Graphics();
+    this.app.stage.addChild(back);
+    back
+      .roundRect(8, 11, 718, 506, 18)
+      .fill(0x2b160c)
+      .stroke({ color: 0xbd8b38, width: 4 });
+    back
+      .roundRect(15, 18, 704, 490, 14)
+      .fill(0xdbc798)
+      .stroke({ color: 0xffe3a4, width: 2, alpha: 0.65 });
     for (const x of X) {
-      for (let row = 0; row < 3; row++) {
-        background
-          .roundRect(x, TOP + row * CELL_H, CELL_W, CELL_H - 5, 10)
-          .fill({ color: row === 1 ? 0x182725 : 0x15211f, alpha: 0.96 })
-          .stroke({ color: 0x9b794a, width: 1, alpha: 0.24 });
-      }
+      back
+        .roundRect(x, TOP, CW, CH * 3, 10)
+        .fill(0xf0dfb8)
+        .stroke({ color: 0x7f4e25, width: 2, alpha: 0.6 });
+      // Layered vertical highlights make one glass reel, not nine UI cards.
+      back
+        .rect(x + 3, TOP + 2, 13, CH * 3 - 4)
+        .fill({ color: 0xffffff, alpha: 0.22 });
+      back
+        .rect(x + CW - 11, TOP + 2, 8, CH * 3 - 4)
+        .fill({ color: 0x705029, alpha: 0.1 });
+      for (let r = 1; r < 3; r++)
+        back
+          .moveTo(x + 12, TOP + r * CH)
+          .lineTo(x + CW - 12, TOP + r * CH)
+          .stroke({ color: 0xa47a36, alpha: 0.28, width: 1 });
       const group = new Container();
       group.position.set(x, TOP);
       const mask = new Graphics()
-        .rect(x, TOP, CELL_W, CELL_H * 3)
+        .roundRect(x, TOP, CW, CH * 3, 10)
         .fill(0xffffff);
       this.app.stage.addChild(mask, group);
       group.mask = mask;
       const sprites: Sprite[] = [],
+        ghosts: Sprite[] = [],
         labels: Text[] = [];
-      for (let row = 0; row < 5; row++) {
-        const sprite = new Sprite(this.textures[row % 8]!);
+      for (let i = 0; i < 5; i++) {
+        const ghost = new Sprite(this.textures[0]!);
+        ghost.anchor.set(0.5);
+        ghost.width = 166;
+        ghost.height = 178;
+        ghost.alpha = 0;
+        const sprite = new Sprite(this.textures[0]!);
         sprite.anchor.set(0.5);
-        sprite.width = 138;
-        sprite.height = 138;
+        sprite.width = 166;
+        sprite.height = 166;
         const label = new Text({
           text: "",
           style: {
-            fontFamily: "Barlow, sans-serif",
-            fontSize: 13,
+            fontFamily: "Barlow Condensed, sans-serif",
+            fontSize: 19,
             fontWeight: "700",
-            fill: "#f7d287",
+            fill: "#6d3816",
             letterSpacing: 2,
+            stroke: { color: "#fff1c3", width: 3 },
           },
         });
         label.anchor.set(0.5);
+        ghosts.push(ghost);
         sprites.push(sprite);
         labels.push(label);
-        group.addChild(sprite, label);
+        group.addChild(ghost, sprite, label);
       }
       this.columns.push({
         group,
         sprites,
+        ghosts,
         labels,
-        progress: 0,
+        position: IDLE[this.columns.length]!,
+        moving: false,
         bounce: 0,
-        stopped: true,
-        target: [0, 6, 2],
+        blur: 0,
+        pulse: 1,
       });
     }
-    background
-      .roundRect(AXIS_X, TOP, 166, CELL_H * 3 - 5, 12)
-      .fill({ color: 0x14211f, alpha: 0.98 });
-    background
-      .roundRect(AXIS_X, TOP + CELL_H + 2, 166, CELL_H - 9, 9)
-      .fill({ color: 0x5e3d1c, alpha: 0.66 })
-      .stroke({ color: 0xf4c773, width: 2, alpha: 0.8 });
-    const axisGroup = new Container();
-    const axisMask = new Graphics()
-      .rect(AXIS_X, TOP, 166, CELL_H * 3 - 5)
+    const shade = new Graphics();
+    for (let i = 0; i < 12; i++) {
+      shade
+        .rect(19, TOP + i * 2, 695, 2)
+        .fill({ color: 0x472718, alpha: (12 - i) * 0.012 });
+      shade
+        .rect(19, TOP + CH * 3 - (i + 1) * 2, 695, 2)
+        .fill({ color: 0x472718, alpha: (12 - i) * 0.015 });
+    }
+    this.app.stage.addChild(shade, this.highlight);
+    back
+      .roundRect(750, 14, 231, 502, 28)
+      .fill(0x2a130c)
+      .stroke({ color: 0xe2ac53, width: 3 });
+    back
+      .roundRect(757, 21, 217, 488, 22)
+      .fill(0x441911)
+      .stroke({ color: 0x6d4824, width: 1 });
+    back.ellipse(AC, 488, 65, 11).fill({ color: 0x000000, alpha: 0.45 });
+    // Decorative screws and etched separations stay in the scene graph.
+    for (const [x, y] of [
+      [13, 10],
+      [725, 10],
+      [13, 518],
+      [725, 518],
+      [748, 11],
+      [982, 11],
+      [748, 519],
+      [982, 519],
+    ])
+      back
+        .circle(x!, y!, 4)
+        .fill(0xe8c16d)
+        .moveTo(x! - 2, y!)
+        .lineTo(x! + 2, y!)
+        .stroke({ color: 0x73451d, width: 1 });
+  }
+  private buildParticles() {
+    const star = new Graphics()
+      .poly([16, 0, 21, 11, 32, 16, 21, 21, 16, 32, 11, 21, 0, 16, 11, 11])
       .fill(0xffffff);
-    this.app.stage.addChild(axisMask, axisGroup);
-    axisGroup.mask = axisMask;
-    for (let i = 0; i < 5; i++) {
-      const text = new Text({
-        text: "×1",
-        style: {
-          fontFamily: "Barlow Condensed, sans-serif",
-          fontSize: 74,
-          fontWeight: "700",
-          fill: "#f1ca85",
-        },
-      });
-      text.anchor.set(0.5);
-      text.x = AXIS_X + 83;
-      axisGroup.addChild(text);
-      this.axisTexts.push(text);
+    this.particleTexture = this.app.renderer.generateTexture({
+      target: star,
+      resolution: 1,
+    });
+    star.destroy();
+    for (let i = 0; i < 32; i++) {
+      const sprite = new Sprite(this.particleTexture);
+      sprite.anchor.set(0.5);
+      sprite.visible = false;
+      sprite.tint = i % 3 ? 0xffd36e : 0xfff2c4;
+      this.app.stage.addChild(sprite);
+      this.particles.push(sprite);
     }
-    // Inactive cells are decorative peppers, not fabricated neighbouring
-    // jackpot stops. Only the center displays the accepted multiplier.
-    for (const row of [0, 2]) {
-      const pepper = new Sprite(this.textures[1]!);
-      pepper.anchor.set(0.5);
-      pepper.position.set(AXIS_X + 83, TOP + row * CELL_H + CELL_H / 2);
-      pepper.width = 92;
-      pepper.height = 92;
-      pepper.alpha = 0.44;
-      axisGroup.addChild(pepper);
-      this.axisDecorations.push(pepper);
-    }
-    this.app.stage.addChild(this.lines);
-    this.setGrid([
-      [6, 1, 4],
-      [3, 6, 7],
-      [0, 2, 5],
-    ]);
   }
   setLocale(locale: Locale) {
     this.locale = locale;
+    if (!this.initialized) return;
     this.app.canvas.setAttribute("aria-label", t(locale, "board"));
+    this.multiplierCaption.text = t(locale, "multiplier").toUpperCase();
     this.draw();
   }
-  setGrid(grid: Grid, multiplier = 1, mode: Mode = "standard") {
+  restore(result: Result) {
+    this.result = result;
+    this.mode = result.mode;
+    this.multiplier = result.multiplier;
+    this.fx.axisRevealed = true;
+    this.fx.axisProgress = 0;
+    this.selectedLine = 0;
     this.columns.forEach((column, c) => {
-      column.target = grid.map((row) => row[c]!);
-      column.stopped = true;
+      column.position = result.reelStops[c]!;
+      column.moving = false;
       column.bounce = 0;
+      column.blur = 0;
+      column.pulse = 1;
     });
-    this.axis = { ...this.axis, stopped: true, multiplier, mode };
+    this.showHighlights();
     this.draw();
   }
   showIdle(mode: Mode) {
     this.result = null;
-    this.lines.clear();
-    this.setGrid(
-      [
-        [6, 1, 4],
-        [3, 6, 7],
-        [0, 2, 5],
-      ],
-      mode === "extra" ? 2 : 1,
-      mode,
-    );
-  }
-  private draw() {
-    if (this.lost) return;
-    for (const [c, column] of this.columns.entries()) {
-      const offset = column.stopped ? column.bounce : column.progress % CELL_H;
-      for (let i = 0; i < 5; i++) {
-        const index = column.stopped
-          ? column.target[(i - 1 + 3) % 3]!
-          : REELS[c]![(i + Math.floor(column.progress / CELL_H)) % 64]!;
-        const sprite = column.sprites[i]!,
-          label = column.labels[i]!;
-        sprite.texture = this.textures[index]!;
-        sprite.position.set(CELL_W / 2, (i - 1) * CELL_H + CELL_H / 2 + offset);
-        label.text =
-          index === 7 && column.stopped ? t(this.locale, "allWild") : "";
-        label.position.set(sprite.x, sprite.y + 48);
-      }
-    }
-    const values =
-      this.axis.mode === "extra" ? MULTIPLIERS.slice(1) : MULTIPLIERS;
-    const centerIndex = values.indexOf(
-      this.axis.multiplier as (typeof MULTIPLIERS)[number],
-    );
-    this.axisTexts.forEach((text, i) => {
-      text.visible = !this.axis.stopped || i === 2;
-      const index = this.axis.stopped
-        ? (centerIndex + i - 2 + values.length * 2) % values.length
-        : (Math.floor(this.axis.progress / CELL_H) + i) % values.length;
-      text.text = `×${values[index]}`;
-      text.y =
-        TOP +
-        (i - 1) * CELL_H +
-        CELL_H / 2 +
-        (this.axis.stopped ? 0 : this.axis.progress % CELL_H);
-      text.alpha = i === 2 && this.axis.stopped ? 1 : 0.22;
+    this.mode = mode;
+    this.selectedLine = 0;
+    this.multiplier = mode === "extra" ? 2 : 1;
+    this.fx.axisRevealed = true;
+    this.fx.glow = 0;
+    this.fx.burst = 1;
+    this.columns.forEach((column, c) => {
+      column.position = IDLE[c]!;
+      column.moving = false;
+      column.bounce = 0;
+      column.blur = 0;
+      column.pulse = 1;
     });
-    for (const pepper of this.axisDecorations)
-      pepper.visible = this.axis.stopped;
-    this.app.render();
-    this.frames++;
+    this.highlight.clear();
+    this.wire.clear();
+    this.draw();
   }
-  private showLines(result: Result) {
-    this.lines.clear();
-    const colors = [0xf7c96f, 0x85d4b1, 0x9cc9ef, 0xf19f91, 0xe3b6f8];
-    for (const win of result.lineWins) {
+  inspectLine(line: number) {
+    if (
+      !this.result ||
+      this.timeline ||
+      !this.result.lineWins.some((w) => w.line === line)
+    )
+      return;
+    this.selectedLine = this.selectedLine === line ? 0 : line;
+    this.showHighlights();
+    this.draw();
+  }
+  private showHighlights() {
+    this.highlight.clear();
+    this.wire.clear();
+    if (!this.result) return;
+    for (const win of this.result.lineWins) {
+      if (this.selectedLine && win.line !== this.selectedLine) continue;
       const rows = LINES[win.line - 1]!;
       for (let c = 0; c < 3; c++) {
-        const x = X[c]! + CELL_W / 2,
-          y = TOP + rows[c]! * CELL_H + CELL_H / 2;
-        if (!c) this.lines.moveTo(x, y);
-        else this.lines.lineTo(x, y);
+        const row = rows[c]!;
+        this.highlight
+          .roundRect(X[c]! + 5, TOP + row * CH + 6, CW - 10, CH - 12, 11)
+          .fill({ color: COLORS[win.line - 1]!, alpha: 0.065 })
+          .stroke({
+            color: COLORS[win.line - 1]!,
+            width: this.selectedLine ? 4 : 3,
+            alpha: 0.88,
+          });
+        const x = X[c]! + CW / 2,
+          y = TOP + row * CH + CH / 2;
+        if (!c) this.wire.moveTo(x, y);
+        else this.wire.lineTo(x, y);
       }
-      this.lines.stroke({
-        color: colors[win.line - 1]!,
-        alpha: 0.78,
-        width: 4,
+      this.wire.stroke({
+        color: COLORS[win.line - 1]!,
+        width: 3,
+        alpha: this.selectedLine ? 0.7 : 0.24,
       });
     }
   }
-  present(result: Result, turbo: boolean): Promise<void> {
+  private draw() {
+    if (!this.initialized || this.lost) return;
+    for (const [c, column] of this.columns.entries()) {
+      const frame = reelFrame(column.position, REELS[c]!.length);
+      for (let i = 0; i < 5; i++) {
+        const row = i - 1;
+        const symbol = REELS[c]![(frame.center + row - 1 + 128) % 64]!;
+        const sprite = column.sprites[i]!,
+          ghost = column.ghosts[i]!,
+          label = column.labels[i]!;
+        sprite.texture = this.textures[symbol]!;
+        ghost.texture = sprite.texture;
+        sprite.position.set(
+          CW / 2,
+          row * CH + CH / 2 - frame.fraction * CH + column.bounce,
+        );
+        sprite.scale.set((166 / sprite.texture.width) * column.pulse);
+        sprite.alpha =
+          this.selectedLine &&
+          this.result &&
+          row >= 0 &&
+          row < 3 &&
+          LINES[this.selectedLine - 1]![c] !== row
+            ? 0.35
+            : 1;
+        ghost.position.set(sprite.x, sprite.y + 17);
+        ghost.alpha = column.blur * 0.19;
+        ghost.scale.set(sprite.scale.x, sprite.scale.y * 1.15);
+        label.text =
+          !column.moving && symbol === 7 ? t(this.locale, "allWild") : "";
+        label.position.set(sprite.x, sprite.y + 61);
+      }
+    }
+    this.bottleGroup.scale.set(this.fx.bottleScale);
+    this.bottleGroup.rotation = this.fx.bottleRotation;
+    const values = this.mode === "extra" ? MULTIPLIERS.slice(1) : MULTIPLIERS;
+    this.multiplierText.text = this.fx.axisRevealed
+      ? `×${this.multiplier}`
+      : `×${values[Math.floor(this.fx.axisProgress) % values.length]}`;
+    this.multiplierText.alpha = this.fx.axisRevealed ? 1 : 0.55;
+    this.bottle.tint = this.fx.glow > 0.3 ? 0xffddac : 0xffffff;
+    for (const [i, particle] of this.particles.entries()) {
+      const p = this.fx.burst;
+      particle.visible = p < 1 && !this.reduced;
+      if (!particle.visible) continue;
+      const angle = (i * 2.399963229728653) % (Math.PI * 2);
+      const velocity = 160 + (i % 5) * 43;
+      particle.position.set(
+        420 + Math.cos(angle) * velocity * p,
+        255 + Math.sin(angle) * velocity * p + 160 * p * p,
+      );
+      particle.alpha = (1 - p) * 0.9;
+      particle.rotation = i + p * 4;
+      particle.scale.set((0.22 + (i % 3) * 0.1) * (1 - p * 0.5));
+    }
+    this.app.render();
+    this.frames++;
+  }
+  present(
+    result: Result,
+    turbo: boolean,
+    emit: (event: RoundEvent) => void = () => {},
+    replay = false,
+  ): Promise<void> {
     this.skip();
     this.result = result;
+    this.selectedLine = 0;
+    this.mode = result.mode;
+    this.multiplier = result.multiplier;
     this.skipping = false;
     this.frames = 0;
-    this.lines.clear();
-    this.lines.alpha = 0;
-    this.axis.mode = result.mode;
-    this.axis.stopped = false;
-    this.axis.progress = 0;
-    for (const [c, column] of this.columns.entries()) {
-      column.target = result.grid.map((row) => row[c]!);
-      column.progress = 0;
-      column.bounce = 0;
-      column.stopped = false;
-    }
-    const speed =
-      turbo || matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? 0.43
-        : 1;
+    this.startTime = performance.now();
+    this.pausedTime = 0;
+    this.pausedAt = 0;
+    this.emitting = emit;
+    this.highlight.clear();
+    this.wire.clear();
+    this.fx.axisRevealed = false;
+    this.fx.axisProgress = 0;
+    this.fx.glow = 0;
+    this.fx.burst = 1;
+    this.award.progress = 0;
+    const speed = this.reduced ? 0.15 : turbo ? 0.4 : 1;
+    const tier = winTier(result.payoutUnits, result.totalCostUnits);
+    if (!replay) this.cue("spin");
+    emit({ stage: "reels" });
     gsap.config({ autoSleep: 15 });
     return new Promise((resolve) => {
-      this.completion = resolve;
+      this.resolve = resolve;
       const timeline = gsap.timeline({
         onUpdate: () => this.draw(),
         onComplete: () => this.finish(),
       });
       this.timeline = timeline;
       this.columns.forEach((column, c) => {
-        const end = (1 + c * 0.2) * speed;
+        const start = column.position;
+        const target = stopPosition(start, result.reelStops[c]!, 64, 1);
+        column.moving = true;
+        column.pulse = 1;
+        column.bounce = 0;
+        const stopTime = 1 + c * 0.18;
         timeline.to(
           column,
           {
-            progress: 2400 + c * 600,
-            duration: end,
-            ease: "none",
-            onComplete: () => {
-              column.stopped = true;
-              column.bounce = -12;
-              if (!this.skipping) this.cue("stop");
-            },
+            position: start + 5,
+            blur: 1,
+            duration: 0.14 * speed,
+            ease: "power2.in",
           },
-          0.04 * speed,
+          0.02 * speed,
         );
         timeline.to(
           column,
-          { bounce: 0, duration: 0.15 * speed, ease: "back.out(1.6)" },
-          end + 0.04 * speed,
+          {
+            position: target - 3,
+            duration: (stopTime - 0.48) * speed,
+            ease: "none",
+          },
+          0.16 * speed,
+        );
+        timeline.to(
+          column,
+          {
+            position: target,
+            blur: 0,
+            duration: 0.32 * speed,
+            ease: "power3.out",
+            onComplete: () => {
+              column.moving = false;
+              column.bounce = -8;
+              if (!this.skipping) this.cue("stop");
+            },
+          },
+          (stopTime - 0.32) * speed,
+        );
+        timeline.to(
+          column,
+          { bounce: 0, duration: 0.12 * speed, ease: "back.out(1.4)" },
+          stopTime * speed,
         );
       });
-      timeline.to(
-        this.axis,
-        {
-          progress: 3800,
-          duration: 1.85 * speed,
-          ease: "power1.out",
-          onComplete: () => {
-            this.axis.stopped = true;
-            this.axis.multiplier = result.multiplier;
-            if (!this.skipping) this.cue("axis");
-          },
+      timeline.call(
+        () => {
+          this.selectedLine = 0;
+          this.showHighlights();
+          emit({ stage: "base" });
         },
-        0.04 * speed,
+        [],
+        1.5 * speed,
       );
-      timeline.call(() => this.showLines(result), [], 1.99 * speed);
       timeline.to(
-        this.lines,
-        { alpha: 1, duration: 0.23 * speed },
-        1.99 * speed,
+        this.fx,
+        { axisProgress: 36, duration: 1.76 * speed, ease: "none" },
+        0.02 * speed,
       );
-      if (document.hidden) timeline.pause();
+      timeline.to(
+        this.fx,
+        { bottleRotation: -0.035, duration: 0.13 * speed },
+        1.64 * speed,
+      );
+      timeline.call(
+        () => {
+          this.fx.axisRevealed = true;
+          this.fx.bottleRotation = 0;
+          emit({ stage: "multiplier" });
+          if (!this.skipping) this.cue("axis");
+        },
+        [],
+        1.82 * speed,
+      );
+      timeline.to(
+        this.fx,
+        {
+          bottleScale: 1.07,
+          glow: 1,
+          duration: 0.13 * speed,
+          ease: "power2.out",
+        },
+        1.82 * speed,
+      );
+      timeline.to(
+        this.fx,
+        {
+          bottleScale: 1,
+          glow: 0,
+          duration: 0.2 * speed,
+          ease: "power2.inOut",
+        },
+        1.95 * speed,
+      );
+      let time = 2.05;
+      for (const win of result.lineWins) {
+        timeline.call(
+          () => {
+            this.selectedLine = win.line;
+            this.showHighlights();
+            emit({ stage: "multiplier", line: win.line });
+            if (!this.skipping) this.cue("line");
+          },
+          [],
+          time * speed,
+        );
+        for (const column of this.columns)
+          timeline.to(
+            column,
+            { pulse: 1.06, duration: 0.06 * speed, yoyo: true, repeat: 1 },
+            time * speed,
+          );
+        time += 0.12;
+      }
+      timeline.call(
+        () => {
+          this.selectedLine = 0;
+          this.showHighlights();
+          emit({ stage: "award", progress: 0 });
+          if (!this.skipping && !replay && tier !== "none") this.cue(tier);
+          if (!replay && ["win", "big", "grand"].includes(tier))
+            this.fx.burst = 0;
+        },
+        [],
+        time * speed,
+      );
+      const countTime =
+        tier === "grand"
+          ? 0.95
+          : tier === "big"
+            ? 0.7
+            : result.payoutUnits
+              ? 0.45
+              : 0.12;
+      timeline.to(
+        this.award,
+        {
+          progress: 1,
+          duration: countTime * speed,
+          ease: "power2.out",
+          onUpdate: () =>
+            emit({ stage: "award", progress: this.award.progress }),
+        },
+        time * speed,
+      );
+      if (["win", "big", "grand"].includes(tier) && !replay)
+        timeline.to(
+          this.fx,
+          {
+            burst: 1,
+            duration: Math.max(countTime, 0.65) * speed,
+            ease: "none",
+          },
+          time * speed,
+        );
+      if (document.hidden) this.setHidden(true);
     });
   }
   private finish() {
-    if (this.result) {
-      this.setGrid(this.result.grid, this.result.multiplier, this.result.mode);
-      this.showLines(this.result);
-      this.lines.alpha = 1;
-      this.draw();
+    const result = this.result;
+    if (this.pausedAt) {
+      this.pausedTime += performance.now() - this.pausedAt;
+      this.pausedAt = 0;
+    }
+    this.timeline = null;
+    this.fx.burst = 1;
+    this.fx.bottleScale = 1;
+    this.fx.bottleRotation = 0;
+    if (result) {
+      this.restore(result);
+      this.emitting?.({ stage: "award", progress: 1 });
     }
     this.host.dataset["frameCount"] = String(this.frames);
-    this.timeline = null;
-    const resolve = this.completion;
-    this.completion = null;
+    this.host.dataset["activeMs"] = String(
+      Math.round(performance.now() - this.startTime - this.pausedTime),
+    );
+    this.host.dataset["quality"] = this.quality;
+    this.emitting = null;
+    const resolve = this.resolve;
+    this.resolve = null;
     resolve?.();
   }
   skip() {
-    if (!this.timeline) return;
-    this.skipping = true;
     const timeline = this.timeline;
+    if (!timeline) return;
+    this.skipping = true;
     timeline.progress(1);
     timeline.kill();
-    if (this.completion) this.finish();
+    if (this.resolve) this.finish();
+  }
+  async setQuality(quality: Quality) {
+    if (!this.initialized || this.timeline || quality === this.quality) return;
+    const sequence = ++this.qualitySequence;
+    const path =
+      quality === "full" ? "food-atlas-full.webp" : "food-atlas.webp";
+    try {
+      const next = await Assets.load<Texture>(assetUrl(path));
+      if (sequence !== this.qualitySequence || this.timeline) return;
+      const previous = this.textures,
+        oldPath = this.currentAtlasPath;
+      this.atlas = next;
+      this.textures = this.framesFrom(next);
+      this.currentAtlasPath = path;
+      this.quality = quality;
+      this.app.renderer.resolution = Math.min(
+        devicePixelRatio,
+        quality === "full" ? 2 : 1.5,
+      );
+      this.app.renderer.resize(W, H);
+      this.draw();
+      previous.forEach((texture) => texture.destroy(false));
+      if (oldPath !== path) await Assets.unload(assetUrl(oldPath));
+      this.host.dataset["quality"] = this.quality;
+    } catch {
+      /* Preserve the complete previous atlas, never partial sprites. */
+    }
   }
   setHidden(hidden: boolean) {
-    if (hidden) this.timeline?.pause();
-    else this.timeline?.resume();
+    if (!this.timeline) return;
+    if (hidden) {
+      this.timeline.pause();
+      if (!this.pausedAt) this.pausedAt = performance.now();
+    } else {
+      if (this.pausedAt) {
+        this.pausedTime += performance.now() - this.pausedAt;
+        this.pausedAt = 0;
+      }
+      this.timeline.resume();
+    }
   }
   private contextLost = (event: Event) => {
     event.preventDefault();
     this.lost = true;
-    this.timeline?.pause();
+    this.setHidden(true);
     this.onContext(true);
   };
   private contextRestored = () => {
     this.lost = false;
     this.onContext(false);
-    if (this.result)
-      this.setGrid(this.result.grid, this.result.multiplier, this.result.mode);
     this.skip();
     this.draw();
   };
   dispose() {
+    this.qualitySequence++;
     this.skip();
+    if (!this.initialized) return;
     this.app.canvas.removeEventListener("webglcontextlost", this.contextLost);
     this.app.canvas.removeEventListener(
       "webglcontextrestored",
@@ -402,7 +747,11 @@ export class ReelView {
       texture: true,
       textureSource: false,
     });
-    this.textures = [];
-    this.columns = [];
+    this.textures.forEach((texture) => texture.destroy(false));
+    this.particleTexture?.destroy(true);
+    this.initialized = false;
+  }
+  get idleGrid(): Grid {
+    return gridAt(IDLE);
   }
 }
