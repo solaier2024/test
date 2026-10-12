@@ -28,19 +28,36 @@
     "opening-cinematic": {
       "file": "opening.mp4",
       "historyId": "95e6SynnRjqIEGrOsjqW",
-      "bytes": 1036004,
-      "sha256": "d3979da045609a3f71d7eb96164d47091a0c4a289c29ee8684dd3222c2593904",
+      "bytes": 1035385,
+      "sha256": "60b30cae3e132ce0d342c278465d59fe69fad723a3ab185f315981e9ef0736be",
       "width": 1920,
       "height": 1080,
       "fps": 24.0,
       "duration": 4.0,
-      "hasAudio": true
+      "hasAudio": true,
+      "audioSource": "Notanico Merengue + original CG grill ambience; remixed"
     }
   },
   "audio": {
     "file": "grill-ambience.m4a",
-    "bytes": 12939,
-    "sha256": "072bf69ebc53f3cb77fe89f0744de232ff01cf21d6f681523c94812c6556bee4",
-    "source": "opening-cinematic / first 1.15 seconds"
+    "bytes": 122547,
+    "sha256": "66bab7a8b4175b998ff39f4ba87a90e3ce446f5c58c6bf4d9cdda49e3fb9d150",
+    "duration": 12,
+    "source": "Original approved opening-cinematic / first 1.15 seconds; filtered granular ambience"
+  },
+  "music": {
+    "file": "street-fiesta.m4a",
+    "bytes": 949909,
+    "sha256": "85f711d7565b30529fefc26a2a82ab7cdee3c74057d7f8636b366e2d54ac5001",
+    "duration": 64,
+    "bpm": 120,
+    "title": "Notanico Merengue",
+    "artist": "Kevin MacLeod",
+    "isrc": "USUAN1100130",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "sourceUrl": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Notanico%20Merengue.mp3",
+    "sourceSha256": "b88a89782ddba8a2e97ed2cd759586f28cdf943688d7a1cdc5e611249c517bbf",
+    "changes": "64-second loop edit, circular crossfade and gain; cooking ambience mixed separately"
   }
 }

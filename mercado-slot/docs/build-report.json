@@ -1,11 +1,11 @@
 {
   "status": "PASS",
-  "script_and_css_gzip_bytes": 233406,
+  "script_and_css_gzip_bytes": 233806,
   "art_bytes": 1204186,
   "critical_art_bytes": 547362,
   "fonts_woff2_bytes": 89720,
-  "production_critical_transfer_bytes": 870488,
-  "progressive_media_bytes": 1813399,
+  "production_critical_transfer_bytes": 870888,
+  "progressive_media_bytes": 2872297,
   "videos": [
     {
       "role": "landscape-environment",
@@ -25,16 +25,29 @@
     },
     {
       "role": "opening-cinematic",
-      "bytes": 1036004,
+      "bytes": 1035385,
       "width": 1920,
       "height": 1080,
       "duration_seconds": 4,
       "has_audio": true
     }
   ],
-  "standalone_bytes": 1721357,
-  "standalone_gzip_bytes": 951828,
+  "audio": [
+    {
+      "role": "ambience",
+      "bytes": 122547,
+      "duration_seconds": 12
+    },
+    {
+      "role": "music",
+      "bytes": 949909,
+      "duration_seconds": 64
+    }
+  ],
+  "standalone_bytes": 1722637,
+  "standalone_gzip_bytes": 952212,
   "renderer": "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
   "media_policy": "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
+  "audio_policy": "One streamed AAC music element + 12-second grill buffer; no note scheduler; music pauses for CG, mute and hidden tabs; separate ambience and effects gains",
   "scope": "Build and asset budgets; physical mobile FPS and memory are not certified"
 }

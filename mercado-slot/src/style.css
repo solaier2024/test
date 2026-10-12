@@ -1479,6 +1479,30 @@ input[type="checkbox"] {
   accent-color: #e8b560;
   width: 130px;
 }
+.settings-fields small {
+  display: block;
+  margin-top: 5px;
+  color: #af9471;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.music-credits {
+  margin-top: 18px;
+  color: #cbb391;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.music-credits summary {
+  cursor: pointer;
+  color: #ebbd72;
+}
+.music-credits a {
+  color: #ebbd72;
+  text-underline-offset: 3px;
+}
+.music-credits p {
+  margin: 10px 0 0;
+}
 @media (min-height: 850px) and (min-width: 761px) {
   .topbar {
     height: 48px;

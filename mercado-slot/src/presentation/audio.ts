@@ -1,7 +1,8 @@
 import type { Cue } from "./view.ts";
 import { mediaUrl } from "./assets.ts";
 
-// Original cumbia-inspired percussion and mallet score. No licensed melody.
+// Stream the licensed street-party score; Web Audio mixes it with our own cues.
+// Attribution and loop-edit details are visible in the bilingual settings menu.
 export class MarketAudio {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -10,23 +11,31 @@ export class MarketAudio {
   private noise: AudioBuffer | null = null;
   private grill: AudioBufferSourceNode | null = null;
   private sources = new Set<AudioScheduledSourceNode>();
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private nextBeat = 0;
-  private step = 0;
+  private recording: HTMLAudioElement;
+  private recordingNode: MediaElementAudioSourceNode | null = null;
+  private playAttempt = 0;
+  private playPending = false;
   private hidden = false;
   private cinematic = false;
   private active = false;
+  private disposed = false;
   enabled = true;
   music = true;
   volume = 0.65;
+  constructor(recording: HTMLAudioElement) {
+    this.recording = recording;
+  }
   async unlock() {
+    if (this.disposed) return;
     this.active = true;
     if (!this.enabled || this.hidden) return;
     try {
       if (!this.context) this.create();
-      await this.context!.resume();
-      if (this.enabled && !this.hidden) this.startScore();
-      else void this.context!.suspend();
+      const context = this.context!;
+      await context.resume();
+      if (this.context !== context || this.disposed) return;
+      if (this.enabled && !this.hidden) this.syncMusic();
+      else void context.suspend();
     } catch {
       /* Audio never blocks playing with the accepted result. */
     }
@@ -37,11 +46,20 @@ export class MarketAudio {
     this.master.gain.value = this.volume;
     this.master.connect(context.destination);
     this.musicBus = context.createGain();
-    this.musicBus.gain.value = 0.32;
+    this.musicBus.gain.value = 0.72;
     this.musicBus.connect(this.master);
     this.ambienceBus = context.createGain();
-    this.ambienceBus.gain.value = 0.05;
+    this.ambienceBus.gain.value = 0.22;
     this.ambienceBus.connect(this.master);
+    // One native streaming decoder avoids retaining a minute-long PCM buffer
+    // and the old 80-ms synthetic-note timer on every device.
+    this.recording.crossOrigin = "anonymous";
+    this.recording.loop = true;
+    this.recording.preload = "auto";
+    this.recording.src = mediaUrl("street-fiesta.m4a");
+    this.recordingNode = context.createMediaElementSource(this.recording);
+    this.recordingNode.connect(this.musicBus);
+    this.recording.load();
     this.mix();
     const buffer = context.createBuffer(
       1,
@@ -56,7 +74,9 @@ export class MarketAudio {
     }
     this.noise = buffer;
     // The background recording is extracted from this game's own approved CG.
-    void fetch(mediaUrl("grill-ambience.m4a"))
+    void fetch(mediaUrl("grill-ambience.m4a"), {
+      signal: AbortSignal.timeout(6000),
+    })
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
       .then((bytes) => context.decodeAudioData(bytes))
       .then((audio) => {
@@ -147,56 +167,33 @@ export class MarketAudio {
       gain.disconnect();
     });
   }
-  private startScore() {
-    if (this.timer || !this.context) return;
-    this.nextBeat = this.context.currentTime + 0.06;
-    this.timer = setInterval(() => this.schedule(), 80);
-    this.schedule();
-  }
-  private schedule() {
-    const c = this.context;
-    if (
-      !c ||
-      !this.enabled ||
-      this.hidden ||
-      this.cinematic ||
-      !this.music ||
-      c.state !== "running"
-    )
+  private syncMusic() {
+    const wanted =
+      this.active &&
+      this.enabled &&
+      this.music &&
+      !this.hidden &&
+      !this.cinematic &&
+      !this.disposed &&
+      this.context?.state === "running";
+    if (!wanted) {
+      this.playAttempt++;
+      this.playPending = false;
+      this.recording.pause();
       return;
-    const quarter = 60 / 94 / 4;
-    if (this.nextBeat < c.currentTime) this.nextBeat = c.currentTime + 0.03;
-    while (this.nextBeat < c.currentTime + 0.15) {
-      const s = this.step % 32,
-        at = this.nextBeat;
-      if (s % 4 === 0)
-        this.tone(100, at, 0.12, 0.15, "sine", this.musicBus, 48);
-      if ([4, 10, 20, 26].includes(s))
-        this.percussion(at, 0.055, 1150, 0.105, this.musicBus);
-      if (s % 2 === 0) this.percussion(at, 0.036, 7600, 0.032, this.musicBus);
-      if ([3, 7, 12, 19, 23, 28].includes(s))
-        this.tone(190, at, 0.11, 0.058, "sine", this.musicBus, 126);
-      const bass = [65.406, 65.406, 87.307, 97.999];
-      if (s % 8 === 0 || s % 8 === 5)
-        this.tone(
-          bass[Math.floor(s / 8)]!,
-          at,
-          0.25,
-          0.1,
-          "triangle",
-          this.musicBus,
-        );
-      if ([2, 6, 11, 14, 18, 22, 27, 30].includes(s)) {
-        const melody = [
-          261.626, 329.628, 391.995, 329.628, 349.228, 440, 391.995, 293.665,
-        ];
-        const note = melody[Math.floor(s / 4)]!;
-        this.tone(note, at, 0.22, 0.03, "sine", this.musicBus);
-        this.tone(note * 3, at, 0.055, 0.012, "sine", this.musicBus);
-      }
-      this.step++;
-      this.nextBeat += quarter;
     }
+    if (!this.recording.paused || this.playPending) return;
+    const attempt = ++this.playAttempt;
+    this.playPending = true;
+    void this.recording
+      .play()
+      .catch(() => {
+        // A late rejection from a paused CG/mute attempt must not stop the
+        // replacement play request. Network failure never blocks the game.
+      })
+      .finally(() => {
+        if (attempt === this.playAttempt) this.playPending = false;
+      });
   }
   cue(kind: Cue) {
     const c = this.context;
@@ -235,12 +232,14 @@ export class MarketAudio {
     this.enabled = enabled;
     if (!enabled) {
       this.stopPending();
+      this.syncMusic();
       void this.context?.suspend();
     } else if (this.active && !this.hidden) void this.unlock();
   }
   setMusic(enabled: boolean) {
     this.music = enabled;
     this.mix();
+    this.syncMusic();
   }
   setVolume(volume: number) {
     this.volume = Math.max(0, Math.min(1, volume));
@@ -254,17 +253,18 @@ export class MarketAudio {
   setCinematic(active: boolean) {
     this.cinematic = active;
     this.mix();
+    this.syncMusic();
   }
   private mix() {
     const c = this.context;
     if (!c) return;
     this.musicBus?.gain.setTargetAtTime(
-      !this.cinematic && this.music ? 0.32 : 0,
+      !this.cinematic && this.music ? 0.72 : 0,
       c.currentTime,
       0.08,
     );
     this.ambienceBus?.gain.setTargetAtTime(
-      this.cinematic ? 0 : 0.05,
+      this.cinematic ? 0 : 0.22,
       c.currentTime,
       0.08,
     );
@@ -275,21 +275,26 @@ export class MarketAudio {
         source.stop();
       } catch {}
     }
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
   }
   setHidden(hidden: boolean) {
     this.hidden = hidden;
     if (hidden) {
       this.stopPending();
+      this.syncMusic();
       void this.context?.suspend();
     } else if (this.enabled && this.active) void this.unlock();
   }
   dispose() {
+    this.disposed = true;
+    this.syncMusic();
     this.stopPending();
     try {
       this.grill?.stop();
     } catch {}
+    this.recordingNode?.disconnect();
+    this.recordingNode = null;
+    this.recording.removeAttribute("src");
+    this.recording.load();
     void this.context?.close();
     this.context = null;
   }

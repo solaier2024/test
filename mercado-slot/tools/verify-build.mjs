@@ -93,10 +93,27 @@ for (const name of [
   });
   mediaBytes += bytes.length;
 }
-const ambience = await readFile(`${directory}/media/${media.audio.file}`);
-assert.equal(ambience.length, media.audio.bytes);
-assert.equal(hash(ambience), media.audio.sha256);
-mediaBytes += ambience.length;
+const audio = [];
+for (const [role, asset] of [
+  ["ambience", media.audio],
+  ["music", media.music],
+]) {
+  assert(asset, `Missing ${role} asset`);
+  assert(/^[a-z-]+\.m4a$/.test(asset.file));
+  const bytes = await readFile(`${directory}/media/${asset.file}`);
+  assert.equal(bytes.length, asset.bytes);
+  assert.equal(hash(bytes), asset.sha256);
+  assert(bytes.length <= 1_000_000, "Progressive audio budget");
+  assert.equal(bytes.toString("ascii", 4, 8), "ftyp");
+  assert(bytes.includes(Buffer.from("mp4a")), "AAC decoder path");
+  assert(asset.duration > 0 && asset.duration <= 65);
+  audio.push({ role, bytes: bytes.length, duration_seconds: asset.duration });
+  mediaBytes += bytes.length;
+}
+assert.equal(
+  media.music.licenseUrl,
+  "https://creativecommons.org/licenses/by/4.0/",
+);
 let scriptAndCssGzip = 0,
   fontBytes = 0;
 for (const file of await readdir(`${directory}/assets`)) {
@@ -158,12 +175,15 @@ const report = {
     scriptAndCssGzip + criticalArtBytes + fontBytes,
   progressive_media_bytes: mediaBytes,
   videos,
+  audio,
   standalone_bytes: Buffer.byteLength(standalone),
   standalone_gzip_bytes: gzipSync(standalone).length,
   renderer:
     "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
   media_policy:
     "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
+  audio_policy:
+    "One streamed AAC music element + 12-second grill buffer; no note scheduler; music pauses for CG, mute and hidden tabs; separate ambience and effects gains",
   scope:
     "Build and asset budgets; physical mobile FPS and memory are not certified",
 };

@@ -38,6 +38,10 @@ const es = {
   exampleExtra: "Prueba Extra",
   settings: "A tu gusto",
   music: "Música",
+  musicStyle: "Fiesta callejera · metales y percusión",
+  musicCredits: "Créditos de música",
+  musicEdit:
+    "Edición en bucle y mezcla para Mercado de Oro. El sonido de la parrilla procede de nuestra apertura.",
   volume: "Volumen",
   ambient: "Mercado en movimiento",
   effects: "Detalle visual",
@@ -179,6 +183,10 @@ const en: Record<keyof typeof es, string> = {
   exampleExtra: "Try Extra",
   settings: "Make it yours",
   music: "Music",
+  musicStyle: "Street fiesta · brass & percussion",
+  musicCredits: "Music credits",
+  musicEdit:
+    "Loop edit and mix for Mercado de Oro. Grill sound comes from our opening.",
   volume: "Volume",
   ambient: "Live market",
   effects: "Visual detail",

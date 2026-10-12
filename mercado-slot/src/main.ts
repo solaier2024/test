@@ -125,6 +125,7 @@ const icon = (
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
 };
 $("#app").innerHTML = `
+  <audio id="market-music" loop preload="none" crossorigin="anonymous" hidden></audio>
   <div class="market-scene" id="market-scene" aria-hidden="true"><video id="market-video" playsinline muted></video><div class="scene-shade"></div><div class="scene-embers"><i></i><i></i><i></i><i></i></div></div>
   <header class="topbar"><span class="demo-badge" data-i18n="demo"></span><div class="tools">
     <button id="sound" class="icon-button">${icon("sound")}</button><button id="history" class="icon-button">${icon("history")}</button>
@@ -161,7 +162,7 @@ $("#app").innerHTML = `
   <dialog id="history-dialog"></dialog><dialog id="receipt-dialog"></dialog><dialog id="menu-dialog" class="compact-dialog"></dialog>
   <dialog id="reset-dialog" class="compact-dialog"></dialog><dialog id="settings-dialog" class="compact-dialog"></dialog>`;
 
-const audio = new MarketAudio();
+const audio = new MarketAudio($<HTMLAudioElement>("#market-music"));
 audio.enabled = prefs.sound;
 audio.music = prefs.music;
 audio.volume = prefs.volume;
@@ -657,7 +658,7 @@ function menu() {
 function settings() {
   modal(
     "#settings-dialog",
-    `${header(text("settings"))}<div class="settings-fields"><label>${msg("music")}<input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}/></label><label>${msg("ambient")}<input id="setting-ambient" type="checkbox" ${prefs.ambient ? "checked" : ""}/></label><label>${msg("haptics")}<input id="setting-haptics" type="checkbox" ${prefs.haptics ? "checked" : ""}/></label><label>${msg("volume")}<input id="setting-volume" type="range" min="0" max="100" value="${Math.round(prefs.volume * 100)}"/></label><label>${msg("effects")}<select id="setting-quality">${(["auto", "lite", "full"] as const).map((q) => `<option value="${q}" ${prefs.quality === q ? "selected" : ""}>${text(q)}</option>`).join("")}</select></label><label>${msg("language")}<select id="setting-locale"><option value="es-MX" ${prefs.locale === "es-MX" ? "selected" : ""}>Español</option><option value="en-US" ${prefs.locale === "en-US" ? "selected" : ""}>English</option></select></label></div>`,
+    `${header(text("settings"))}<div class="settings-fields"><label><span>${msg("music")}<small>${msg("musicStyle")}</small></span><input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}/></label><label>${msg("ambient")}<input id="setting-ambient" type="checkbox" ${prefs.ambient ? "checked" : ""}/></label><label>${msg("haptics")}<input id="setting-haptics" type="checkbox" ${prefs.haptics ? "checked" : ""}/></label><label>${msg("volume")}<input id="setting-volume" type="range" min="0" max="100" value="${Math.round(prefs.volume * 100)}"/></label><label>${msg("effects")}<select id="setting-quality">${(["auto", "lite", "full"] as const).map((q) => `<option value="${q}" ${prefs.quality === q ? "selected" : ""}>${text(q)}</option>`).join("")}</select></label><label>${msg("language")}<select id="setting-locale"><option value="es-MX" ${prefs.locale === "es-MX" ? "selected" : ""}>Español</option><option value="en-US" ${prefs.locale === "en-US" ? "selected" : ""}>English</option></select></label></div><details class="music-credits"><summary>${msg("musicCredits")}</summary><p>“<a href="https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100130" target="_blank" rel="noopener noreferrer">Notanico Merengue</a>”<br/>Kevin MacLeod · <a href="https://incompetech.com/" target="_blank" rel="noopener noreferrer">incompetech.com</a><br/><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a></p><p>${msg("musicEdit")}</p></details>`,
   );
   $("#setting-music").addEventListener("change", () => {
     prefs.music = $<HTMLInputElement>("#setting-music").checked;
