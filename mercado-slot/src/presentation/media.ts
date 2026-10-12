@@ -19,13 +19,15 @@ export class MarketMedia {
   private cinematic = false;
   private hidden = document.hidden;
   private generation = 0;
+  private playAttempt = 0;
   private finishOpening: (() => void) | null = null;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
   private currentEnvironment = "";
-  constructor(
-    private video: HTMLVideoElement,
-    private stage: HTMLElement,
-  ) {
+  private video: HTMLVideoElement;
+  private stage: HTMLElement;
+  constructor(video: HTMLVideoElement, stage: HTMLElement) {
+    this.video = video;
+    this.stage = stage;
     video.playsInline = true;
     video.preload = "metadata";
     video.addEventListener("playing", () =>
@@ -77,6 +79,7 @@ export class MarketMedia {
     this.video.poster = assetUrl(path);
   }
   private release() {
+    this.playAttempt++;
     this.video.pause();
     this.video.removeAttribute("src");
     this.video.load();
@@ -102,7 +105,15 @@ export class MarketMedia {
     this.video.muted = true;
     this.video.loop = true;
     this.video.dataset["state"] = "environment";
+    const attempt = ++this.playAttempt;
     void this.video.play().catch(() => {
+      if (
+        attempt !== this.playAttempt ||
+        this.cinematic ||
+        this.hidden ||
+        !this.enabled
+      )
+        return;
       this.stage.classList.remove("video-playing");
       this.video.dataset["state"] = "fallback";
     });
@@ -174,8 +185,13 @@ export class MarketMedia {
   setHidden(hidden: boolean) {
     this.hidden = hidden;
     if (hidden) this.video.pause();
-    else if (this.cinematic) void this.video.play().catch(() => this.skip());
-    else this.environment();
+    else if (this.cinematic) {
+      const generation = this.generation;
+      void this.video.play().catch(() => {
+        if (generation === this.generation && this.cinematic && !this.hidden)
+          this.skip();
+      });
+    } else this.environment();
   }
   private resize = () => {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
