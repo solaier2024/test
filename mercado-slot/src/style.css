@@ -248,22 +248,22 @@ option {
 }
 .machine {
   position: relative;
-  border: 3px solid #c9923d;
+  border: 3px solid #ab8955;
   border-radius: 19px 19px 9px 9px;
   padding: 0 8px;
   background: linear-gradient(
     90deg,
-    #2b1210,
-    #56251d 18%,
-    #3b1614 50%,
-    #54251c 80%,
-    #211510
+    #15241c,
+    #304030 18%,
+    #1b2b21 50%,
+    #2a3b2c 80%,
+    #0e1c15
   );
   box-shadow:
-    0 0 0 1px #ffdf8c,
-    0 0 0 5px #311e12,
+    0 0 0 1px #d2b075,
+    0 0 0 5px #111c15,
     0 18px 36px #050a08b3,
-    inset 0 0 0 1px #4c231e;
+    inset 0 0 0 1px #496048;
 }
 .awning {
   position: absolute;
@@ -274,16 +274,16 @@ option {
   border-radius: 14px 14px 5px 5px;
   background: repeating-linear-gradient(
     90deg,
-    #9b2930 0,
-    #9b2930 38px,
-    #6f1721 38px,
-    #6f1721 76px
+    #913236 0,
+    #913236 38px,
+    #5a2228 38px,
+    #5a2228 76px
   );
   box-shadow:
     inset 0 1px 2px #ed9b6170,
     inset 0 -4px 6px #3e090a91,
     0 4px 5px #1b070b70;
-  border-bottom: 2px solid #c59445;
+  border-bottom: 2px solid #b39866;
 }
 .bulb-strip {
   position: absolute;
@@ -330,11 +330,11 @@ option {
   padding-left: 18px;
 }
 .reel-shell {
-  background: #160f0c;
+  background: #0b1510;
   border-radius: 9px;
-  border: 1px solid #cf9d41;
+  border: 1px solid #af915b;
   box-shadow:
-    0 1px 1px #efcf92,
+    0 1px 1px #c6aa75,
     inset 0 0 14px #000;
   position: relative;
   overflow: hidden;
@@ -355,7 +355,7 @@ option {
   background: linear-gradient(
     112deg,
     transparent 10%,
-    #ffe9b505 32%,
+    #f6e1ac0b 32%,
     transparent 45%
   );
   box-shadow: inset 0 0 0 2px #0f0a0355;
@@ -569,7 +569,7 @@ option {
   width: 22px;
   height: 49px;
   flex-shrink: 0;
-  background: url("/art/salsa-bottle-v2.webp") center / contain no-repeat;
+  background: url("/art/salsa-bottle-v3.webp") center / contain no-repeat;
 }
 .extra-copy strong {
   display: block;
@@ -1268,7 +1268,7 @@ input[type="checkbox"] {
   display: inline-block;
   width: 64px;
   height: 64px;
-  background-image: url("/art/food-atlas.webp");
+  background-image: url("/art/food-atlas-v3.webp");
   background-size: 400% 200%;
   background-repeat: no-repeat;
 }

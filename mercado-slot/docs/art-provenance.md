@@ -1,5 +1,7 @@
 # 原创美术来源
 
+当前生产版使用 v3 食物摄影图集、琥珀玻璃酱料瓶及森林绿木质黄铜招牌。完整选型、生成提示词、工作区路径和资源预算见 [art-direction-v3.md](art-direction-v3.md)。以下保留 v1/v2 的来源记录，旧素材已改为非关键资源。
+
 本轮新增资产：`brand-sign-v2.webp`（768×294、透明立体标牌）、`salsa-bottle-v2.webp`（287×960、透明酱料瓶）。`food-atlas-full.webp` 为原图 1776×888 的高分辨率编码，与 Lite 共用八格布局；`market-landscape-v2.webp` 和 `market-portrait-v2.webp` 为审批视频的海报帧。尺寸、透明度、字节和校验和见资源 manifest。确定性整理工具为 prepare-polish-art.mjs 和 import-media.py；未用脚本重绘生成图。
 
 ## brand-sign-v2

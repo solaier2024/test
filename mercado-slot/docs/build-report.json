@@ -1,10 +1,10 @@
 {
   "status": "PASS",
-  "script_and_css_gzip_bytes": 234376,
-  "art_bytes": 1204186,
-  "critical_art_bytes": 547362,
+  "script_and_css_gzip_bytes": 234449,
+  "art_bytes": 2070410,
+  "critical_art_bytes": 418058,
   "fonts_woff2_bytes": 89720,
-  "production_critical_transfer_bytes": 871458,
+  "production_critical_transfer_bytes": 742227,
   "progressive_media_bytes": 2872297,
   "videos": [
     {
@@ -44,8 +44,8 @@
       "duration_seconds": 64
     }
   ],
-  "standalone_bytes": 1724163,
-  "standalone_gzip_bytes": 952773,
+  "standalone_bytes": 1551880,
+  "standalone_gzip_bytes": 822961,
   "renderer": "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
   "media_policy": "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
   "audio_policy": "One streamed AAC music element + 12-second grill buffer; no note scheduler; music pauses for CG, mute and hidden tabs; separate ambience and effects gains",

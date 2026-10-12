@@ -133,7 +133,7 @@ $("#app").innerHTML = `
     <button id="fullscreen" class="icon-button desktop-tool">${icon("full")}</button><button id="menu" class="icon-button">${icon("menu")}</button>
   </div></header>
   <main class="game" id="game">
-    <div class="wordmark"><h1 class="sr-only">Mercado de Oro</h1><img class="brand-sign" src="${assetUrl("brand-sign-v2.webp")}" alt="Mercado de Oro"/><p data-i18n="tagline"></p></div>
+    <div class="wordmark"><h1 class="sr-only">Mercado de Oro</h1><img class="brand-sign" src="${assetUrl("brand-sign-v3.webp")}" alt="Mercado de Oro"/><p data-i18n="tagline"></p></div>
     <section class="machine" aria-label="Mercado de Oro"><div class="awning" aria-hidden="true"></div><div class="bulb-strip" aria-hidden="true">${"<i></i>".repeat(12)}</div>
       <div class="machine-top"><span class="paylines" data-i18n="activeLines"></span><span class="maximum"><span data-i18n="upTo"></span> <strong id="max-return">375×</strong></span><span class="salsa-title" data-i18n="salsa"></span></div>
       <div class="reel-shell"><div id="reels"></div><div class="cabinet-glint" aria-hidden="true"></div></div>
@@ -155,7 +155,7 @@ $("#app").innerHTML = `
   </main>
   <div class="toast" id="toast" role="status" hidden></div>
   <div class="cinematic-controls" id="cinematic-controls" hidden><button id="skip-cinematic"></button></div>
-  <dialog id="entrance-dialog" class="entrance-dialog"><div class="entrance-content"><img src="${assetUrl("brand-sign-v2.webp")}" alt="Mercado de Oro"/><p data-i18n="entranceHint"></p>
+  <dialog id="entrance-dialog" class="entrance-dialog"><div class="entrance-content"><img src="${assetUrl("brand-sign-v3.webp")}" alt="Mercado de Oro"/><p data-i18n="entranceHint"></p>
     <div class="loader" id="loader"><div class="sauce-load" aria-hidden="true"><i></i></div><span id="loading-label"></span><strong id="loading-percent">0%</strong></div>
     <button id="enter" class="primary" disabled></button><small data-i18n="soundHint"></small><span class="entrance-demo" data-i18n="demo"></span></div></dialog>
   <dialog id="guide-dialog" class="guide-dialog"></dialog><dialog id="rules-dialog"></dialog><dialog id="bet-dialog" class="compact-dialog"></dialog>
@@ -467,7 +467,7 @@ function renderTutorial(first = false) {
     tutorialStep === 0
       ? `<div class="tutorial-lines">${lineSvg(tutorialLine)}<p>${text("tapLine")}</p><div class="line-buttons">${[1, 2, 3, 4, 5].map((i) => `<button data-guide-line="${i}" aria-pressed="${i === tutorialLine}">${i}</button>`).join("")}</div><div class="wild-lesson"><span class="food-thumb food-7"></span><span>${symbolNames[prefs.locale][7]}<br><strong>${text("allWild")}</strong></span></div></div>`
       : tutorialStep === 1
-        ? `<div class="tutorial-salsa"><img src="${assetUrl("salsa-bottle-v2.webp")}" alt=""/><b>×${tutorialMultiplier}</b><span class="lesson-formula">${money(baseWin)} × ${tutorialMultiplier} = <strong>${money(payout)}</strong></span><button id="example-salsa">${text("exampleSalsa")} ↻</button><small>${text("exampleLines")}</small></div>`
+        ? `<div class="tutorial-salsa"><img src="${assetUrl("salsa-bottle-v3.webp")}" alt=""/><b>×${tutorialMultiplier}</b><span class="lesson-formula">${money(baseWin)} × ${tutorialMultiplier} = <strong>${money(payout)}</strong></span><button id="example-salsa">${text("exampleSalsa")} ↻</button><small>${text("exampleLines")}</small></div>`
         : `<div class="tutorial-price"><span>${text("base")}<strong>${money(base)}</strong></span><span>${text("cost")}<strong>${money(cost)}</strong></span><label><input type="checkbox" id="example-extra" ${tutorialExtra ? "checked" : ""}/>${text("exampleExtra")}</label><p>${text("payout")} ${money(payout)} · ${text("net")} ${money(payout - cost, true)}</p></div>`;
   const html = `${header(text(titles[tutorialStep]!))}<div class="tutorial-dots" aria-label="${tutorialStep + 1}/3">${[0, 1, 2].map((i) => `<i class="${i === tutorialStep ? "active" : ""}"></i>`).join("")}</div><span class="lesson-example">${text("example")}</span>${visual}<p class="tutorial-body">${text(bodies[tutorialStep]!)}</p><div class="tutorial-actions"><button id="guide-back" ${tutorialStep === 0 ? "disabled" : ""}>${text("back")}</button><button id="guide-next" class="primary">${text(tutorialStep === 2 ? "tutorialPlay" : "tutorialNext")}</button></div><button id="guide-skip" class="text-button">${text("tutorialSkip")}</button>`;
   if (first) modal(id, html);

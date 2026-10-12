@@ -34,6 +34,7 @@ const W = 1000,
   CW = 218,
   CH = 160,
   TOP = 24;
+const SYMBOL_SIZE = 182;
 const X = [24, 256, 488] as const;
 const AX = 768,
   AC = AX + 100;
@@ -87,7 +88,7 @@ export class ReelView {
   private selectedLine = 0;
   private quality: Quality = "lite";
   private qualitySequence = 0;
-  private currentAtlasPath = "food-atlas.webp";
+  private currentAtlasPath = "food-atlas-v3.webp";
   private reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   private frames = 0;
   private startTime = 0;
@@ -124,10 +125,10 @@ export class ReelView {
       "webglcontextrestored",
       this.contextRestored,
     );
-    this.atlas = await Assets.load<Texture>(assetUrl("food-atlas.webp"));
+    this.atlas = await Assets.load<Texture>(assetUrl("food-atlas-v3.webp"));
     this.progress(0.58);
     this.textures = this.framesFrom(this.atlas);
-    const bottle = await Assets.load<Texture>(assetUrl("salsa-bottle-v2.webp"));
+    const bottle = await Assets.load<Texture>(assetUrl("salsa-bottle-v3.webp"));
     this.progress(0.78);
     this.buildBoard();
     this.bottle = new Sprite(bottle);
@@ -192,29 +193,35 @@ export class ReelView {
     this.app.stage.addChild(back);
     back
       .roundRect(8, 11, 718, 506, 18)
-      .fill(0x2b160c)
-      .stroke({ color: 0xbd8b38, width: 4 });
+      .fill(0x111c17)
+      .stroke({ color: 0xa5824a, width: 4 });
     back
       .roundRect(15, 18, 704, 490, 14)
-      .fill(0xdbc798)
-      .stroke({ color: 0xffe3a4, width: 2, alpha: 0.65 });
+      .fill(0x0d1814)
+      .stroke({ color: 0xd8bb7b, width: 2, alpha: 0.5 });
     for (const x of X) {
       back
         .roundRect(x, TOP, CW, CH * 3, 10)
-        .fill(0xf0dfb8)
-        .stroke({ color: 0x7f4e25, width: 2, alpha: 0.6 });
+        .fill(0x1b2b23)
+        .stroke({ color: 0x957f54, width: 2, alpha: 0.55 });
       // Layered vertical highlights make one glass reel, not nine UI cards.
       back
         .rect(x + 3, TOP + 2, 13, CH * 3 - 4)
-        .fill({ color: 0xffffff, alpha: 0.22 });
+        .fill({ color: 0xf7edd2, alpha: 0.045 });
       back
         .rect(x + CW - 11, TOP + 2, 8, CH * 3 - 4)
-        .fill({ color: 0x705029, alpha: 0.1 });
+        .fill({ color: 0x07120d, alpha: 0.25 });
       for (let r = 1; r < 3; r++)
         back
           .moveTo(x + 12, TOP + r * CH)
           .lineTo(x + CW - 12, TOP + r * CH)
-          .stroke({ color: 0xa47a36, alpha: 0.28, width: 1 });
+          .stroke({ color: 0xbaa279, alpha: 0.11, width: 1 });
+      // Static broad reflection and shadow bands give the smoked glass depth.
+      for (let j = 0; j < 18; j++)
+        back.rect(x + 17, TOP + 28 + j * 20, CW - 30, 20).fill({
+          color: 0xf9d99a,
+          alpha: Math.sin((j / 17) * Math.PI) * 0.014,
+        });
       const group = new Container();
       group.position.set(x, TOP);
       const mask = new Graphics()
@@ -228,22 +235,22 @@ export class ReelView {
       for (let i = 0; i < 5; i++) {
         const ghost = new Sprite(this.textures[0]!);
         ghost.anchor.set(0.5);
-        ghost.width = 166;
-        ghost.height = 178;
+        ghost.width = SYMBOL_SIZE;
+        ghost.height = SYMBOL_SIZE * 1.08;
         ghost.alpha = 0;
         const sprite = new Sprite(this.textures[0]!);
         sprite.anchor.set(0.5);
-        sprite.width = 166;
-        sprite.height = 166;
+        sprite.width = SYMBOL_SIZE;
+        sprite.height = SYMBOL_SIZE;
         const label = new Text({
           text: "",
           style: {
             fontFamily: "Barlow Condensed, sans-serif",
-            fontSize: 19,
+            fontSize: 17,
             fontWeight: "700",
-            fill: "#6d3816",
+            fill: "#f6d48e",
             letterSpacing: 2,
-            stroke: { color: "#fff1c3", width: 3 },
+            stroke: { color: "#122019", width: 3 },
           },
         });
         label.anchor.set(0.5);
@@ -269,10 +276,10 @@ export class ReelView {
     for (let i = 0; i < 12; i++) {
       shade
         .rect(19, TOP + i * 2, 695, 2)
-        .fill({ color: 0x472718, alpha: (12 - i) * 0.012 });
+        .fill({ color: 0x020b07, alpha: (12 - i) * 0.018 });
       shade
         .rect(19, TOP + CH * 3 - (i + 1) * 2, 695, 2)
-        .fill({ color: 0x472718, alpha: (12 - i) * 0.015 });
+        .fill({ color: 0x020b07, alpha: (12 - i) * 0.02 });
     }
     this.app.stage.addChild(shade, this.highlight);
     back
@@ -423,7 +430,7 @@ export class ReelView {
           CW / 2,
           row * CH + CH / 2 - frame.fraction * CH + column.bounce,
         );
-        sprite.scale.set((166 / sprite.texture.width) * column.pulse);
+        sprite.scale.set((SYMBOL_SIZE / sprite.texture.width) * column.pulse);
         sprite.alpha =
           this.selectedLine &&
           this.result &&
@@ -433,11 +440,11 @@ export class ReelView {
             ? 0.35
             : 1;
         ghost.position.set(sprite.x, sprite.y + 17);
-        ghost.alpha = column.blur * 0.19;
+        ghost.alpha = column.blur * 0.14;
         ghost.scale.set(sprite.scale.x, sprite.scale.y * 1.15);
         label.text =
           !column.moving && symbol === 7 ? t(this.locale, "allWild") : "";
-        label.position.set(sprite.x, sprite.y + 61);
+        label.position.set(sprite.x, sprite.y + 66);
       }
     }
     this.bottleGroup.scale.set(this.fx.bottleScale);
@@ -741,7 +748,7 @@ export class ReelView {
     if (!this.initialized || this.timeline || quality === this.quality) return;
     const sequence = ++this.qualitySequence;
     const path =
-      quality === "full" ? "food-atlas-full.webp" : "food-atlas.webp";
+      quality === "full" ? "food-atlas-full-v3.webp" : "food-atlas-v3.webp";
     try {
       const next = await Assets.load<Texture>(assetUrl(path));
       if (sequence !== this.qualitySequence || this.timeline) return;
