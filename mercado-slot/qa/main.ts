@@ -13,6 +13,7 @@ import { assetUrl } from "../src/presentation/assets.ts";
 import { ReelView } from "../src/presentation/view.ts";
 import { winTier } from "../src/presentation/motion.ts";
 
+let quick = false;
 const cases = [
   {
     name: "No line ×15",
@@ -62,7 +63,7 @@ for (
       }
     }
 document.querySelector("#app")!.innerHTML =
-  `<header class="topbar"><b>INTERNAL QA · FIXTURE RESULTS · NO RANDOM DRAW</b></header><main class="game"><div class="wordmark"><img class="brand-sign" alt="Mercado de Oro" src="${assetUrl("brand-sign-v2.webp")}"></div><section class="machine"><div class="awning"></div><div class="machine-top"><span>5 ACTIVE PAYLINES</span><span>FIXTURE</span><span class="salsa-title">SALSA</span></div><div class="reel-shell"><div id="reels"></div></div><div class="machine-bottom"><span id="stage">Loading</span><span></span><span id="tier"></span></div></section><section class="result-ribbon"><span id="fixture-name"></span><strong id="award"></strong><span></span></section><section class="controls" style="display:flex;flex-wrap:wrap;justify-content:center">${cases.map((c, i) => `<button class="primary" data-case="${i}" disabled>${c.name}</button>`).join("")}<button id="skip" class="primary" disabled>Skip animation</button><button id="lite" class="primary" disabled>Lite atlas</button></section><p class="note" id="inspection"></p></main>`;
+  `<header class="topbar"><b>INTERNAL QA · FIXTURE RESULTS · NO RANDOM DRAW</b></header><main class="game"><div class="wordmark"><img class="brand-sign" alt="Mercado de Oro" src="${assetUrl("brand-sign-v2.webp")}"></div><section class="machine"><div class="awning"></div><div class="machine-top"><span>5 ACTIVE PAYLINES</span><span>FIXTURE</span><span class="salsa-title">SALSA</span></div><div class="reel-shell"><div id="reels"></div></div><div class="machine-bottom"><span id="stage">Loading</span><span></span><span id="tier"></span></div></section><section class="result-ribbon"><span id="fixture-name"></span><strong id="award"></strong><span></span></section><section class="controls" style="display:flex;flex-wrap:wrap;justify-content:center">${cases.map((c, i) => `<button class="primary" data-case="${i}" disabled>${c.name}</button>`).join("")}<button id="skip" class="primary" disabled>Skip animation</button><button id="lite" class="primary" disabled>Lite atlas</button><label>Quick mode <input id="quick" type="checkbox"/></label></section><p class="note" id="timing"></p><p class="note" id="inspection"></p></main>`;
 const $ = (s: string) => document.querySelector<HTMLElement>(s)!;
 const view = new ReelView(
   $("#reels"),
@@ -101,7 +102,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-case]").forEach((button) =>
     };
     $("#fixture-name").textContent = f.name;
     $("#tier").textContent = winTier(result.payoutUnits, cost);
-    await view.present(result, false, (event) => {
+    await view.present(result, quick, (event) => {
       $("#stage").textContent = event.stage;
       $("#award").textContent = formatMoney(
         event.stage === "base"
@@ -113,6 +114,14 @@ document.querySelectorAll<HTMLButtonElement>("[data-case]").forEach((button) =>
             : 0n,
         "en-US",
       );
+    });
+    $("#timing").textContent = JSON.stringify({
+      pace: $("#reels").dataset["spinPace"],
+      reelStopsMs: JSON.parse(
+        $("#reels").dataset["reelStopMs"] ?? "[]",
+      ) as number[],
+      activeMs: Number($("#reels").dataset["activeMs"]),
+      frameCount: Number($("#reels").dataset["frameCount"]),
     });
     $("#inspection").innerHTML = result.lineWins
       .map(
@@ -132,6 +141,10 @@ document.querySelectorAll<HTMLButtonElement>("[data-case]").forEach((button) =>
 );
 $("#skip").addEventListener("click", () => view.skip());
 $("#lite").addEventListener("click", () => void view.setQuality("lite"));
+$("#quick").addEventListener("change", () => {
+  if (!busy)
+    quick = (document.querySelector("#quick") as HTMLInputElement).checked;
+});
 document.addEventListener("visibilitychange", () =>
   view.setHidden(document.hidden),
 );

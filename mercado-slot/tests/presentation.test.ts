@@ -18,6 +18,9 @@ import {
 import {
   awardAt,
   reelFrame,
+  reelMotion,
+  reelSequence,
+  spinTiming,
   stopPosition,
   winTier,
 } from "../src/presentation/motion.ts";
@@ -26,6 +29,79 @@ import {
   type Presenter,
   type RoundEvent,
 } from "../src/shell/round-controller.ts";
+
+test("visual reel speed is fixed across accepted offsets and continuous through acceleration/braking", () => {
+  for (const turbo of [false, true])
+    for (let column = 0; column < 3; column++) {
+      const motion = reelMotion(column, turbo);
+      const launch = (motion.velocity * motion.accelerate) / 2;
+      const braking = (motion.velocity * motion.brake) / 2;
+      assert(motion.cruise > 0);
+      assert(
+        Math.abs(
+          (motion.travel - launch - braking) / motion.cruise - motion.velocity,
+        ) < 1e-10,
+      );
+      const h = 1e-6;
+      const endOfAcceleration =
+        (launch - launch * (1 - h / motion.accelerate) ** 2) / h;
+      const startOfBraking = (braking * (1 - (1 - h / motion.brake) ** 2)) / h;
+      assert(Math.abs(endOfAcceleration - motion.velocity) < 0.001);
+      assert(Math.abs(startOfBraking - motion.velocity) < 0.001);
+    }
+});
+
+test("recycled presentation strips preserve the old visible window and land on every authoritative stop", () => {
+  for (let column = 0; column < 3; column++) {
+    const strip = REELS[column]!;
+    for (const turbo of [false, true]) {
+      const { travel } = reelMotion(column, turbo);
+      for (let current = 0; current < strip.length; current++)
+        for (let stop = 0; stop < strip.length; stop++) {
+          const sequence = reelSequence(strip, current, stop, travel);
+          assert.equal(sequence.length, travel + 5);
+          assert.deepEqual(
+            sequence.slice(0, 5),
+            [-2, -1, 0, 1, 2].map(
+              (offset) => strip[(current + offset + 64) % 64],
+            ),
+          );
+          assert.deepEqual(
+            sequence.slice(travel, travel + 5),
+            [-2, -1, 0, 1, 2].map((offset) => strip[(stop + offset + 64) % 64]),
+          );
+          const authoritative = [0, 0, 0];
+          authoritative[column] = stop;
+          assert.deepEqual(
+            sequence.slice(travel + 1, travel + 4),
+            gridAt(authoritative).map((row) => row[column]),
+          );
+        }
+    }
+  }
+});
+
+test("ordinary and quick timing keep ordered reel stops, then reveal the multiplier after settling", () => {
+  for (const turbo of [false, true]) {
+    const timing = spinTiming(turbo);
+    const stops = timing.reels.map((motion) => motion.stopAt);
+    assert(stops[0]! < stops[1]! && stops[1]! < stops[2]!);
+    assert(timing.baseAt > stops[2]! + timing.reels[2]!.settle);
+    assert(timing.multiplierAt > timing.baseAt);
+    assert(timing.lineAt > timing.multiplierAt);
+    assert(
+      turbo
+        ? stops[2]! >= 0.9 && stops[2]! <= 1.1
+        : stops[2]! >= 1.8 && stops[2]! <= 2.1,
+    );
+  }
+  const reduced = spinTiming(true, true);
+  assert.equal(reduced.id, "reduced");
+  assert(reduced.reels.every((r) => r.travel === 0 && r.velocity === 0));
+  assert.equal(reduced.bounce, 0);
+  assert.throws(() => reelMotion(3, false));
+  assert.throws(() => reelSequence(REELS[0]!, 0, 64, 20));
+});
 
 test("every displayed reel stop matches the accepted grid after one or more complete turns", () => {
   for (let c = 0; c < 3; c++)

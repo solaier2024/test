@@ -21,7 +21,13 @@ import type { Result } from "../core/provider.ts";
 import type { RoundEvent } from "../shell/round-controller.ts";
 import { t, type Locale } from "../i18n.ts";
 import { assetUrl } from "./assets.ts";
-import { reelFrame, stopPosition, winTier, type Quality } from "./motion.ts";
+import {
+  reelFrame,
+  reelSequence,
+  spinTiming,
+  winTier,
+  type Quality,
+} from "./motion.ts";
 
 const W = 1000,
   H = 528,
@@ -39,6 +45,7 @@ type Column = {
   ghosts: Sprite[];
   labels: Text[];
   position: number;
+  sequence: readonly number[] | null;
   moving: boolean;
   bounce: number;
   blur: number;
@@ -251,6 +258,7 @@ export class ReelView {
         ghosts,
         labels,
         position: IDLE[this.columns.length]!,
+        sequence: null,
         moving: false,
         bounce: 0,
         blur: 0,
@@ -327,6 +335,7 @@ export class ReelView {
     this.fx.axisProgress = 0;
     this.selectedLine = 0;
     this.columns.forEach((column, c) => {
+      column.sequence = null;
       column.position = result.reelStops[c]!;
       column.moving = false;
       column.bounce = 0;
@@ -345,6 +354,7 @@ export class ReelView {
     this.fx.glow = 0;
     this.fx.burst = 1;
     this.columns.forEach((column, c) => {
+      column.sequence = null;
       column.position = IDLE[c]!;
       column.moving = false;
       column.bounce = 0;
@@ -401,7 +411,9 @@ export class ReelView {
       const frame = reelFrame(column.position, REELS[c]!.length);
       for (let i = 0; i < 5; i++) {
         const row = i - 1;
-        const symbol = REELS[c]![(frame.center + row - 1 + 128) % 64]!;
+        const symbol = column.sequence
+          ? column.sequence[Math.floor(column.position) + row + 1]!
+          : REELS[c]![(frame.center + row - 1 + 128) % 64]!;
         const sprite = column.sprites[i]!,
           ghost = column.ghosts[i]!,
           label = column.labels[i]!;
@@ -477,7 +489,10 @@ export class ReelView {
     this.fx.glow = 0;
     this.fx.burst = 1;
     this.award.progress = 0;
-    const speed = this.reduced ? 0.15 : turbo ? 0.4 : 1;
+    const timing = spinTiming(turbo, this.reduced);
+    this.host.dataset["spinPace"] = timing.id;
+    this.host.dataset["reelStopMs"] = "[]";
+    const observedStops: number[] = [];
     const tier = winTier(result.payoutUnits, result.totalCostUnits);
     if (!replay) this.cue("spin");
     emit({ stage: "reels" });
@@ -490,50 +505,82 @@ export class ReelView {
       });
       this.timeline = timeline;
       this.columns.forEach((column, c) => {
-        const start = column.position;
-        const target = stopPosition(start, result.reelStops[c]!, 64, 1);
+        const motion = timing.reels[c]!;
         column.moving = true;
         column.pulse = 1;
         column.bounce = 0;
-        const stopTime = 1 + c * 0.18;
+        column.blur = 0;
+        const stopped = () => {
+          column.moving = false;
+          column.bounce = -timing.bounce;
+          if (!this.skipping) {
+            this.cue("stop");
+            observedStops[c] = Math.round(
+              performance.now() - this.startTime - this.pausedTime,
+            );
+            this.host.dataset["reelStopMs"] = JSON.stringify(observedStops);
+          }
+        };
+        if (this.reduced) {
+          // Reduced motion reveals the accepted windows without rapid scrolling.
+          timeline.call(
+            () => {
+              column.sequence = null;
+              column.position = result.reelStops[c]!;
+              stopped();
+            },
+            [],
+            motion.stopAt,
+          );
+          return;
+        }
+        column.sequence = reelSequence(
+          REELS[c]!,
+          Math.round(column.position),
+          result.reelStops[c]!,
+          motion.travel,
+        );
+        column.position = 0;
+        const launch = (motion.velocity * motion.accelerate) / 2;
+        const braking = (motion.velocity * motion.brake) / 2;
         timeline.to(
           column,
           {
-            position: start + 5,
+            position: launch,
             blur: 1,
-            duration: 0.14 * speed,
-            ease: "power2.in",
+            duration: motion.accelerate,
+            ease: "power1.in",
           },
-          0.02 * speed,
+          motion.startAt,
         );
         timeline.to(
           column,
           {
-            position: target - 3,
-            duration: (stopTime - 0.48) * speed,
+            position: motion.travel - braking,
+            duration: motion.cruise,
             ease: "none",
           },
-          0.16 * speed,
+          motion.startAt + motion.accelerate,
         );
         timeline.to(
           column,
           {
-            position: target,
+            position: motion.travel,
             blur: 0,
-            duration: 0.32 * speed,
-            ease: "power3.out",
-            onComplete: () => {
-              column.moving = false;
-              column.bounce = -8;
-              if (!this.skipping) this.cue("stop");
-            },
+            duration: motion.brake,
+            ease: "power1.out",
+            onComplete: stopped,
           },
-          (stopTime - 0.32) * speed,
+          motion.stopAt - motion.brake,
         );
         timeline.to(
           column,
-          { bounce: 0, duration: 0.12 * speed, ease: "back.out(1.4)" },
-          stopTime * speed,
+          {
+            bounce: 0,
+            duration: motion.settle,
+            ease: "power2.out",
+          },
+          motion.stopAt,
         );
       });
       timeline.call(
@@ -543,17 +590,21 @@ export class ReelView {
           emit({ stage: "base" });
         },
         [],
-        1.5 * speed,
+        timing.baseAt,
       );
       timeline.to(
         this.fx,
-        { axisProgress: 36, duration: 1.76 * speed, ease: "none" },
-        0.02 * speed,
+        {
+          axisProgress: timing.axisSteps,
+          duration: timing.multiplierAt - 0.03,
+          ease: "none",
+        },
+        0.02,
       );
       timeline.to(
         this.fx,
-        { bottleRotation: -0.035, duration: 0.13 * speed },
-        1.64 * speed,
+        { bottleRotation: this.reduced ? 0 : -0.025, duration: timing.pulse },
+        timing.multiplierAt - timing.pulse,
       );
       timeline.call(
         () => {
@@ -563,29 +614,29 @@ export class ReelView {
           if (!this.skipping) this.cue("axis");
         },
         [],
-        1.82 * speed,
+        timing.multiplierAt,
       );
       timeline.to(
         this.fx,
         {
-          bottleScale: 1.07,
-          glow: 1,
-          duration: 0.13 * speed,
+          bottleScale: this.reduced ? 1 : 1.06,
+          glow: this.reduced ? 0 : 1,
+          duration: timing.pulse,
           ease: "power2.out",
         },
-        1.82 * speed,
+        timing.multiplierAt,
       );
       timeline.to(
         this.fx,
         {
           bottleScale: 1,
           glow: 0,
-          duration: 0.2 * speed,
+          duration: timing.bottleSettle,
           ease: "power2.inOut",
         },
-        1.95 * speed,
+        timing.multiplierAt + timing.pulse,
       );
-      let time = 2.05;
+      let time = timing.lineAt;
       for (const win of result.lineWins) {
         timeline.call(
           () => {
@@ -595,15 +646,20 @@ export class ReelView {
             if (!this.skipping) this.cue("line");
           },
           [],
-          time * speed,
+          time,
         );
         for (const column of this.columns)
           timeline.to(
             column,
-            { pulse: 1.06, duration: 0.06 * speed, yoyo: true, repeat: 1 },
-            time * speed,
+            {
+              pulse: this.reduced ? 1 : 1.05,
+              duration: timing.pulse / 2,
+              yoyo: true,
+              repeat: 1,
+            },
+            time,
           );
-        time += 0.12;
+        time += timing.lineGap;
       }
       timeline.call(
         () => {
@@ -615,7 +671,7 @@ export class ReelView {
             this.fx.burst = 0;
         },
         [],
-        time * speed,
+        time,
       );
       const countTime =
         tier === "grand"
@@ -629,22 +685,22 @@ export class ReelView {
         this.award,
         {
           progress: 1,
-          duration: countTime * speed,
+          duration: countTime * timing.countScale,
           ease: "power2.out",
           onUpdate: () =>
             emit({ stage: "award", progress: this.award.progress }),
         },
-        time * speed,
+        time,
       );
       if (["win", "big", "grand"].includes(tier) && !replay)
         timeline.to(
           this.fx,
           {
             burst: 1,
-            duration: Math.max(countTime, 0.65) * speed,
+            duration: Math.max(countTime, 0.65) * timing.countScale,
             ease: "none",
           },
-          time * speed,
+          time,
         );
       if (document.hidden) this.setHidden(true);
     });
