@@ -1,0 +1,21 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "file": "food-atlas.webp",
+      "bytes": 195204,
+      "width": 1024,
+      "height": 512,
+      "alpha": true,
+      "sha256": "4e206f909788b077b07ec733a3ed7940b8f3f997def51e91c2318d03cdfc0fe6"
+    },
+    {
+      "file": "market.webp",
+      "bytes": 150954,
+      "width": 1600,
+      "height": 900,
+      "alpha": false,
+      "sha256": "79e0b24966f7b7c3d295ed0e5695bc587a69dfac4050787d92b0ce72f9604bb9"
+    }
+  ]
+}

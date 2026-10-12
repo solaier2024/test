@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "script_and_css_gzip_bytes": 220892,
+  "art_bytes": 346158,
+  "fonts_woff2_bytes": 89720,
+  "production_critical_transfer_bytes": 656770,
+  "standalone_bytes": 1410172,
+  "standalone_gzip_bytes": 737300,
+  "renderer": "PixiJS WebGL; DPR capped at 1.5; 15 recycled food sprites",
+  "scope": "Build and asset budgets; physical mobile FPS and memory are not certified"
+}

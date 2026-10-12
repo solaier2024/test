@@ -1,0 +1,41 @@
+name: Verify Mercado de Oro
+on:
+  push:
+    branches: [codex/street-food-slot]
+  pull_request:
+    branches: [codex/penalty-pixi-playcanvas, main]
+    paths: ["mercado-slot/**", "package*.json", ".github/workflows/mercado-preview.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mercado-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Street food rule, ledger, RNG and language tests
+        run: npm run test:mercado
+      - name: Exact enumeration and frozen configuration hash
+        run: npm run verify:mercado
+      - name: Check the committed math report
+        run: git diff --exit-code -- mercado-slot/docs/math-certificate.json
+      - name: Strict TypeScript and production preview build
+        run: npm run build:mercado
+      - name: Asset integrity and transfer budgets
+        run: npm run verify:mercado-assets
+      - name: Penalty regression tests
+        run: npm test
+      - name: Penalty production build and media integrity
+        run: npm run build && npm run verify:assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mercado-preview
+          path: dist-mercado
