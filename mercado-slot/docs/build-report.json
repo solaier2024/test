@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "script_and_css_gzip_bytes": 245044,
+  "art_bytes": 2070410,
+  "critical_art_bytes": 418058,
+  "fonts_woff2_bytes": 89720,
+  "production_critical_transfer_bytes": 752822,
+  "progressive_media_bytes": 2872297,
+  "videos": [
+    {
+      "role": "landscape-environment",
+      "bytes": 441097,
+      "width": 1280,
+      "height": 720,
+      "duration_seconds": 5.5,
+      "has_audio": false
+    },
+    {
+      "role": "portrait-environment",
+      "bytes": 323359,
+      "width": 720,
+      "height": 1280,
+      "duration_seconds": 5.5,
+      "has_audio": false
+    },
+    {
+      "role": "opening-cinematic",
+      "bytes": 1035385,
+      "width": 1920,
+      "height": 1080,
+      "duration_seconds": 4,
+      "has_audio": true
+    }
+  ],
+  "audio": [
+    {
+      "role": "ambience",
+      "bytes": 122547,
+      "duration_seconds": 12
+    },
+    {
+      "role": "music",
+      "bytes": 949909,
+      "duration_seconds": 64
+    }
+  ],
+  "standalone_bytes": 1587296,
+  "standalone_gzip_bytes": 833499,
+  "renderer": "PixiJS WebGL; Lite DPR <= 1.5, Full DPR <= 2; 15 food sprites + 15 motion ghosts + 32 pooled particles",
+  "media_policy": "One HTMLVideoElement/decoder; orientation swap; forward loop dissolve; pause when hidden; posters on failure",
+  "audio_policy": "One streamed AAC music element + 12-second grill buffer; no note scheduler; music pauses for CG, mute and hidden tabs; separate ambience and effects gains",
+  "scope": "Build and asset budgets; physical mobile FPS and memory are not certified"
+}

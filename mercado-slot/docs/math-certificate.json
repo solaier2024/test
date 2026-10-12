@@ -1,0 +1,66 @@
+{
+  "status": "PASS",
+  "config": "mercado-96.5-v1",
+  "configuration_sha256": "ee5204b959076aed2a7041aab2360babc9a16175865f243efe3c7e36a312e2f4",
+  "scope": "Exact enumeration of this original local demo configuration, not an RNG or real-money certification",
+  "grid_combinations": 262144,
+  "multiplier_outcomes_per_grid": 6,
+  "reachable_grid_and_axis_pairs": {
+    "standard": 1572864,
+    "extra": 1310720
+  },
+  "grid_mean": "351209/655360",
+  "grid_second_moment": "63656183/40960000",
+  "any_line_hit_probability": 0.5847091674804688,
+  "maximum_witness_stops": [
+    1,
+    56,
+    42
+  ],
+  "maximum_grid_multiplier": 25,
+  "fixed_point_cases": 24576,
+  "profiles": {
+    "standard": {
+      "weights": [
+        28001496380,
+        10670126610,
+        4565717000,
+        1369715100,
+        684857550,
+        365257360
+      ],
+      "axis_weight_sum": "45657170000",
+      "multiplier_mean": "3162112/1756045",
+      "multiplier_second_moment": "285274033/43901125",
+      "rtp": "193/200",
+      "rtp_percent": 96.5,
+      "normalized_return_variance": "16484936492548039/1798190080000000",
+      "normalized_return_stddev": 3.027790628611244,
+      "profit_probability": 0.19782046384595173,
+      "partial_return_probability": 0.37860834491575796,
+      "breakeven_probability": 0.008280358718759066,
+      "max_return_per_actual_payment": 375
+    },
+    "extra": {
+      "weights": [
+        0,
+        41737496650,
+        913143400,
+        684857550,
+        228285850,
+        2093386550
+      ],
+      "axis_weight_sum": "45657170000",
+      "multiplier_mean": "4743168/1756045",
+      "multiplier_second_moment": "527792519/35120900",
+      "rtp": "193/200",
+      "rtp_percent": 96.5,
+      "normalized_return_variance": "30583121972448577/3236742144000000",
+      "normalized_return_stddev": 3.0738796309714598,
+      "profit_probability": 0.24701619896951638,
+      "partial_return_probability": 0.3376929685109524,
+      "breakeven_probability": 0,
+      "max_return_per_actual_payment": 250
+    }
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "model": "byte-plus-seedance-2",
+  "mode": "text2video",
+  "project": {
+    "id": "FTTrhZSszKchlaAQ9jas",
+    "name": "Mercado de Oro",
+    "isDefault": false,
+    "canGenerate": true,
+    "description": "Original Mexican street-food game: cinematic opening and fixed-camera portrait/landscape night-market atmosphere. Gameplay remains in PixiJS."
+  },
+  "approvedCredits": 1760,
+  "configs": [
+    {
+      "name": "landscape-environment",
+      "params": {
+        "duration": 6,
+        "aspectRatio": "16:9",
+        "resolution": "720p",
+        "generateAudio": false,
+        "mode": "normal",
+        "videoCount": 1
+      }
+    },
+    {
+      "name": "portrait-environment",
+      "params": {
+        "duration": 6,
+        "aspectRatio": "9:16",
+        "resolution": "720p",
+        "generateAudio": false,
+        "mode": "normal",
+        "videoCount": 1
+      }
+    },
+    {
+      "name": "opening-cinematic",
+      "params": {
+        "duration": 4,
+        "aspectRatio": "16:9",
+        "resolution": "1080p",
+        "generateAudio": true,
+        "mode": "normal",
+        "videoCount": 1
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "name": "landscape-environment",
+      "status": "COMPLETED",
+      "historyId": "OLiYCfeQrHaXjY6PPvKN",
+      "projectId": "FTTrhZSszKchlaAQ9jas",
+      "capabilityId": "byte-plus-seedance-2:text2video",
+      "modelDisplayName": "Seedance 2.0",
+      "aspectRatio": "16:9",
+      "prompt": "Premium cinematic photorealistic Mexican street food night market, fixed tripod landscape wide shot. Warm tungsten bulbs and red canvas awnings on two street stalls at the LEFT and RIGHT edges, weathered brass and wood, deep teal blue hour sky, a softly lit distant plaza. Leave the central 60 percent and central foreground calm, dark, low detail so a separate game interface can cover it. Small distant adult patrons walk naturally only along the far left and right edges. Thin cooking steam gently rises at both sides, warm bulbs shimmer subtly, an occasional natural cooking movement by a vendor. Stable architecture, consistent plausible light, no camera motion, no cuts, no changing exposure, no zoom. Smooth modest repeating environmental motion, forward-playing loop with start and finish composition closely matching. No game machine, food icons, labels, numbers, logos, countdown, subtitles, watermarks, music or dialogue.",
+      "resolution": "720p",
+      "resources": [
+        {
+          "id": "nmBT6fPw8INVXyggieMj",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177285905300000000000000000000ffffc0a8b3ea571c76_1791773065445_e24a264a.mp4",
+          "status": "completed",
+          "aspectRatio": "16:9",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177285905300000000000000000000ffffc0a8b3ea571c76_1791773069333_25463b3a.webp",
+          "metadata": {
+            "width": 1280,
+            "height": 720,
+            "duration": 6.041667,
+            "fps": 24,
+            "hasAudio": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "portrait-environment",
+      "status": "COMPLETED",
+      "historyId": "rsjofGPAShjHgSUCoWGZ",
+      "projectId": "FTTrhZSszKchlaAQ9jas",
+      "capabilityId": "byte-plus-seedance-2:text2video",
+      "modelDisplayName": "Seedance 2.0",
+      "aspectRatio": "9:16",
+      "prompt": "Premium cinematic photorealistic Mexican street food night market, vertical 9:16 fixed tripod composition. Warm amber hanging bulbs across the top third, authentic red canvas awnings framing the upper left and right edges, deep teal blue hour sky, weathered brass and wood food stalls at both far side edges. Keep the CENTRAL 75 percent visually quiet, dark and unobstructed for a separately rendered game interface. Small adult patrons and vendor motions only far in the background at the extreme lower side edges; gentle cooking steam rises at left and right. Stable architecture, no close faces, no figures crossing center. Fixed camera, no pan, no zoom, no cuts or exposure changes. Subtle natural repeatable forward-moving atmosphere with matching first and last composition. No text, signs, labels, numbers, game objects, watermark, music or dialogue.",
+      "resolution": "720p",
+      "resources": [
+        {
+          "id": "lPx2iinAnU6vnpr9p7fW",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177286292500000000000000000000ffffc0a8bb6ccd9d64_1791772999489_29be31e8.mp4",
+          "status": "completed",
+          "aspectRatio": "9:16",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177286292500000000000000000000ffffc0a8bb6ccd9d64_1791773003442_ff739331.webp",
+          "metadata": {
+            "width": 720,
+            "height": 1280,
+            "duration": 6.041667,
+            "fps": 24,
+            "hasAudio": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "opening-cinematic",
+      "status": "COMPLETED",
+      "historyId": "95e6SynnRjqIEGrOsjqW",
+      "projectId": "FTTrhZSszKchlaAQ9jas",
+      "capabilityId": "byte-plus-seedance-2:text2video",
+      "modelDisplayName": "Seedance 2.0",
+      "aspectRatio": "16:9",
+      "prompt": "A polished four-second photorealistic cinematic commercial for an ORIGINAL Mexican street food game. Warm amber and deep teal nighttime palette, appetizing natural food texture, realistic cinematic depth of field, joyful energetic street market atmosphere. 0-1.2 seconds: extreme close-up of a corn tortilla and grilled al pastor meat sizzling on a black iron griddle, a brief natural flare of heat, rising steam. 1.2-2.7 seconds: crisp hero close-up of a freshly prepared taco with onion, cilantro and pineapple, chili and fresh lime beside it, gold warm rim light, a restrained push in. 2.7-4 seconds: smooth transition to a real warmly lit Mexican night-market stall under a red awning, dark teal evening behind it, inviting people in the distant sides, finish on a calm composition suitable for a UI transition. Synchronized original short musical sting with claves, conga and warm marimba, lively cooking sizzle, distant market ambience; no speech or singing and no recognisable existing song. NO rendered titles, brands, letters, numbers, countdown, subtitles, game machine, slots, invented payout or watermark. Photorealistic surfaces and motion, no cartoon characters or candy aesthetic.",
+      "resolution": "1080p",
+      "resources": [
+        {
+          "id": "FXC6o4hFaUTfMjrpSArm",
+          "mediaType": "video",
+          "url": "https://cdn.openart.ai/openart-ai/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177286572800000000000000000000ffffc0a87bec8c4653_1791773028431_dce1f52f.mp4",
+          "status": "completed",
+          "aspectRatio": "16:9",
+          "thumbnailUrl": "https://cdn.openart.ai/openart/thumbnail/production/2026-10/create-video/3QEdRbk0CmNIrjGTIDam/02179177286572800000000000000000000ffffc0a87bec8c4653_1791773032347_f0358c16.webp",
+          "metadata": {
+            "width": 1920,
+            "height": 1080,
+            "duration": 4.086009,
+            "fps": 24,
+            "hasAudio": true
+          }
+        }
+      ]
+    }
+  ]
+}

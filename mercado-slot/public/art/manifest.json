@@ -1,0 +1,104 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "file": "food-atlas.webp",
+      "bytes": 195204,
+      "width": 1024,
+      "height": 512,
+      "alpha": true,
+      "sha256": "4e206f909788b077b07ec733a3ed7940b8f3f997def51e91c2318d03cdfc0fe6",
+      "critical": false
+    },
+    {
+      "file": "market.webp",
+      "bytes": 150954,
+      "width": 1600,
+      "height": 900,
+      "alpha": false,
+      "sha256": "79e0b24966f7b7c3d295ed0e5695bc587a69dfac4050787d92b0ce72f9604bb9",
+      "critical": false
+    },
+    {
+      "file": "brand-sign-v2.webp",
+      "bytes": 139186,
+      "width": 768,
+      "height": 294,
+      "alpha": true,
+      "critical": false,
+      "sha256": "ca2b9beea870813f7a11ff55b01be798c14958d028018fdf44226543a0748afe"
+    },
+    {
+      "file": "salsa-bottle-v2.webp",
+      "bytes": 130084,
+      "width": 287,
+      "height": 960,
+      "alpha": true,
+      "critical": false,
+      "sha256": "9c61c17bff2218c0045efc480c3db68e99266c953c8bf3ee2342a1c0cf057856"
+    },
+    {
+      "file": "food-atlas-full.webp",
+      "bytes": 505870,
+      "width": 1776,
+      "height": 888,
+      "alpha": true,
+      "critical": false,
+      "sha256": "d4dae83e57181cfaa43f4ab51e00c0a916f459c1f44c30d5b585d676b13ad571"
+    },
+    {
+      "file": "market-landscape-v2.webp",
+      "width": 1280,
+      "height": 720,
+      "alpha": false,
+      "critical": true,
+      "bytes": 50992,
+      "sha256": "eeda83c02f5edc25dace33ed347387cc46074ec9e24337023a63ad8223ecbd66"
+    },
+    {
+      "file": "market-portrait-v2.webp",
+      "width": 720,
+      "height": 1280,
+      "alpha": false,
+      "critical": true,
+      "bytes": 31896,
+      "sha256": "169028671c5aced0450727279306314185b5d56a1e4ddb45e1fccb50ad092546"
+    },
+    {
+      "file": "food-atlas-v3.webp",
+      "bytes": 171218,
+      "width": 1024,
+      "height": 512,
+      "alpha": true,
+      "critical": true,
+      "sha256": "eef63d8c41a05509490647c2d9334d5dcb12c0d0fba16d3b4c0d32d7d94ffe2b"
+    },
+    {
+      "file": "food-atlas-full-v3.webp",
+      "bytes": 531054,
+      "width": 2048,
+      "height": 1024,
+      "alpha": true,
+      "critical": false,
+      "sha256": "26cc59c97b87da566360a52a9505063b860333c90560bdab5de7f1c8a5386994"
+    },
+    {
+      "file": "salsa-bottle-v3.webp",
+      "bytes": 94364,
+      "width": 292,
+      "height": 960,
+      "alpha": true,
+      "critical": true,
+      "sha256": "7227a3dfc518e0daed003c292a15ef28c47cb9202ebc1b88c5baa10789b9f246"
+    },
+    {
+      "file": "brand-sign-v3.webp",
+      "bytes": 69588,
+      "width": 768,
+      "height": 222,
+      "alpha": true,
+      "critical": true,
+      "sha256": "03bf8197ee50425fce70afe65b6ab78fb9b5c9db78fbcefd535659afe26a8e42"
+    }
+  ]
+}

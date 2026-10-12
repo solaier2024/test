@@ -1,0 +1,655 @@
+.market-dock {
+  --stall-accent: #ca7757;
+  margin-top: 9px;
+  min-height: 88px;
+  padding: 9px 14px;
+  border: 1px solid #b18b555c;
+  border-left: 3px solid var(--stall-accent);
+  border-radius: 10px;
+  background: linear-gradient(110deg, #14251def, #233224ed 50%, #18251af0);
+  box-shadow:
+    inset 0 1px #e9cb891a,
+    0 4px 14px #0003;
+}
+.market-dock-head,
+.market-dock-body,
+.market-card-title,
+.market-ticket-actions,
+.kitchen-ticket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.market-rank {
+  font:
+    700 19px "Barlow Condensed",
+    sans-serif;
+  color: #f4cf84;
+}
+.market-rank small {
+  font:
+    400 11px "Barlow",
+    sans-serif;
+  color: #c7bb9e;
+  margin-left: 8px;
+}
+.market-open {
+  border: 1px solid #bb9c625e;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  color: #f2d191;
+}
+.market-open span {
+  margin-left: 8px;
+}
+.market-dock-body {
+  min-height: 40px;
+  font-size: 12px;
+  color: #ead4aa;
+}
+.market-dock-body small {
+  display: block;
+  color: #aeb69a;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.market-recipe-count {
+  text-align: right;
+  font:
+    700 18px "Barlow Condensed",
+    sans-serif;
+}
+.market-pick-inline {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 5px;
+}
+.market-pick-inline > span {
+  font-size: 11px;
+  color: #eec987;
+}
+.basket-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 12px 0;
+}
+.basket-options.inline {
+  flex: 1;
+  margin: 0;
+  gap: 7px;
+}
+.basket-card {
+  border: 1px solid #af865960;
+  background: linear-gradient(#344c3355, #161f17a3);
+  padding: 10px 4px;
+  border-radius: 9px;
+}
+.basket-card:hover {
+  border-color: #e5c175;
+}
+.basket-foods {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.basket-foods .food-thumb {
+  width: 55px;
+  height: 55px;
+}
+.basket-card strong {
+  display: block;
+  font-size: 12px;
+  color: #f2d6a3;
+  margin-top: 4px;
+}
+.basket-card small {
+  font-size: 10px;
+  display: block;
+  color: #96d3a9;
+  margin-top: 4px;
+}
+.inline .basket-card {
+  min-height: 44px;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.inline .basket-foods .food-thumb {
+  width: 28px;
+  height: 28px;
+}
+.inline .basket-card strong {
+  font-size: 9px;
+  margin: 0;
+}
+.market-dialog {
+  width: min(850px, calc(100vw - 28px));
+  background: linear-gradient(135deg, #213128, #152219 45%, #2b281c);
+}
+.market-dialog h3 {
+  font:
+    700 23px "Barlow Condensed",
+    sans-serif;
+  color: #f2d5a0;
+}
+.market-dialog .dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 80px;
+  background: #203126;
+}
+.market-help {
+  font-size: 12px;
+  color: #c3b99e;
+  line-height: 1.5;
+  margin: 8px 0 12px;
+}
+.market-summary {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 15px 0;
+  border-top: 1px solid #bb9c6240;
+}
+.market-summary > strong,
+.market-summary > span {
+  font:
+    700 29px "Barlow Condensed",
+    sans-serif;
+  color: #f3ce81;
+}
+.market-summary small {
+  display: block;
+  font:
+    400 11px "Barlow",
+    sans-serif;
+  color: #b8b697;
+  margin-top: 3px;
+}
+.market-notice {
+  min-height: 34px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #e8cf99;
+  background: #baa26212;
+  border: 1px solid #bb9c622e;
+}
+.market-harvest {
+  margin-top: 18px;
+}
+.pantry-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  padding: 15px 0;
+}
+.pantry-strip > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  border-radius: 7px;
+  background: #0e17127a;
+  padding: 5px;
+}
+.pantry-strip .food-thumb {
+  width: 54px;
+  height: 54px;
+}
+.pantry-strip b {
+  font:
+    700 18px "Barlow Condensed",
+    sans-serif;
+  color: #f6dfaf;
+}
+.pantry-strip .chef-token {
+  border: 1px solid #d3ae586b;
+}
+.chef-token small {
+  color: #c8b485;
+  font-size: 8px;
+  text-align: center;
+}
+.market-tabs {
+  position: sticky;
+  top: 80px;
+  z-index: 1;
+  background: #101d16;
+}
+.market-tabs button {
+  min-width: 0;
+}
+.market-tabs button[aria-pressed="true"] {
+  background: #65513b;
+}
+.order-grid,
+.recipe-grid,
+.recipe-book-grid,
+.stall-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.order-card,
+.recipe-card,
+.book-card,
+.stall-card,
+.active-ticket {
+  border: 1px solid #bda26948;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #36442a88, #131d169e);
+  padding: 15px;
+}
+.market-card-title {
+  color: #b7b499;
+  font-size: 10px;
+  margin-bottom: 10px;
+}
+.market-card-title strong {
+  color: #f6cf7b;
+  font:
+    700 22px "Barlow Condensed",
+    sans-serif;
+  white-space: nowrap;
+}
+.market-plate-list {
+  padding: 0;
+  margin: 10px 0 17px;
+  list-style: none;
+}
+.market-plate-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid #bda26924;
+  padding: 9px 0;
+}
+.market-plate-list .food-thumb {
+  width: 43px;
+  height: 43px;
+  flex-shrink: 0;
+}
+.market-plate-list li > span:nth-child(2) {
+  font-size: 12px;
+  flex: 1;
+}
+.market-plate-list small {
+  display: block;
+  font-size: 10px;
+  color: #a7b99c;
+  margin-top: 4px;
+}
+.market-plate-list strong {
+  color: #e5c789;
+  font-size: 14px;
+}
+.order-card .primary,
+.recipe-card .primary,
+.stall-card .primary {
+  width: 100%;
+  font-size: 11px;
+  padding: 11px 7px;
+}
+.active-ticket {
+  max-width: 600px;
+  margin: auto;
+}
+.market-ticket-actions > button:not(.primary),
+.kitchen-ticket button {
+  font-size: 12px;
+  color: #e9ce92;
+  padding: 8px;
+}
+.kitchen-ticket {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #9c895649;
+  border-radius: 7px;
+  font-size: 12px;
+  color: #efc986;
+}
+.recipe-card {
+  text-align: center;
+}
+.recipe-card.for-order {
+  border-color: #d6b66f;
+  box-shadow: inset 0 1px #f6d89133;
+}
+.recipe-target {
+  display: block;
+  color: #ebcd8f;
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.recipe-photo {
+  width: 116px;
+  height: 116px;
+  display: block;
+  margin: auto;
+}
+.recipe-owned {
+  display: block;
+  font-size: 11px;
+  color: #b8bea0;
+  margin: 7px 0 13px;
+}
+.ingredient-list {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  min-height: 68px;
+  margin: 10px 0;
+}
+.ingredient-list > span {
+  border: 1px solid #73ab8555;
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px;
+}
+.ingredient-list .missing-stock {
+  border-color: #c0715655;
+}
+.ingredient-list .food-thumb {
+  width: 37px;
+  height: 37px;
+}
+.ingredient-list strong {
+  font-size: 11px;
+  color: #a8d5af;
+  padding: 3px;
+}
+.ingredient-list .missing-stock strong {
+  color: #ecad91;
+}
+.market-trade {
+  padding: 18px 0 8px;
+  margin-top: 15px;
+  border-top: 1px solid #bda26933;
+}
+.trade-controls {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+.trade-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 11px;
+  color: #c8bea3;
+  flex: 1;
+  min-width: 0;
+}
+.trade-controls select {
+  width: 100%;
+  border: 1px solid #a28b52;
+  background: #17271c;
+  color: #f2d8aa;
+  border-radius: 6px;
+  padding: 9px 6px;
+  font-size: 12px;
+}
+.trade-controls > span {
+  padding-bottom: 8px;
+  color: #d3af64;
+}
+.trade-controls .primary {
+  font-size: 11px;
+}
+.book-card {
+  text-align: center;
+}
+.book-card > small {
+  font-size: 10px;
+  color: #b6b79d;
+  display: block;
+  margin-top: 7px;
+}
+.book-card.undiscovered .recipe-photo {
+  opacity: 0.45;
+  filter: saturate(0.4);
+}
+.book-card.discovered {
+  border-color: #c6ad6d7a;
+}
+.mastery-badge {
+  display: block;
+  font-size: 11px;
+  color: #d5b25f;
+  margin: 15px 0 10px;
+}
+.book-card progress {
+  width: 100%;
+  height: 5px;
+  accent-color: #d7b66d;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.book-card progress::-webkit-progress-bar {
+  background: #0a160d;
+}
+.book-card progress::-webkit-progress-value {
+  background: #d7b66d;
+}
+.stall-card {
+  position: relative;
+  overflow: hidden;
+  padding-top: 32px;
+  text-align: center;
+}
+.stall-awning {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--stall-accent) 0 25px,
+    #1c2016 25px 50px
+  );
+  box-shadow: 0 3px 8px #0005;
+}
+.stall-card.open {
+  border-color: var(--stall-accent);
+}
+.stall-card.locked .recipe-photo {
+  opacity: 0.35;
+}
+.stall-card p {
+  color: #cdb990;
+  font-size: 12px;
+  margin: 12px 0 18px;
+}
+.market-separation {
+  border-top: 1px solid #bda26930;
+  padding-top: 16px;
+  margin-bottom: 0;
+  font-size: 10px;
+}
+.market-warning {
+  color: #efbca0;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 10px;
+}
+.market-tour-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 18px 0;
+}
+.market-tour-steps > span {
+  text-align: center;
+  border: 1px solid #bda26933;
+  border-radius: 8px;
+  background: #26352488;
+  padding: 10px 3px;
+}
+.market-tour-steps b {
+  display: block;
+  color: #ddc289;
+  font-size: 12px;
+}
+#guide-market {
+  display: block;
+  margin: 12px auto;
+}
+.machine[data-stall="corn"] .awning {
+  background: repeating-linear-gradient(
+    90deg,
+    #397760 0 38px,
+    #1a4534 38px 76px
+  );
+}
+.machine[data-stall="comal"] .awning {
+  background: repeating-linear-gradient(
+    90deg,
+    #9b7844 0 38px,
+    #564125 38px 76px
+  );
+}
+@media (max-width: 760px) {
+  .market-dock {
+    padding: 7px 10px;
+    min-height: 92px;
+  }
+  .market-rank {
+    font-size: 17px;
+  }
+  .market-rank small {
+    font-size: 9px;
+    margin-left: 5px;
+  }
+  .market-dock-body {
+    font-size: 11px;
+  }
+  .market-dock-body small {
+    font-size: 8px;
+  }
+  .market-pick-inline {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .market-pick-inline > span {
+    font-size: 9px;
+  }
+  .inline .basket-card {
+    flex-direction: column;
+    padding: 3px;
+    gap: 1px;
+  }
+  .inline .basket-foods .food-thumb {
+    width: 23px;
+    height: 23px;
+  }
+  .inline .basket-card strong {
+    font-size: 8px;
+  }
+  .market-dialog {
+    padding: 17px 13px;
+  }
+  .market-summary {
+    gap: 22px;
+  }
+  .market-summary > strong,
+  .market-summary > span {
+    font-size: 25px;
+  }
+  .market-summary small {
+    font-size: 9px;
+  }
+  .pantry-strip {
+    gap: 3px;
+    padding: 12px 0;
+  }
+  .pantry-strip .food-thumb {
+    width: min(39px, 8.5vw);
+    height: min(39px, 8.5vw);
+  }
+  .pantry-strip > span {
+    padding: 4px 1px;
+  }
+  .pantry-strip b {
+    font-size: 15px;
+  }
+  .chef-token small {
+    display: none;
+  }
+  .market-tabs {
+    gap: 2px;
+  }
+  .market-tabs button {
+    padding: 9px 3px;
+    font-size: 11px;
+  }
+  .order-grid,
+  .recipe-grid,
+  .stall-grid {
+    grid-template-columns: 1fr;
+  }
+  .recipe-book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .order-card,
+  .recipe-card,
+  .stall-card,
+  .active-ticket {
+    padding: 13px;
+  }
+  .order-card h3,
+  .recipe-card h3 {
+    font-size: 23px;
+  }
+  .recipe-card .recipe-photo {
+    width: 120px;
+    height: 120px;
+  }
+  .recipe-card .primary {
+    font-size: 12px;
+  }
+  .book-card {
+    padding: 12px 8px;
+  }
+  .book-card .recipe-photo {
+    width: 90px;
+    height: 90px;
+  }
+  .book-card h3 {
+    font-size: 18px;
+  }
+  .mastery-badge {
+    font-size: 9px;
+  }
+  .basket-foods .food-thumb {
+    width: 28px;
+    height: 28px;
+  }
+  .basket-card strong {
+    font-size: 11px;
+  }
+  .trade-controls {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .trade-controls .primary {
+    width: 100%;
+  }
+  .market-dialog .primary {
+    min-height: 40px;
+  }
+}

@@ -7,6 +7,12 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "dev:mercado": "vite --config mercado-slot/vite.config.ts",
+    "build:mercado": "tsc -p mercado-slot/tsconfig.json && vite build --config mercado-slot/vite.config.ts && node mercado-slot/tools/standalone.mjs",
+    "preview:mercado": "vite preview --config mercado-slot/vite.config.ts",
+    "test:mercado": "node --experimental-strip-types --test mercado-slot/tests/*.test.ts",
+    "verify:mercado": "node --experimental-strip-types mercado-slot/tools/verify-math.ts",
+    "verify:mercado-assets": "node mercado-slot/tools/verify-build.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build && node tools/standalone.js",
     "preview": "vite preview --host 127.0.0.1",
@@ -22,8 +28,10 @@
   "devDependencies": {
     "@fontsource/barlow": "^5.3.0",
     "@fontsource/barlow-condensed": "^5.3.0",
+    "@types/node": "22.19.7",
     "prettier": "^3.9.9",
     "sharp": "0.35.5",
+    "typescript": "5.9.3",
     "vite": "8.3.4"
   }
 }

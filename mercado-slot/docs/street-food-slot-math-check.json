@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "scope": "Rule bounds and illustrative multiplier distributions only",
+  "single_line_triples": 512,
+  "fixed_point_single_line_amount_cases": 24576,
+  "normal_multiplier_mean": "49/25",
+  "extra_multiplier_mean": "147/50",
+  "extra_mean_factor": "3/2",
+  "normal_multiplier_second_moment": "399/50",
+  "extra_normalized_second_moment": "1909/225",
+  "required_unverified_grid_mean": "193/392",
+  "max_return_per_actual_payment": {
+    "standard": 375,
+    "extra": 250
+  },
+  "full_rtp_profile_verified": false,
+  "reel_pack": null
+}
