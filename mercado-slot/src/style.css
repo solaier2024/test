@@ -215,7 +215,7 @@ option {
   color: #fff0ce;
 }
 .game {
-  width: min(900px, calc((100dvh - 380px) * 1.894));
+  width: min(900px, calc((100dvh - 470px) * 1.894));
   min-width: 600px;
   margin: 0 auto;
   padding: 0 0 10px;
@@ -1573,7 +1573,7 @@ input[type="checkbox"] {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
   .wordmark {
-    height: clamp(100px, 19dvh, 160px);
+    height: clamp(82px, 13dvh, 108px);
     margin-bottom: 12px;
   }
   .brand-sign {

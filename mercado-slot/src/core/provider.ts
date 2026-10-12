@@ -76,7 +76,12 @@ export class LocalProvider {
       return;
     }
     try {
-      if (!raw) return;
+      if (!raw) {
+        // Keep the identity stable even when the welcome market is played
+        // before a first spin. No debit, draw or ledger event is created here.
+        this.save();
+        return;
+      }
       const snapshot = JSON.parse(raw) as Record<string, unknown>;
       if (
         snapshot["config"] !== CONFIG_HASH ||

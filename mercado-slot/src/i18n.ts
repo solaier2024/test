@@ -117,7 +117,7 @@ const es = {
     "Tres iguales: multiplicador de la apuesta base por línea (base ÷ 5).",
   maximum: "Máximo: 375× en normal · 250× del pago en Extra.",
   noBonus:
-    "Sin rondas de bonus ni giros gratis. RTP teórico de esta demo: 96.5% en ambos modos.",
+    "Sin rondas de bonus ni giros gratis. RTP teórico: 96.5% en ambos modos. Los pedidos del mercado dan estrellas de progreso y no cambian los premios.",
   empty: "Tus pedidos aparecerán aquí después del primer giro.",
   receipt: "Detalle del giro",
   replay: "Repetir animación",
@@ -127,7 +127,7 @@ const es = {
   reset: "Reiniciar demo",
   resetTitle: "Una nueva visita",
   resetHint:
-    "Se borrará el historial de esta demo y el saldo volverá a $1,000.00.",
+    "Se borrarán el historial, la despensa, las recetas y las estrellas. El saldo demo volverá a $1,000.00.",
   resetConfirm: "REINICIAR",
   cancel: "Cancelar",
   insufficient:
@@ -262,7 +262,7 @@ const en: Record<keyof typeof es, string> = {
     "Three matching symbols: multiplier of the base bet per line (base ÷ 5).",
   maximum: "Maximum: 375× in standard · 250× the cost in Extra.",
   noBonus:
-    "No bonus rounds or free spins. This demo’s theoretical RTP: 96.5% in both modes.",
+    "No bonus rounds or free spins. Theoretical RTP: 96.5% in both modes. Market orders award progression stars and do not change payouts.",
   empty: "Your orders will appear here after your first spin.",
   receipt: "Spin receipt",
   replay: "Replay animation",
@@ -271,7 +271,7 @@ const en: Record<keyof typeof es, string> = {
   reset: "Reset demo",
   resetTitle: "A fresh visit",
   resetHint:
-    "This demo’s history will be cleared and its balance reset to $1,000.00.",
+    "History, pantry, recipes and chef stars will be cleared. The demo balance will return to $1,000.00.",
   resetConfirm: "RESET",
   cancel: "Cancel",
   insufficient:

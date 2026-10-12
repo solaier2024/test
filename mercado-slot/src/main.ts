@@ -3,6 +3,7 @@ import "@fontsource/barlow/latin-600.css";
 import "@fontsource/barlow-condensed/latin-600.css";
 import "@fontsource/barlow-condensed/latin-700.css";
 import "./style.css";
+import "./market.css";
 import {
   BASE_STAKES,
   LINES,
@@ -18,6 +19,9 @@ import {
   type Store,
 } from "./core/provider.ts";
 import { symbolNames, t, type Locale, type MessageKey } from "./i18n.ts";
+import { MarketJourney } from "./core/market.ts";
+import { marketText } from "./market-i18n.ts";
+import { MarketView } from "./shell/market-view.ts";
 import { MarketAudio } from "./presentation/audio.ts";
 import { assetUrl } from "./presentation/assets.ts";
 import { MarketMedia } from "./presentation/media.ts";
@@ -88,6 +92,8 @@ const freshSeed = () =>
     n.toString(16).padStart(8, "0"),
   ).join("");
 const provider = new LocalProvider(freshSeed(), storage);
+let journey = new MarketJourney(provider.seed, provider.history, storage);
+let marketBlocked = false;
 const text = (key: MessageKey) => t(prefs.locale, key);
 const money = (amount: bigint, signed = false) =>
   formatMoney(amount, prefs.locale, signed);
@@ -143,6 +149,7 @@ $("#app").innerHTML = `
       <div class="payout-field" aria-live="off"><span id="result-title"></span><strong id="payout">$0.00</strong><p id="result-message"></p></div>
       <button id="receipt-button" class="receipt-button">${icon("history")}<span class="sr-only" data-i18n="receipt"></span></button>
     </section>
+    <section id="market-dock" class="market-dock"></section>
     <section class="controls"><div class="bet-control"><span data-i18n="base"></span><div class="bet-stepper"><button id="bet-minus">−</button><button id="bet-amount"></button><button id="bet-plus">+</button></div></div>
       <label class="extra-switch"><input type="checkbox" id="extra" role="switch"/><span class="bottle-thumb" aria-hidden="true"></span><span class="extra-copy"><strong data-i18n="extra"></strong><small id="extra-hint"></small></span><span class="switch-light" aria-hidden="true"></span></label>
       <div class="cost"><span data-i18n="cost"></span><strong id="cost"></strong><small data-i18n="currencyNote"></small></div>
@@ -160,7 +167,7 @@ $("#app").innerHTML = `
     <button id="enter" class="primary" disabled></button><small data-i18n="soundHint"></small><span class="entrance-demo" data-i18n="demo"></span></div></dialog>
   <dialog id="guide-dialog" class="guide-dialog"></dialog><dialog id="rules-dialog"></dialog><dialog id="bet-dialog" class="compact-dialog"></dialog>
   <dialog id="history-dialog"></dialog><dialog id="receipt-dialog"></dialog><dialog id="menu-dialog" class="compact-dialog"></dialog>
-  <dialog id="reset-dialog" class="compact-dialog"></dialog><dialog id="settings-dialog" class="compact-dialog"></dialog>`;
+  <dialog id="reset-dialog" class="compact-dialog"></dialog><dialog id="settings-dialog" class="compact-dialog"></dialog><dialog id="market-dialog" class="market-dialog"></dialog>`;
 
 const audio = new MarketAudio($<HTMLAudioElement>("#market-music"));
 audio.enabled = prefs.sound;
@@ -176,10 +183,41 @@ if (!prefs.ambient) media.setEnabled(false);
 const flow = new RoundController(
   provider,
   async (result, emit, replay) => {
+    if (!replay) {
+      try {
+        journey.reconcile(provider.history);
+      } catch {
+        marketBlocked = true;
+        graphicsReady = false;
+        setNotice("sessionChanged");
+      }
+    }
     if (!view) throw new Error("Display not ready");
     await view.present(result, prefs.turbo, emit, replay);
   },
   () => render(),
+);
+const marketView = new MarketView(
+  $("#market-dock"),
+  $<HTMLDialogElement>("#market-dialog"),
+  () => journey,
+  {
+    locale: () => prefs.locale,
+    changed: () => {
+      refreshUi();
+      haptic();
+    },
+    feedback: (kind) =>
+      audio.cue(
+        kind === "collect" ? "line" : kind === "prepare" ? "stop" : "axis",
+      ),
+    sessionChanged: () => {
+      marketBlocked = true;
+      graphicsReady = false;
+      setNotice("sessionChanged");
+      refreshUi();
+    },
+  },
 );
 const busy = () => flow.phase !== "ready" || opening;
 const savePreferences = () => {
@@ -272,11 +310,11 @@ function renderStatic() {
   }
 }
 function render() {
-  const phaseKey = `${flow.phase}:${bootReady}:${opening}:${graphicsReady}`;
+  const phaseKey = `${flow.phase}:${bootReady}:${opening}:${graphicsReady}:${marketBlocked}`;
   if (lastPhase !== phaseKey) {
     lastPhase = phaseKey;
     if (flow.phase !== "ready") put("#accessible-grid", "");
-    const disabled = busy() || !bootReady || !graphicsReady;
+    const disabled = busy() || !bootReady || !graphicsReady || marketBlocked;
     for (const id of [
       "bet-minus",
       "bet-plus",
@@ -292,7 +330,11 @@ function render() {
     $<HTMLInputElement>("#extra").disabled = disabled;
     $<HTMLInputElement>("#turbo").disabled = disabled;
     $<HTMLButtonElement>("#spin").disabled =
-      !bootReady || !graphicsReady || opening || flow.phase === "confirming";
+      !bootReady ||
+      !graphicsReady ||
+      marketBlocked ||
+      opening ||
+      flow.phase === "confirming";
     $<HTMLButtonElement>("#receipt-button").disabled =
       disabled || !flow.lastResult;
     $("#game").dataset["phase"] = flow.phase;
@@ -308,6 +350,11 @@ function render() {
       void view?.setQuality(chosenQuality());
   }
   put("#balance", money(flow.displayBalance));
+  marketView.update(busy() || !entered || !bootReady || marketBlocked);
+  if (flow.phase === "ready")
+    $("#spin span").textContent = journey.pendingResult
+      ? marketText(prefs.locale, "pick")
+      : text("spin");
   const result = flow.phase === "presenting" ? flow.accepted : flow.lastResult;
   const stageKey = `${flow.phase}:${flow.stage}:${result?.spinId}:${flow.replaying}:${prefs.locale}`;
   if (stageKey !== lastStage) {
@@ -414,6 +461,7 @@ function refreshUi() {
   lastStage = "";
   renderStatic();
   render();
+  $(".machine").dataset["stall"] = journey.state.stall;
 }
 function header(title: string, eyebrow = "") {
   return `<div class="dialog-header"><div>${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ""}<h2>${title}</h2></div><button class="dialog-close" aria-label="${text("close")}">×</button></div>`;
@@ -449,15 +497,17 @@ function renderTutorial(first = false) {
   const previousFocus = document.activeElement as HTMLElement | null;
   const focusId = previousFocus?.id;
   const focusLine = previousFocus?.dataset["guideLine"];
-  const titles: MessageKey[] = [
-    "tutorialTitle1",
-    "tutorialTitle2",
-    "tutorialTitle3",
+  const titles = [
+    text("tutorialTitle1"),
+    text("tutorialTitle2"),
+    text("tutorialTitle3"),
+    marketText(prefs.locale, "tutorialTitle"),
   ];
-  const bodies: MessageKey[] = [
-    "tutorialBody1",
-    "tutorialBody2",
-    "tutorialBody3",
+  const bodies = [
+    text("tutorialBody1"),
+    text("tutorialBody2"),
+    text("tutorialBody3"),
+    marketText(prefs.locale, "tutorialBody"),
   ];
   const base = 10_000_000n,
     baseWin = 11_200_000n,
@@ -468,8 +518,10 @@ function renderTutorial(first = false) {
       ? `<div class="tutorial-lines">${lineSvg(tutorialLine)}<p>${text("tapLine")}</p><div class="line-buttons">${[1, 2, 3, 4, 5].map((i) => `<button data-guide-line="${i}" aria-pressed="${i === tutorialLine}">${i}</button>`).join("")}</div><div class="wild-lesson"><span class="food-thumb food-7"></span><span>${symbolNames[prefs.locale][7]}<br><strong>${text("allWild")}</strong></span></div></div>`
       : tutorialStep === 1
         ? `<div class="tutorial-salsa"><img src="${assetUrl("salsa-bottle-v3.webp")}" alt=""/><b>×${tutorialMultiplier}</b><span class="lesson-formula">${money(baseWin)} × ${tutorialMultiplier} = <strong>${money(payout)}</strong></span><button id="example-salsa">${text("exampleSalsa")} ↻</button><small>${text("exampleLines")}</small></div>`
-        : `<div class="tutorial-price"><span>${text("base")}<strong>${money(base)}</strong></span><span>${text("cost")}<strong>${money(cost)}</strong></span><label><input type="checkbox" id="example-extra" ${tutorialExtra ? "checked" : ""}/>${text("exampleExtra")}</label><p>${text("payout")} ${money(payout)} · ${text("net")} ${money(payout - cost, true)}</p></div>`;
-  const html = `${header(text(titles[tutorialStep]!))}<div class="tutorial-dots" aria-label="${tutorialStep + 1}/3">${[0, 1, 2].map((i) => `<i class="${i === tutorialStep ? "active" : ""}"></i>`).join("")}</div><span class="lesson-example">${text("example")}</span>${visual}<p class="tutorial-body">${text(bodies[tutorialStep]!)}</p><div class="tutorial-actions"><button id="guide-back" ${tutorialStep === 0 ? "disabled" : ""}>${text("back")}</button><button id="guide-next" class="primary">${text(tutorialStep === 2 ? "tutorialPlay" : "tutorialNext")}</button></div><button id="guide-skip" class="text-button">${text("tutorialSkip")}</button>`;
+        : tutorialStep === 2
+          ? `<div class="tutorial-price"><span>${text("base")}<strong>${money(base)}</strong></span><span>${text("cost")}<strong>${money(cost)}</strong></span><label><input type="checkbox" id="example-extra" ${tutorialExtra ? "checked" : ""}/>${text("exampleExtra")}</label><p>${text("payout")} ${money(payout)} · ${text("net")} ${money(payout - cost, true)}</p></div>`
+          : `<div class="market-tour-steps">${["stepPick", "stepPrepare", "stepServe"].map((key, i) => `<span><span class="food-thumb food-${[2, 6, 7][i]}"></span><b>${marketText(prefs.locale, key as "stepPick" | "stepPrepare" | "stepServe")}</b></span>`).join("")}</div><p class="market-help">${marketText(prefs.locale, "starter")}</p><button id="guide-market" class="primary">${marketText(prefs.locale, "startOrder")}</button>`;
+  const html = `${header(titles[tutorialStep]!)}<div class="tutorial-dots" aria-label="${tutorialStep + 1}/4">${[0, 1, 2, 3].map((i) => `<i class="${i === tutorialStep ? "active" : ""}"></i>`).join("")}</div><span class="lesson-example">${tutorialStep === 3 ? marketText(prefs.locale, "market") : text("example")}</span>${visual}<p class="tutorial-body">${bodies[tutorialStep]!}</p><div class="tutorial-actions"><button id="guide-back" ${tutorialStep === 0 ? "disabled" : ""}>${text("back")}</button><button id="guide-next" class="primary">${text(tutorialStep === 3 ? "tutorialPlay" : "tutorialNext")}</button></div><button id="guide-skip" class="text-button">${text("tutorialSkip")}</button>`;
   if (first) modal(id, html);
   else {
     $(id).innerHTML = html;
@@ -477,9 +529,9 @@ function renderTutorial(first = false) {
       $<HTMLDialogElement>(id).close(),
     );
   }
-  $(id).setAttribute("aria-label", text(titles[tutorialStep]!));
+  $(id).setAttribute("aria-label", titles[tutorialStep]!);
   $("#guide-next").addEventListener("click", () => {
-    if (tutorialStep === 2) $<HTMLDialogElement>(id).close();
+    if (tutorialStep === 3) $<HTMLDialogElement>(id).close();
     else {
       tutorialStep++;
       renderTutorial();
@@ -492,6 +544,10 @@ function renderTutorial(first = false) {
   $("#guide-skip").addEventListener("click", () =>
     $<HTMLDialogElement>(id).close(),
   );
+  $("#guide-market")?.addEventListener("click", () => {
+    $<HTMLDialogElement>(id).close();
+    marketView.open();
+  });
   document
     .querySelectorAll<HTMLButtonElement>("[data-guide-line]")
     .forEach((button) =>
@@ -610,9 +666,13 @@ function receipt(result: Result) {
 function menu() {
   modal(
     "#menu-dialog",
-    `${header(text("menu"))}<div class="menu-actions"><button id="menu-settings">${text("settings")} ${icon("chevron")}</button><button id="menu-tour">${text("tutorialMenu")} ${icon("chevron")}</button><button id="menu-rules">${text("rules")} ${icon("chevron")}</button><button id="menu-history">${text("history")} ${icon("chevron")}</button><button id="menu-intro">${text("replayIntro")} ${icon("chevron")}</button><button id="menu-reset">${text("reset")} ${icon("chevron")}</button></div>`,
+    `${header(text("menu"))}<div class="menu-actions"><button id="menu-market">${marketText(prefs.locale, "market")} ${icon("chevron")}</button><button id="menu-settings">${text("settings")} ${icon("chevron")}</button><button id="menu-tour">${text("tutorialMenu")} ${icon("chevron")}</button><button id="menu-rules">${text("rules")} ${icon("chevron")}</button><button id="menu-history">${text("history")} ${icon("chevron")}</button><button id="menu-intro">${text("replayIntro")} ${icon("chevron")}</button><button id="menu-reset">${text("reset")} ${icon("chevron")}</button></div>`,
   );
   const close = () => $<HTMLDialogElement>("#menu-dialog").close();
+  $("#menu-market").addEventListener("click", () => {
+    close();
+    marketView.open();
+  });
   $("#menu-settings").addEventListener("click", () => {
     close();
     settings();
@@ -644,6 +704,7 @@ function menu() {
     );
     $("#confirm-reset").addEventListener("click", () => {
       provider.reset(freshSeed());
+      journey = new MarketJourney(provider.seed, provider.history, storage);
       selectedReceipt = null;
       selectedLine = 0;
       newQuote();
@@ -700,7 +761,12 @@ async function spin() {
     view?.skip();
     return;
   }
-  if (flow.phase !== "ready" || !graphicsReady || !bootReady) return;
+  if (flow.phase !== "ready" || !graphicsReady || !bootReady || marketBlocked)
+    return;
+  if (journey.pendingResult) {
+    marketView.open();
+    return;
+  }
   if (provider.history.length >= MAX_SESSION_SPINS) {
     toast("sessionFull");
     return;
@@ -718,7 +784,8 @@ async function spin() {
     newQuote();
     refreshUi();
     if (flow.presentationRecovered) setNotice("presentationRecovered");
-    if (!provider.storageAvailable) setNotice("storageFailed");
+    if (!provider.storageAvailable || !journey.storageAvailable)
+      setNotice("storageFailed");
   } catch {
     setNotice("error");
     refreshUi();
@@ -831,6 +898,14 @@ window.addEventListener("pagehide", () => {
   audio.setHidden(true);
 });
 window.addEventListener("pageshow", visibility);
+window.addEventListener("storage", (event) => {
+  if (event.key === "mercado.session.v1" || event.key === "mercado.market.v1") {
+    marketBlocked = true;
+    graphicsReady = false;
+    setNotice("sessionChanged");
+    refreshUi();
+  }
+});
 renderStatic();
 render();
 $<HTMLDialogElement>("#entrance-dialog").showModal();
@@ -866,7 +941,8 @@ async function boot() {
     $("#loader").hidden = true;
     $<HTMLButtonElement>("#enter").disabled = false;
     refreshUi();
-    if (!provider.storageAvailable) setNotice("storageFailed");
+    if (!provider.storageAvailable || !journey.storageAvailable)
+      setNotice("storageFailed");
     else if (provider.restoreRejected) setNotice("restoreRejected");
     else if (provider.restored) setNotice("restored");
   } catch {
